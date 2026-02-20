@@ -18,6 +18,7 @@ export const ATTR_BOOST_ON = "sx-boost-on";
 
 export const NET_METHODS = ["get", "post", "put", "delete"];
 export const ATTR_TRIGGER = "sx-trigger";
+export const ATTR_TRIGGER_DEBOUNCE = "sx-trigger-debounce";
 export const ATTR_TARGET = "sx-target";
 export const ATTR_SWAP = "sx-swap";
 export const ATTR_VARS = "sx-vars";
@@ -27,6 +28,27 @@ export const ATTR_REVERT_ON_ERROR = "sx-revert-on-error";
 export const ATTR_POLL = "sx-poll";
 export const ATTR_POLL_WHILE = "sx-poll-while";
 export const ATTR_INCLUDE = "sx-include";
+export const ATTR_BODY = "sx-body";
+export const ATTR_BODY_TYPE = "sx-body-type";
+export const ATTR_HEADERS = "sx-headers";
+export const ATTR_LOADING_INTO = "sx-loading-into";
+export const ATTR_ERROR_INTO = "sx-error-into";
+export const ATTR_DISABLE_WHILE_REQUEST = "sx-disable-while-request";
+export const ATTR_TEXT_WHILE_REQUEST = "sx-text-while-request";
+export const ATTR_CONFIRM = "sx-confirm";
+
+export const ATTR_CHART = "sx-chart";
+export const ATTR_CHART_TYPE = "sx-chart-type";
+export const ATTR_CHART_OPTIONS = "sx-chart-options";
+
+export const ATTR_GRIDSTACK = "sx-gridstack";
+export const ATTR_GRIDSTACK_OPTIONS = "sx-gridstack-options";
+export const ATTR_GRIDSTACK_OPTION_PREFIX = "sx-gridstack-option:";
+export const ATTR_GRIDSTACK_ON_CHANGE = "sx-gridstack-on-change";
+export const ATTR_GRIDSTACK_ON_ADDED = "sx-gridstack-on-added";
+export const ATTR_GRIDSTACK_ON_REMOVED = "sx-gridstack-on-removed";
+export const ATTR_GRIDSTACK_ON_DRAGSTOP = "sx-gridstack-on-dragstop";
+export const ATTR_GRIDSTACK_ON_RESIZESTOP = "sx-gridstack-on-resizestop";
 
 export const ATTR_LAZY = "sx-lazy";
 export const ATTR_LOCAL = "sx-local";

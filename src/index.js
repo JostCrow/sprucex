@@ -74,6 +74,24 @@ export const SpruceX = {
 // Expose globally
 if (typeof window !== "undefined") {
   window.SpruceX = SpruceX;
+  if (!window.SpruceXBoot) {
+    window.SpruceXBoot = {};
+  }
+}
+
+let bootHookRan = false;
+function runBootHook() {
+  if (bootHookRan || typeof window === "undefined") return;
+  bootHookRan = true;
+
+  const boot = window.SpruceXBoot;
+  if (boot && typeof boot.initTheme === "function") {
+    try {
+      boot.initTheme();
+    } catch (e) {
+      console.error("SpruceX boot hook error:", e);
+    }
+  }
 }
 
 function initSpruceXRoot(root) {
@@ -84,6 +102,8 @@ function initSpruceXRoot(root) {
 }
 
 export function initSpruceX() {
+  runBootHook();
+
   const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
   roots.forEach((root) => {
     const lazy = root.hasAttribute(ATTR_LAZY);
@@ -434,6 +454,8 @@ function getCachedPage(url) {
 
 // Auto-start
 if (typeof document !== "undefined") {
+  runBootHook();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSpruceX);
   } else {

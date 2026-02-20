@@ -22,6 +22,21 @@ import "../index.css";
         <title>{title}</title>
         <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <script is:inline>
+            window.SpruceXBoot = window.SpruceXBoot || {};
+            window.SpruceXBoot.initTheme = function initTheme() {
+                try {
+                    const raw = localStorage.getItem("darkMode");
+                    const parsed = raw ? JSON.parse(raw) : {};
+                    document.documentElement.classList.toggle(
+                        "dark",
+                        !!parsed.darkMode,
+                    );
+                } catch {
+                    document.documentElement.classList.remove("dark");
+                }
+            };
+        </script>
         <script src="/dist/sprucex.js" is:inline></script>
         <script type="module" is:inline>
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";

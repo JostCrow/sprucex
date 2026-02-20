@@ -507,14 +507,24 @@ Make HTTP requests declaratively.
 <div id="result"></div>
 ```
 
-**Attributes:**
+**Request attributes:**
 
 | Attribute | Description | Default |
 |-----------|-------------|---------|
 | `sx-get/post/put/delete` | URL to request | - |
-| `sx-trigger` | Event to trigger request | `click` |
+| `sx-trigger` | Event(s) to trigger request | `click` (`submit` on forms) |
+| `sx-trigger-debounce` | Debounce all request triggers (ms) | none |
 | `sx-target` | CSS selector for response target | Current element |
 | `sx-swap` | How to insert response | `innerHTML` |
+| `sx-vars` | Object for URL template variables | - |
+| `sx-headers` | Expression returning request headers object | - |
+| `sx-body` | Expression/string for request body | form auto-serialize for forms |
+| `sx-body-type` | Force body serialization: `json` or `form` | inferred |
+| `sx-loading-into` | State path set to `true/false` during request | - |
+| `sx-error-into` | State path set to serialized error object on failure | - |
+| `sx-disable-while-request` | Disable submit controls while request is running | off |
+| `sx-text-while-request` | Temporary button text while request is running | - |
+| `sx-confirm` | Confirm prompt before request | off |
 
 **Swap modes:**
 
@@ -550,6 +560,23 @@ Pass variables to URL templates:
 </div>
 ```
 
+### Debounced Triggers
+
+Use either attribute form or modifier syntax:
+
+```html
+<input
+  sx-get="/api/search?q=${query}"
+  sx-vars="{ query }"
+  sx-trigger="input"
+  sx-trigger-debounce="300">
+
+<input
+  sx-get="/api/search?q=${query}"
+  sx-vars="{ query }"
+  sx-trigger="input.debounce.300">
+```
+
 ### JSON Responses
 
 ### `sx-json-into`
@@ -565,9 +592,32 @@ Parse JSON response into state property:
 </div>
 ```
 
+### Request Body & Headers
+
+`sx-body` can be expression/object/string. `sx-body-type` controls serialization.
+
+```html
+<button
+  sx-post="/api/layout/save"
+  sx-body="{ widgets, updatedAt: Date.now() }"
+  sx-body-type="json"
+  sx-headers="{ 'X-CSRF-Token': csrf }">
+  Save Layout
+</button>
+```
+
+```html
+<button
+  sx-post="/api/filter"
+  sx-body="{ status: activeStatus, page: page }"
+  sx-body-type="form">
+  Apply
+</button>
+```
+
 ### Form Submission
 
-Forms automatically serialize as FormData:
+Forms use native `submit` by default and serialize as `FormData` unless overridden:
 
 ```html
 <form sx-post="/api/submit" sx-on:success="alert('Saved!')">
@@ -591,6 +641,19 @@ Include additional form data:
 </form>
 ```
 
+### Loading/Error State Targets
+
+```html
+<button
+  sx-post="/api/save"
+  sx-body="{ name, email }"
+  sx-body-type="json"
+  sx-loading-into="isSaving"
+  sx-error-into="saveError">
+  Save
+</button>
+```
+
 ### Optimistic Updates
 
 ### `sx-optimistic` / `sx-revert-on-error`
@@ -605,6 +668,21 @@ Include additional form data:
   </button>
 </div>
 ```
+
+### Form UX Helpers
+
+```html
+<form
+  sx-post="/api/profile"
+  sx-disable-while-request
+  sx-text-while-request="'Saving...'"
+  sx-confirm="Are you sure you want to save?">
+  <input name="displayName">
+  <button type="submit">Save</button>
+</form>
+```
+
+`sx-confirm` also works with native form submit handling.
 
 ### Polling
 
@@ -639,6 +717,75 @@ Listen for request completion:
 Event detail properties:
 - `success`: `{ response, text, json }`
 - `error`: `{ error }`
+
+---
+
+## Chart Directive
+
+### `sx-chart`
+
+Declarative Chart.js lifecycle (`init` / `update` / `destroy`) managed by SpruceX.
+
+```html
+<div sx-data="{ payload: salesChart }">
+  <canvas
+    sx-chart="payload"
+    sx-chart-type="'bar'"
+    sx-chart-options="{ responsive: true, maintainAspectRatio: false }"></canvas>
+</div>
+```
+
+- `sx-chart`: chart data payload expression (`{ data, type?, options? }` or plain `data`)
+- `sx-chart-type`: optional explicit chart type
+- `sx-chart-options`: optional explicit options object
+
+If payload becomes `null`/`undefined`, the chart instance is destroyed.
+
+---
+
+## GridStack Directive
+
+### `sx-gridstack`
+
+Declarative GridStack initialization + teardown.
+
+```html
+<div
+  class="grid-stack"
+  sx-gridstack="{ float: true }"
+  sx-gridstack-option:cell-height="80"
+  sx-gridstack-option:margin="8"
+  sx-gridstack-on-change="layout">
+  <!-- grid items -->
+</div>
+```
+
+- `sx-gridstack`: options expression
+- `sx-gridstack-options`: extra options expression
+- `sx-gridstack-option:<name>`: single option attributes (`kebab-case` accepted)
+- `sx-gridstack-on-change|on-added|on-removed|on-dragstop|on-resizestop`: write event node data into state
+
+SpruceX calls `grid.destroy(false)` during component teardown.
+
+---
+
+## Early Bootstrap Hook
+
+Use `window.SpruceXBoot` for head-safe work before deferred component init (for example theme class toggling):
+
+```html
+<script>
+  window.SpruceXBoot = {
+    initTheme() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    }
+  };
+</script>
+<script defer src="/dist/sprucex.js"></script>
+```
+
+`initTheme()` runs once before SpruceX auto-init.
 
 ---
 
@@ -815,15 +962,31 @@ SpruceX.config({ strict: true });
 | `sx-error-fallback` | Fallback for expression errors |
 | `sx-get/post/put/delete` | HTTP request |
 | `sx-trigger` | Request trigger event |
+| `sx-trigger-debounce` | Debounce request trigger (ms) |
 | `sx-target` | Request response target |
 | `sx-swap` | Response swap strategy |
 | `sx-vars` | URL template variables |
+| `sx-body` | Custom request body |
+| `sx-body-type` | Request body serializer (`json`/`form`) |
+| `sx-headers` | Dynamic request headers |
 | `sx-json-into` | Parse JSON into state |
+| `sx-loading-into` | Request loading state target |
+| `sx-error-into` | Request error state target |
+| `sx-disable-while-request` | Disable controls during request |
+| `sx-text-while-request` | Temporary text during request |
+| `sx-confirm` | Confirm before request |
 | `sx-optimistic` | Optimistic update |
 | `sx-revert-on-error` | Revert on request failure |
 | `sx-poll` | Polling interval (ms) |
 | `sx-poll-while` | Polling condition |
 | `sx-include` | Include other forms |
+| `sx-chart` | Chart.js declarative binding |
+| `sx-chart-type` | Force chart type |
+| `sx-chart-options` | Chart.js options expression |
+| `sx-gridstack` | GridStack initialization |
+| `sx-gridstack-options` | GridStack options expression |
+| `sx-gridstack-option:<name>` | Single GridStack option |
+| `sx-gridstack-on-change/...` | GridStack events into state |
 | `sx-lazy` | Lazy initialization |
 | `sx-local` | localStorage persistence |
 | `sx-animate` | Animate list changes (add/remove/move) |

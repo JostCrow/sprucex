@@ -435,7 +435,20 @@ import Layout from "../layouts/Layout.astro";
                                     </td>
                                     <td class="py-2">
                                         Event that triggers the request
-                                        (default: "click").
+                                        (default: "click", forms use
+                                        "submit"). Supports modifier syntax
+                                        like <code>input.debounce.300</code>.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-trigger-debounce
+                                    </td>
+                                    <td class="py-2">
+                                        Debounces request triggers by the
+                                        provided milliseconds.
                                     </td>
                                 </tr>
                                 <tr
@@ -483,11 +496,101 @@ import Layout from "../layouts/Layout.astro";
                         border-slate-100 dark:border-slate-800"
                                 >
                                     <td class="py-2 font-mono text-brand-600">
+                                        sx-body
+                                    </td>
+                                    <td class="py-2">
+                                        Request body from expression/object/string.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b
+                        border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-body-type
+                                    </td>
+                                    <td class="py-2">
+                                        Body serializer strategy:
+                                        <code>json</code> or <code>form</code>.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b
+                        border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-headers
+                                    </td>
+                                    <td class="py-2">
+                                        Expression object that maps request
+                                        headers.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b
+                        border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
                                         sx-include
                                     </td>
                                     <td class="py-2">
                                         Selector for other inputs/forms to
                                         include in the request body.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-loading-into
+                                    </td>
+                                    <td class="py-2">
+                                        State target toggled <code>true/false</code>
+                                        during the request lifecycle.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-error-into
+                                    </td>
+                                    <td class="py-2">
+                                        State target for serialized request
+                                        errors.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-disable-while-request
+                                    </td>
+                                    <td class="py-2">
+                                        Disables form controls while the request
+                                        is in flight.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-text-while-request
+                                    </td>
+                                    <td class="py-2">
+                                        Temporary button text while request is
+                                        pending.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-confirm
+                                    </td>
+                                    <td class="py-2">
+                                        Confirmation message before request,
+                                        including native form submit.
                                     </td>
                                 </tr>
                                 <tr
@@ -714,8 +817,100 @@ import Layout from "../layouts/Layout.astro";
                                         error occurs.
                                     </td>
                                 </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-chart
+                                    </td>
+                                    <td class="py-2">
+                                        Declarative Chart.js binding with
+                                        managed init/update/destroy.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-chart-type
+                                    </td>
+                                    <td class="py-2">
+                                        Explicit chart type override
+                                        (e.g. <code>line</code>, <code>bar</code>).
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-chart-options
+                                    </td>
+                                    <td class="py-2">
+                                        Expression object forwarded to Chart.js
+                                        options.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-gridstack
+                                    </td>
+                                    <td class="py-2">
+                                        Initializes a GridStack instance from
+                                        an options expression.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-gridstack-options
+                                    </td>
+                                    <td class="py-2">
+                                        Additional GridStack options expression.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-gridstack-option:&lt;name&gt;
+                                    </td>
+                                    <td class="py-2">
+                                        Per-option GridStack attribute mapping.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-gridstack-on-change / ...
+                                    </td>
+                                    <td class="py-2">
+                                        Writes GridStack event payloads into
+                                        state targets.
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <div
+                        class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
+                    >
+                        <h4 class="font-bold text-slate-900 dark:text-white mb-2">
+                            Early Bootstrap Hook
+                        </h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                            Define <code>window.SpruceXBoot.initTheme()</code>
+                            before loading SpruceX to toggle theme classes
+                            before deferred component init.
+                        </p>
+                        <p class="text-xs font-mono text-slate-500">
+                            window.SpruceXBoot = &#123; initTheme() &#123; ...
+                            &#125; &#125;
+                        </p>
                     </div>
 
                     <!-- 3. SPA Navigation -->

@@ -53,6 +53,7 @@
   var ATTR_BOOST_ON = "sx-boost-on";
   var NET_METHODS = ["get", "post", "put", "delete"];
   var ATTR_TRIGGER = "sx-trigger";
+  var ATTR_TRIGGER_DEBOUNCE = "sx-trigger-debounce";
   var ATTR_TARGET = "sx-target";
   var ATTR_SWAP = "sx-swap";
   var ATTR_VARS = "sx-vars";
@@ -62,6 +63,25 @@
   var ATTR_POLL = "sx-poll";
   var ATTR_POLL_WHILE = "sx-poll-while";
   var ATTR_INCLUDE = "sx-include";
+  var ATTR_BODY = "sx-body";
+  var ATTR_BODY_TYPE = "sx-body-type";
+  var ATTR_HEADERS = "sx-headers";
+  var ATTR_LOADING_INTO = "sx-loading-into";
+  var ATTR_ERROR_INTO = "sx-error-into";
+  var ATTR_DISABLE_WHILE_REQUEST = "sx-disable-while-request";
+  var ATTR_TEXT_WHILE_REQUEST = "sx-text-while-request";
+  var ATTR_CONFIRM = "sx-confirm";
+  var ATTR_CHART = "sx-chart";
+  var ATTR_CHART_TYPE = "sx-chart-type";
+  var ATTR_CHART_OPTIONS = "sx-chart-options";
+  var ATTR_GRIDSTACK = "sx-gridstack";
+  var ATTR_GRIDSTACK_OPTIONS = "sx-gridstack-options";
+  var ATTR_GRIDSTACK_OPTION_PREFIX = "sx-gridstack-option:";
+  var ATTR_GRIDSTACK_ON_CHANGE = "sx-gridstack-on-change";
+  var ATTR_GRIDSTACK_ON_ADDED = "sx-gridstack-on-added";
+  var ATTR_GRIDSTACK_ON_REMOVED = "sx-gridstack-on-removed";
+  var ATTR_GRIDSTACK_ON_DRAGSTOP = "sx-gridstack-on-dragstop";
+  var ATTR_GRIDSTACK_ON_RESIZESTOP = "sx-gridstack-on-resizestop";
   var ATTR_LAZY = "sx-lazy";
   var ATTR_LOCAL = "sx-local";
   var ATTR_ANIMATE = "sx-animate";
@@ -483,10 +503,20 @@
       this.bindings = [];
       this.memoBindings = [];
       this.eventHandlers = [];
+      this.emitterHandlers = [];
       this.netBindings = [];
       this.modelBindings = [];
+      this.chartBindings = [];
+      this.gridBindings = [];
       this.forBlocks = [];
       this.pollTimers = [];
+      this.debounceTimers = new Set;
+      this.chartInstances = new Map;
+      this.chartSnapshots = new WeakMap;
+      this.gridInstances = new Map;
+      this.requestUiState = new WeakMap;
+      this.warnedMissingChart = false;
+      this.warnedMissingGridStack = false;
       this.lastEvent = null;
       this.debug = false;
       this.locals = {};
@@ -526,6 +556,8 @@
         this.updateBindings();
         this.modelBindings.forEach((mb) => mb.updateDom());
         this.updateMemoBindings();
+        this.updateChartBindings();
+        this.initGridBindings();
       });
     }
     initState() {
@@ -829,7 +861,8 @@
           const attrName = `sx-${m}`;
           const urlTpl = el.getAttribute(attrName);
           if (urlTpl) {
-            const trigger = el.getAttribute(ATTR_TRIGGER) || "click";
+            const trigger = el.getAttribute(ATTR_TRIGGER) || (el.tagName === "FORM" ? "submit" : "click");
+            const triggerDebounce = el.getAttribute(ATTR_TRIGGER_DEBOUNCE);
             const target = el.getAttribute(ATTR_TARGET) || null;
             const swap = el.getAttribute(ATTR_SWAP) || "innerHTML";
             const varsExpr = el.getAttribute(ATTR_VARS);
@@ -839,11 +872,20 @@
             const poll = el.getAttribute(ATTR_POLL);
             const pollWhile = el.getAttribute(ATTR_POLL_WHILE);
             const includeSelector = el.getAttribute(ATTR_INCLUDE);
+            const bodyExpr = el.getAttribute(ATTR_BODY);
+            const bodyType = el.getAttribute(ATTR_BODY_TYPE);
+            const headersExpr = el.getAttribute(ATTR_HEADERS);
+            const loadingInto = el.getAttribute(ATTR_LOADING_INTO);
+            const errorInto = el.getAttribute(ATTR_ERROR_INTO);
+            const disableWhileRequest = el.hasAttribute(ATTR_DISABLE_WHILE_REQUEST);
+            const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
+            const confirmExpr = el.getAttribute(ATTR_CONFIRM);
             const binding = {
               el,
               method: m.toUpperCase(),
               urlTpl,
               trigger,
+              triggerDebounce,
               target,
               swap,
               varsExpr,
@@ -852,10 +894,39 @@
               revertOnError,
               poll: poll ? Number(poll) : null,
               pollWhile,
-              includeSelector
+              includeSelector,
+              bodyExpr,
+              bodyType,
+              headersExpr,
+              loadingInto,
+              errorInto,
+              disableWhileRequest,
+              textWhileRequest,
+              confirmExpr
             };
             self.netBindings.push(binding);
           }
+        }
+        const chartExpr = el.getAttribute(ATTR_CHART);
+        if (chartExpr) {
+          self.chartBindings.push({
+            el,
+            chartExpr,
+            chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
+            chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS)
+          });
+        }
+        if (el.hasAttribute(ATTR_GRIDSTACK)) {
+          self.gridBindings.push({
+            el,
+            gridExpr: el.getAttribute(ATTR_GRIDSTACK),
+            gridOptionsExpr: el.getAttribute(ATTR_GRIDSTACK_OPTIONS),
+            onChangeInto: el.getAttribute(ATTR_GRIDSTACK_ON_CHANGE),
+            onAddedInto: el.getAttribute(ATTR_GRIDSTACK_ON_ADDED),
+            onRemovedInto: el.getAttribute(ATTR_GRIDSTACK_ON_REMOVED),
+            onDragstopInto: el.getAttribute(ATTR_GRIDSTACK_ON_DRAGSTOP),
+            onResizestopInto: el.getAttribute(ATTR_GRIDSTACK_ON_RESIZESTOP)
+          });
         }
       }
       if (el.hasAttribute(ATTR_ANIMATE)) {
@@ -971,17 +1042,31 @@
     }
     setupNetworkBindings() {
       for (const nb of this.netBindings) {
-        const { el, trigger, poll, pollWhile } = nb;
-        const doReq = (ev) => {
-          if (ev)
+        const { el, poll, pollWhile } = nb;
+        const triggerDefs = this.parseNetworkTriggers(nb);
+        const doReq = (ev = null) => {
+          if (ev) {
             this.lastEvent = ev;
+            if (ev.type === "submit")
+              ev.preventDefault();
+          }
+          if (!this.confirmRequest(nb))
+            return;
           this.performRequest(nb);
         };
-        el.addEventListener(trigger, doReq);
-        this.eventHandlers.push({ el, event: trigger, handler: doReq });
-        const compHandler = () => this.performRequest(nb);
-        this.emitter.addEventListener(trigger, compHandler);
-        if (poll && !Number.isNaN(poll)) {
+        triggerDefs.forEach(({ eventName, debounceMs }) => {
+          if (eventName === "load") {
+            queueMicrotask(() => doReq());
+            return;
+          }
+          const domHandler = this.wrapDebounced(doReq, debounceMs);
+          el.addEventListener(eventName, domHandler);
+          this.eventHandlers.push({ el, event: eventName, handler: domHandler });
+          const compHandler = this.wrapDebounced(() => this.performRequest(nb), debounceMs);
+          this.emitter.addEventListener(eventName, compHandler);
+          this.emitterHandlers.push({ event: eventName, handler: compHandler });
+        });
+        if (poll && !Number.isNaN(poll) && poll > 0) {
           const timer = setInterval(() => {
             if (pollWhile) {
               const ok = !!safeEval(pollWhile, this);
@@ -993,6 +1078,64 @@
           this.pollTimers.push(timer);
         }
       }
+    }
+    parseNetworkTriggers(nb) {
+      const fallbackDebounce = Number(nb.triggerDebounce);
+      const debounceMs = Number.isFinite(fallbackDebounce) && fallbackDebounce > 0 ? fallbackDebounce : null;
+      const raw = (nb.trigger || "").trim();
+      const fallback = nb.el.tagName === "FORM" ? "submit" : "click";
+      const tokens = (raw || fallback).split(",").flatMap((part) => part.trim().split(/\s+/)).filter(Boolean);
+      if (!tokens.length) {
+        return [{ eventName: fallback, debounceMs }];
+      }
+      return tokens.map((token) => {
+        const parts = token.split(".");
+        const eventName = parts[0] || fallback;
+        let triggerDebounce = debounceMs;
+        const debounceIdx = parts.indexOf("debounce");
+        if (debounceIdx !== -1) {
+          const parsed = Number(parts[debounceIdx + 1]);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            triggerDebounce = parsed;
+          }
+        }
+        return { eventName, debounceMs: triggerDebounce };
+      });
+    }
+    wrapDebounced(fn, debounceMs) {
+      if (!debounceMs || debounceMs <= 0)
+        return fn;
+      let timer = null;
+      return (...args) => {
+        if (timer) {
+          clearTimeout(timer);
+          this.debounceTimers.delete(timer);
+        }
+        timer = setTimeout(() => {
+          this.debounceTimers.delete(timer);
+          timer = null;
+          fn(...args);
+        }, debounceMs);
+        this.debounceTimers.add(timer);
+      };
+    }
+    confirmRequest(nb) {
+      if (nb.confirmExpr == null)
+        return true;
+      if (typeof window === "undefined" || typeof window.confirm !== "function") {
+        return true;
+      }
+      const raw = String(nb.confirmExpr).trim();
+      let message = raw || "Are you sure?";
+      if (raw) {
+        const evaluated = safeEval(raw, this);
+        if (typeof evaluated === "string") {
+          message = evaluated;
+        } else if (evaluated !== undefined && evaluated !== null) {
+          message = String(evaluated);
+        }
+      }
+      return window.confirm(message);
     }
     setupAutoAnimate(el, options = {}) {
       const aa = getAutoAnimate();
@@ -1041,31 +1184,293 @@
       }
     }
     buildBody(nb) {
-      const { el, method, includeSelector } = nb;
-      if (!["POST", "PUT", "DELETE"].includes(method))
-        return null;
+      const { el, method, includeSelector, bodyExpr, bodyType } = nb;
+      if (!["POST", "PUT", "DELETE"].includes(method)) {
+        return { body: null, bodyKind: null };
+      }
+      if (bodyExpr) {
+        const value = this.evaluateExpressionOrLiteral(bodyExpr);
+        const resolvedType = this.resolveBodyType(bodyType, value);
+        if (resolvedType === "json") {
+          return {
+            body: typeof value === "string" ? value : JSON.stringify(value ?? {}),
+            bodyKind: "json"
+          };
+        }
+        if (resolvedType === "form") {
+          const fd = this.toFormData(value);
+          if (fd instanceof FormData && includeSelector) {
+            this.appendIncludeData(fd, includeSelector);
+          }
+          return { body: fd, bodyKind: "form" };
+        }
+        return { body: value ?? null, bodyKind: null };
+      }
       if (el.tagName === "FORM") {
         const fd = new FormData(el);
         if (includeSelector) {
-          document.querySelectorAll(includeSelector).forEach((extra) => {
-            if (extra.tagName === "FORM") {
-              new FormData(extra).forEach((v, k) => fd.append(k, v));
-            }
-          });
+          this.appendIncludeData(fd, includeSelector);
         }
-        return fd;
+        if ((bodyType || "").toLowerCase() === "json") {
+          return {
+            body: JSON.stringify(this.formDataToJson(fd)),
+            bodyKind: "json"
+          };
+        }
+        return { body: fd, bodyKind: "form" };
+      }
+      return { body: null, bodyKind: null };
+    }
+    resolveBodyType(rawType, value) {
+      const lowered = (rawType || "").toLowerCase();
+      if (lowered === "json" || lowered === "form")
+        return lowered;
+      if (value instanceof FormData || value instanceof URLSearchParams) {
+        return "form";
+      }
+      if (value && typeof value === "object" && !(value instanceof Blob) && !(value instanceof ArrayBuffer)) {
+        return "json";
       }
       return null;
     }
+    toFormData(value) {
+      if (value instanceof FormData)
+        return value;
+      if (value instanceof URLSearchParams) {
+        const fd2 = new FormData;
+        value.forEach((v, k) => fd2.append(k, v));
+        return fd2;
+      }
+      const fd = new FormData;
+      if (value == null)
+        return fd;
+      if (typeof value === "string") {
+        const params = new URLSearchParams(value);
+        let appended = false;
+        params.forEach((v, k) => {
+          fd.append(k, v);
+          appended = true;
+        });
+        if (!appended)
+          fd.append("value", value);
+        return fd;
+      }
+      if (typeof value !== "object") {
+        fd.append("value", String(value));
+        return fd;
+      }
+      Object.entries(value).forEach(([k, v]) => {
+        this.appendFormValue(fd, k, v);
+      });
+      return fd;
+    }
+    appendFormValue(fd, key, value) {
+      if (Array.isArray(value)) {
+        value.forEach((item) => this.appendFormValue(fd, key, item));
+        return;
+      }
+      if (value instanceof Blob) {
+        fd.append(key, value);
+        return;
+      }
+      if (value && typeof value === "object") {
+        fd.append(key, JSON.stringify(value));
+        return;
+      }
+      fd.append(key, value == null ? "" : String(value));
+    }
+    appendIncludeData(fd, includeSelector) {
+      document.querySelectorAll(includeSelector).forEach((extra) => {
+        if (extra.tagName === "FORM") {
+          new FormData(extra).forEach((v, k) => fd.append(k, v));
+          return;
+        }
+        this.appendElementValue(fd, extra);
+        if (extra.querySelectorAll) {
+          extra.querySelectorAll("input[name], select[name], textarea[name]").forEach((input) => this.appendElementValue(fd, input));
+        }
+      });
+    }
+    appendElementValue(fd, el) {
+      if (!("name" in el) || !el.name)
+        return;
+      if ("disabled" in el && el.disabled)
+        return;
+      const type = (el.type || "").toLowerCase();
+      if ((type === "checkbox" || type === "radio") && !el.checked)
+        return;
+      if (el.tagName === "SELECT" && el.multiple) {
+        Array.from(el.selectedOptions || []).forEach((opt) => fd.append(el.name, opt.value));
+        return;
+      }
+      fd.append(el.name, el.value ?? "");
+    }
+    formDataToJson(fd) {
+      const out = {};
+      fd.forEach((value, key) => {
+        const normalized = value instanceof File ? value.name : value;
+        if (key in out) {
+          if (Array.isArray(out[key]))
+            out[key].push(normalized);
+          else
+            out[key] = [out[key], normalized];
+        } else {
+          out[key] = normalized;
+        }
+      });
+      return out;
+    }
+    buildHeaders(nb, bodyKind, hasBody) {
+      const headers = new Headers;
+      const evaluated = nb.headersExpr ? safeEval(nb.headersExpr, this) : undefined;
+      if (evaluated instanceof Headers) {
+        evaluated.forEach((v, k) => headers.set(k, v));
+      } else if (Array.isArray(evaluated)) {
+        evaluated.forEach((entry) => {
+          if (Array.isArray(entry) && entry.length >= 2) {
+            headers.set(String(entry[0]), String(entry[1]));
+          }
+        });
+      } else if (evaluated && typeof evaluated === "object") {
+        Object.entries(evaluated).forEach(([k, v]) => {
+          if (v != null)
+            headers.set(k, String(v));
+        });
+      }
+      if (bodyKind === "json" && hasBody && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+      return headers;
+    }
+    evaluateExpressionOrLiteral(raw) {
+      const trimmed = String(raw ?? "").trim();
+      if (!trimmed)
+        return "";
+      const evaluated = safeEval(trimmed, this);
+      return evaluated === undefined ? trimmed : evaluated;
+    }
+    assignStateValue(targetExpr, value) {
+      if (!targetExpr)
+        return;
+      execInScope(`${targetExpr} = __sx_value`, this, { __sx_value: value });
+    }
+    serializeError(error) {
+      if (!error)
+        return null;
+      if (typeof error === "string")
+        return { message: error };
+      return {
+        name: error.name || "Error",
+        message: error.message || String(error),
+        status: error.status
+      };
+    }
+    beginRequestUiState(nb) {
+      const { el, disableWhileRequest, textWhileRequest } = nb;
+      if (!disableWhileRequest && textWhileRequest == null)
+        return () => {};
+      const current = this.requestUiState.get(el) || { count: 0, restoreFns: [] };
+      if (current.count === 0) {
+        current.restoreFns = this.applyRequestUiState(nb);
+      }
+      current.count += 1;
+      this.requestUiState.set(el, current);
+      return () => {
+        const latest = this.requestUiState.get(el);
+        if (!latest)
+          return;
+        latest.count -= 1;
+        if (latest.count <= 0) {
+          latest.restoreFns.forEach((fn) => fn());
+          this.requestUiState.delete(el);
+        } else {
+          this.requestUiState.set(el, latest);
+        }
+      };
+    }
+    applyRequestUiState(nb) {
+      const restoreFns = [];
+      const { el, disableWhileRequest, textWhileRequest } = nb;
+      if (disableWhileRequest) {
+        this.getDisableTargets(el).forEach((target) => {
+          const previous = !!target.disabled;
+          target.disabled = true;
+          restoreFns.push(() => {
+            target.disabled = previous;
+          });
+        });
+      }
+      if (textWhileRequest != null) {
+        const target = this.getTextWhileRequestTarget(el);
+        if (target) {
+          const nextText = String(this.evaluateExpressionOrLiteral(textWhileRequest));
+          if (target.tagName === "INPUT") {
+            const prev = target.value;
+            target.value = nextText;
+            restoreFns.push(() => {
+              target.value = prev;
+            });
+          } else {
+            const prev = target.textContent;
+            target.textContent = nextText;
+            restoreFns.push(() => {
+              target.textContent = prev;
+            });
+          }
+        }
+      }
+      return restoreFns;
+    }
+    getDisableTargets(el) {
+      if (el.tagName === "FORM") {
+        return Array.from(el.elements || []).filter((node) => node && ("disabled" in node) && node.type !== "hidden");
+      }
+      return "disabled" in el ? [el] : [];
+    }
+    getTextWhileRequestTarget(el) {
+      if (el.tagName !== "FORM")
+        return el;
+      return el.querySelector("button[type='submit']") || el.querySelector("button:not([type])") || el.querySelector("input[type='submit']");
+    }
+    clearDebounceTimers() {
+      this.debounceTimers.forEach((timer) => clearTimeout(timer));
+      this.debounceTimers.clear();
+    }
+    clearEmitterHandlers() {
+      this.emitterHandlers.forEach(({ event, handler }) => {
+        this.emitter.removeEventListener(event, handler);
+      });
+      this.emitterHandlers = [];
+    }
     async performRequest(nb) {
       const url = this.buildUrl(nb);
-      const body = this.buildBody(nb);
-      const { el, method, target, swap, jsonInto, optimistic, revertOnError } = nb;
+      const { body, bodyKind } = this.buildBody(nb);
+      const headers = this.buildHeaders(nb, bodyKind, body != null);
+      const {
+        el,
+        method,
+        target,
+        swap,
+        jsonInto,
+        optimistic,
+        revertOnError,
+        loadingInto,
+        errorInto
+      } = nb;
+      const endUiState = this.beginRequestUiState(nb);
+      this.assignStateValue(loadingInto, true);
+      this.assignStateValue(errorInto, null);
       if (optimistic) {
         execInScope(optimistic, this);
       }
       try {
-        const res = await fetch(url, { method, body });
+        const fetchOptions = { method };
+        if (body != null)
+          fetchOptions.body = body;
+        if (Array.from(headers.keys()).length > 0) {
+          fetchOptions.headers = headers;
+        }
+        const res = await fetch(url, fetchOptions);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
@@ -1090,10 +1495,282 @@
         if (revertOnError) {
           execInScope(revertOnError, this);
         }
+        this.assignStateValue(errorInto, this.serializeError(error));
         const detail = { error };
         el.dispatchEvent(new CustomEvent("error", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:error", { detail, bubbles: true }));
+      } finally {
+        this.assignStateValue(loadingInto, false);
+        endUiState();
       }
+    }
+    getChartConstructor() {
+      if (typeof window === "undefined")
+        return null;
+      const maybe = window.Chart;
+      return maybe && typeof maybe === "object" ? maybe.Chart || maybe : maybe;
+    }
+    updateChartBindings() {
+      this.chartBindings.forEach((binding) => this.syncChartBinding(binding));
+    }
+    syncChartBinding(binding) {
+      const { el, chartExpr, chartTypeExpr, chartOptionsExpr } = binding;
+      if (!el.isConnected) {
+        this.destroyChartInstance(el);
+        return;
+      }
+      const payload = safeEval(chartExpr, this);
+      if (payload == null) {
+        this.destroyChartInstance(el);
+        return;
+      }
+      const ChartCtor = this.getChartConstructor();
+      if (!ChartCtor) {
+        if (!this.warnedMissingChart) {
+          this.warnedMissingChart = true;
+          console.warn("SpruceX: sx-chart requires Chart.js to be loaded on window.Chart.");
+        }
+        return;
+      }
+      const canvas = this.getChartCanvas(el);
+      const ctx = canvas?.getContext?.("2d");
+      if (!ctx)
+        return;
+      const explicitType = chartTypeExpr != null ? this.evaluateExpressionOrLiteral(chartTypeExpr) : null;
+      const explicitOptions = chartOptionsExpr != null ? this.evaluateExpressionOrLiteral(chartOptionsExpr) : null;
+      const data = payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
+      const type = typeof explicitType === "string" && explicitType.trim() || (payload && typeof payload === "object" ? payload.type : null) || "line";
+      const options = explicitOptions && typeof explicitOptions === "object" ? explicitOptions : payload && typeof payload === "object" && payload.options && typeof payload.options === "object" ? payload.options : {};
+      const safeData = this.cloneChartConfigValue(data);
+      const safeOptions = this.cloneChartConfigValue(options);
+      let chart = this.chartInstances.get(el);
+      if (chart && chart.config?.type !== type) {
+        chart.destroy();
+        this.chartInstances.delete(el);
+        chart = null;
+      }
+      if (!chart) {
+        chart = new ChartCtor(ctx, {
+          type,
+          data: safeData,
+          options: safeOptions
+        });
+        this.chartInstances.set(el, chart);
+        this.chartSnapshots.set(el, {
+          type,
+          data: safeData,
+          options: safeOptions
+        });
+        return;
+      }
+      const previousSnapshot = this.chartSnapshots.get(el);
+      const nextSnapshot = { type, data: safeData, options: safeOptions };
+      if (previousSnapshot && this.areChartValuesEqual(previousSnapshot, nextSnapshot)) {
+        return;
+      }
+      chart.data = safeData;
+      chart.options = safeOptions;
+      chart.update();
+      this.chartSnapshots.set(el, nextSnapshot);
+    }
+    cloneChartConfigValue(value, seen = new WeakMap) {
+      if (value == null || typeof value !== "object")
+        return value;
+      if (seen.has(value))
+        return seen.get(value);
+      if (Array.isArray(value)) {
+        const out2 = [];
+        seen.set(value, out2);
+        value.forEach((item) => out2.push(this.cloneChartConfigValue(item, seen)));
+        return out2;
+      }
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) {
+        return value;
+      }
+      const out = {};
+      seen.set(value, out);
+      Object.keys(value).forEach((key) => {
+        out[key] = this.cloneChartConfigValue(value[key], seen);
+      });
+      return out;
+    }
+    areChartValuesEqual(a, b, seen = new WeakMap) {
+      if (Object.is(a, b))
+        return true;
+      if (typeof a !== typeof b)
+        return false;
+      if (a == null || b == null)
+        return false;
+      if (typeof a !== "object")
+        return false;
+      const pairSet = seen.get(a);
+      if (pairSet && pairSet.has(b))
+        return true;
+      if (pairSet) {
+        pairSet.add(b);
+      } else {
+        seen.set(a, new WeakSet([b]));
+      }
+      if (Array.isArray(a)) {
+        if (!Array.isArray(b) || a.length !== b.length)
+          return false;
+        for (let i = 0;i < a.length; i += 1) {
+          if (!this.areChartValuesEqual(a[i], b[i], seen))
+            return false;
+        }
+        return true;
+      }
+      if (Array.isArray(b))
+        return false;
+      const protoA = Object.getPrototypeOf(a);
+      const protoB = Object.getPrototypeOf(b);
+      if (protoA !== protoB)
+        return false;
+      if (protoA !== Object.prototype && protoA !== null) {
+        return false;
+      }
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length)
+        return false;
+      for (let i = 0;i < keysA.length; i += 1) {
+        const key = keysA[i];
+        if (!Object.prototype.hasOwnProperty.call(b, key))
+          return false;
+        if (!this.areChartValuesEqual(a[key], b[key], seen))
+          return false;
+      }
+      return true;
+    }
+    getChartCanvas(el) {
+      if (el.tagName === "CANVAS")
+        return el;
+      const existing = el.querySelector("canvas");
+      if (existing)
+        return existing;
+      const created = document.createElement("canvas");
+      el.appendChild(created);
+      return created;
+    }
+    destroyChartInstance(el) {
+      const chart = this.chartInstances.get(el);
+      if (!chart)
+        return;
+      try {
+        chart.destroy();
+      } catch (e) {
+        console.error("SpruceX sx-chart destroy error:", e);
+      }
+      this.chartInstances.delete(el);
+      this.chartSnapshots.delete(el);
+    }
+    teardownChartBindings() {
+      this.chartInstances.forEach((_, el) => this.destroyChartInstance(el));
+      this.chartInstances.clear();
+    }
+    initGridBindings() {
+      this.gridBindings.forEach((binding) => {
+        const { el } = binding;
+        if (!el.isConnected || this.gridInstances.has(el))
+          return;
+        if (typeof window === "undefined" || !window.GridStack || typeof window.GridStack.init !== "function") {
+          if (!this.warnedMissingGridStack) {
+            this.warnedMissingGridStack = true;
+            console.warn("SpruceX: sx-gridstack requires GridStack on window.GridStack.");
+          }
+          return;
+        }
+        const options = this.buildGridOptions(binding);
+        const grid = window.GridStack.init(options, el);
+        const cleanups = [];
+        const bindInto = (eventName, targetExpr) => {
+          if (!targetExpr)
+            return;
+          const handler = (_event, nodes = []) => {
+            const value = this.serializeGridNodes(nodes);
+            this.assignStateValue(targetExpr, value);
+            el.dispatchEvent(new CustomEvent(`sprucex:gridstack:${eventName}`, {
+              detail: value,
+              bubbles: true
+            }));
+          };
+          grid.on(eventName, handler);
+          cleanups.push(() => {
+            if (typeof grid.off === "function") {
+              grid.off(eventName, handler);
+            }
+          });
+        };
+        bindInto("change", binding.onChangeInto);
+        bindInto("added", binding.onAddedInto);
+        bindInto("removed", binding.onRemovedInto);
+        bindInto("dragstop", binding.onDragstopInto);
+        bindInto("resizestop", binding.onResizestopInto);
+        this.gridInstances.set(el, { grid, cleanups });
+      });
+    }
+    buildGridOptions(binding) {
+      const options = {};
+      const { el, gridExpr, gridOptionsExpr } = binding;
+      if (gridExpr && gridExpr.trim() && gridExpr.trim() !== "true") {
+        const evaluated = safeEval(gridExpr, this);
+        if (evaluated && typeof evaluated === "object" && !Array.isArray(evaluated)) {
+          Object.assign(options, evaluated);
+        }
+      }
+      if (gridOptionsExpr) {
+        const evaluated = safeEval(gridOptionsExpr, this);
+        if (evaluated && typeof evaluated === "object" && !Array.isArray(evaluated)) {
+          Object.assign(options, evaluated);
+        }
+      }
+      Array.from(el.attributes).filter((attr) => attr.name.startsWith(ATTR_GRIDSTACK_OPTION_PREFIX)).forEach((attr) => {
+        const rawName = attr.name.slice(ATTR_GRIDSTACK_OPTION_PREFIX.length);
+        if (!rawName)
+          return;
+        const optionName = rawName.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        options[optionName] = this.parseGridOptionValue(attr.value);
+      });
+      return options;
+    }
+    parseGridOptionValue(raw) {
+      const trimmed = String(raw || "").trim();
+      if (!trimmed)
+        return true;
+      if (trimmed === "true")
+        return true;
+      if (trimmed === "false")
+        return false;
+      const asNum = Number(trimmed);
+      if (Number.isFinite(asNum))
+        return asNum;
+      const evaluated = safeEval(trimmed, this);
+      return evaluated === undefined ? trimmed : evaluated;
+    }
+    serializeGridNodes(nodes) {
+      if (!Array.isArray(nodes))
+        return [];
+      return nodes.map((node) => ({
+        id: node?.id ?? node?.el?.id ?? null,
+        x: node?.x,
+        y: node?.y,
+        w: node?.w,
+        h: node?.h,
+        minW: node?.minW,
+        minH: node?.minH,
+        maxW: node?.maxW,
+        maxH: node?.maxH
+      }));
+    }
+    teardownGridBindings() {
+      this.gridInstances.forEach(({ grid, cleanups }) => {
+        cleanups.forEach((fn) => fn());
+        if (grid && typeof grid.destroy === "function") {
+          grid.destroy(false);
+        }
+      });
+      this.gridInstances.clear();
     }
     applySwap(targetSelectorOrEl, html, swap) {
       const target = typeof targetSelectorOrEl === "string" ? document.querySelector(targetSelectorOrEl) : targetSelectorOrEl;
@@ -1569,6 +2246,8 @@
       this.updateBindings();
       this.modelBindings.forEach((mb) => mb.updateDom());
       this.updateMemoBindings();
+      this.updateChartBindings();
+      this.initGridBindings();
     }
     updateBindings() {
       for (const b of this.bindings) {
@@ -1680,10 +2359,16 @@
       }
     }
     refresh() {
+      this.teardownChartBindings();
+      this.teardownGridBindings();
+      this.clearDebounceTimers();
+      this.clearEmitterHandlers();
       this.bindings = [];
       this.memoBindings = [];
       this.modelBindings = [];
       this.netBindings = [];
+      this.chartBindings = [];
+      this.gridBindings = [];
       this.forBlocks = [];
       this.eventHandlers.forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
@@ -1715,19 +2400,25 @@
         this.disableAutoAnimate(el);
       });
       this.animatedElements.clear();
+      this.teardownChartBindings();
+      this.teardownGridBindings();
       this.eventHandlers.forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
       });
+      this.clearEmitterHandlers();
       if (this._delegatedCleanups) {
         this._delegatedCleanups.forEach((fn) => fn());
       }
       this.pollTimers.forEach((t) => clearInterval(t));
+      this.clearDebounceTimers();
       if (this.rafId)
         cancelAnimationFrame(this.rafId);
       this.bindings = [];
       this.memoBindings = [];
       this.modelBindings = [];
       this.eventHandlers = [];
+      this.chartBindings = [];
+      this.gridBindings = [];
       this.netBindings = [];
       this.forBlocks = [];
       this.pollTimers = [];
@@ -1789,6 +2480,23 @@
   };
   if (typeof window !== "undefined") {
     window.SpruceX = SpruceX;
+    if (!window.SpruceXBoot) {
+      window.SpruceXBoot = {};
+    }
+  }
+  var bootHookRan = false;
+  function runBootHook() {
+    if (bootHookRan || typeof window === "undefined")
+      return;
+    bootHookRan = true;
+    const boot = window.SpruceXBoot;
+    if (boot && typeof boot.initTheme === "function") {
+      try {
+        boot.initTheme();
+      } catch (e) {
+        console.error("SpruceX boot hook error:", e);
+      }
+    }
   }
   function initSpruceXRoot(root) {
     if (root.__sprucex)
@@ -1798,6 +2506,7 @@
     return comp;
   }
   function initSpruceX() {
+    runBootHook();
     const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
     roots.forEach((root) => {
       const lazy = root.hasAttribute(ATTR_LAZY);
@@ -2060,6 +2769,7 @@
     return entry.html;
   }
   if (typeof document !== "undefined") {
+    runBootHook();
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", initSpruceX);
     } else {
