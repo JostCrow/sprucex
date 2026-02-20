@@ -1,0 +1,36 @@
+body {
+    font-family: "Inter", sans-serif;
+}
+
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.dark .glass {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Syntax Highlighting Base */
+.token.tag {
+    color: #ec4899;
+}
+
+.token.attr-name {
+    color: #8b5cf6;
+}
+
+.token.attr-value {
+    color: #10b981;
+}
+
+.token.string {
+    color: #10b981;
+}
+
+.token.keyword {
+    color: #3b82f6;
+}

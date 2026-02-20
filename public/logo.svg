@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+    <defs>
+        <linearGradient id="spruceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#10B981"/>
+            <stop offset="100%" stop-color="#065F46"/>
+        </linearGradient>
+        <linearGradient id="xGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#F59E0B"/>
+            <stop offset="100%" stop-color="#D97706"/>
+        </linearGradient>
+    </defs>
+    <path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" fill="url(#spruceGrad)"/>
+    <g stroke="url(#xGrad)" stroke-width="6" stroke-linecap="round">
+        <line x1="76" y1="100" x2="100" y2="76"/>
+        <line x1="100" y1="100" x2="76" y2="76"/>
+    </g>
+    <g class="holiday-decorations" style="display: none;">
+        <polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" fill="#FBBF24"/>
+        <circle cx="64" cy="36" r="3" fill="#EF4444"/>
+        <circle cx="52" cy="55" r="3" fill="#3B82F6"/>
+        <circle cx="76" cy="55" r="3" fill="#EF4444"/>
+        <circle cx="64" cy="75" r="3" fill="#A855F7"/>
+    </g>
+</svg>
+
+<script>
+    (function() {
+        const month = new Date().getMonth();
+        const isHolidaySeason = month === 11 || month === 0;
+        const decorations = document.querySelector('.holiday-decorations');
+        if (isHolidaySeason && decorations) {
+            decorations.style.display = 'block';
+        }
+    })();
+</script>

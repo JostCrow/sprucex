@@ -1,0 +1,240 @@
+<html
+    lang="en"
+    class="scroll-smooth"
+    sx-data="{ darkMode: false }"
+    sx-local="darkMode"
+    sx-class="{ 'dark': darkMode }"
+>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SpruceX - The Micro-Framework for Modern Web</title>
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="./dist/sprucex.js"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                font-family: "Inter", sans-serif;
+            }
+
+            .glass {
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+
+            .dark .glass {
+                background: rgba(17, 24, 39, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+            }
+        </style>
+        <script>
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            brand: {
+                                50: "#f0fdf4",
+                                100: "#dcfce7",
+                                200: "#bbf7d0",
+                                300: "#86efac",
+                                400: "#4ade80",
+                                500: "#22c55e",
+                                600: "#16a34a",
+                                700: "#15803d",
+                                800: "#166534",
+                                900: "#14532d",
+                            },
+                        },
+                    },
+                },
+            };
+        </script>
+    </head>
+
+    <body
+        sx-page
+        class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300"
+    >
+        <!-- Navbar -->
+        <nav
+            class="fixed w-full z-50 glass border-b border-slate-200 dark:border-slate-800"
+        >
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <a href="index.html" class="flex items-center gap-2">
+                        <img src="/logo.svg" alt="SpruceX" width="50" height="50" />
+                        <span class="font-bold text-xl tracking-tight"
+                            >SpruceX</span
+                        >
+                    </a>
+                    <div class="hidden md:flex items-center space-x-8">
+                        <a
+                            href="index.html"
+                            class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                            >Features</a
+                        >
+                        <a
+                            href="docs.html"
+                            class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                            >Documentation</a
+                        >
+                        <a
+                            href="examples.html"
+                            class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                            >Examples</a
+                        >
+                        <button
+                            sx-on:click="darkMode = !darkMode"
+                            class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            <span sx-show="!darkMode">🌙</span>
+                            <span sx-show="darkMode">☀️</span>
+                        </button>
+                        <a
+                            href="sprucex.js"
+                            download
+                            class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-brand-500/30"
+                        >
+                            Download v0.4
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section
+            class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center"
+        >
+            <div
+                class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-xs font-semibold uppercase tracking-wide mb-6"
+            >
+                <span
+                    class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"
+                ></span>
+                v0.4 Released
+            </div>
+            <h1
+                class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400"
+            >
+                Modern Reactivity.<br />
+                <span class="text-brand-600 dark:text-brand-400"
+                    >Zero Build Step.</span
+                >
+            </h1>
+            <p
+                class="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
+            >
+                SpruceX combines the best of Alpine.js and HTMX into a single,
+                lightweight micro-framework. Build interactive UIs with
+                declarative attributes and powerful network helpers.
+            </p>
+            <div
+                class="flex flex-col sm:flex-row gap-4 justify-center items-center"
+            >
+                <a
+                    href="docs.html"
+                    class="px-8 py-3.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold hover:opacity-90 transition-opacity shadow-xl"
+                >
+                    Get Started
+                </a>
+                <a
+                    href="sprucex.js"
+                    download
+                    class="px-8 py-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                    Download sprucex.js
+                </a>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section id="features" class="py-20 bg-white dark:bg-slate-800/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold text-center mb-12">
+                    Everything you need. Nothing you don't.
+                </h2>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <!-- Feature 1 -->
+                    <div
+                        class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-xl border border-slate-100 dark:border-slate-700 group"
+                    >
+                        <div
+                            class="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
+                        >
+                            ⚡
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Reactive State</h3>
+                        <p class="text-slate-600 dark:text-slate-400">
+                            Simple, proxy-based reactivity. Define state
+                            directly in your HTML with <code>sx-data</code>.
+                        </p>
+                    </div>
+                    <!-- Feature 2 -->
+                    <div
+                        class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-xl border border-slate-100 dark:border-slate-700 group"
+                    >
+                        <div
+                            class="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
+                        >
+                            🔄
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Network Helpers</h3>
+                        <p class="text-slate-600 dark:text-slate-400">
+                            Built-in AJAX with HTMX-style swapping.
+                            <code>sx-get</code>, <code>sx-post</code>, and more
+                            out of the box.
+                        </p>
+                    </div>
+                    <!-- Feature 3 -->
+                    <div
+                        class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-xl border border-slate-100 dark:border-slate-700 group"
+                    >
+                        <div
+                            class="w-12 h-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
+                        >
+                            🧠
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Smart Directives</h3>
+                        <p class="text-slate-600 dark:text-slate-400">
+                            Powerful directives like <code>sx-for</code>,
+                            <code>sx-memo</code>, and <code>sx-model</code> for
+                            complex UI logic.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="bg-slate-900 text-slate-400 py-12">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <div class="mb-8">
+                    <span class="text-2xl font-bold text-white tracking-tight"
+                        >SpruceX</span
+                    >
+                </div>
+                <div class="flex justify-center gap-8 mb-8">
+                    <a href="#" class="hover:text-white transition-colors"
+                        >GitHub</a
+                    >
+                    <a href="#" class="hover:text-white transition-colors"
+                        >Twitter</a
+                    >
+                    <a href="#" class="hover:text-white transition-colors"
+                        >Discord</a
+                    >
+                </div>
+                <p class="text-sm">© 2024 SpruceX. MIT License.</p>
+            </div>
+        </footer>
+    </body>
+</html>

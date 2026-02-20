@@ -1,0 +1,25 @@
+{
+  "name": "sprucex",
+  "version": "0.4.0",
+  "module": "dist/sprucex.js",
+  "main": "dist/sprucex.js",
+  "types": "dist/sprucex.d.ts",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "bun run build:lib && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "build:lib": "bun build src/index.js --format=iife --outfile=./public/dist/sprucex.js && bun build src/index.js --format=iife --minify --outfile=./public/dist/sprucex.min.js",
+    "dev:lib": "bun build --watch src/index.js --format=iife --outfile=./public/dist/sprucex.js"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/vite": "^4.1.18",
+    "astro": "^5.16.11",
+    "tailwindcss": "^4.1.18"
+  }
+}

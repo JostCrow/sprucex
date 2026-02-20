@@ -1,0 +1,1292 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="SpruceX - Examples">
+    <script is:inline>
+        SpruceX.store(
+            "global",
+            {
+                notifications: 0,
+                user: { name: "Guest" },
+            },
+            { persist: true },
+        );
+    </script>
+    <section
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
+    >
+        <!-- Sidebar -->
+        <div class="hidden lg:block space-y-8 sticky top-24 h-fit">
+            <h2
+                class="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm"
+            >
+                Examples
+            </h2>
+            <div
+                class="space-y-3 text-sm border-l border-slate-200 dark:border-slate-800"
+            >
+                <a
+                    href="#reactivity"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >1. Reactivity & Binding</a
+                >
+                <a
+                    href="#control-flow"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >2. Control Flow</a
+                >
+                <a
+                    href="#network"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >3. Network Requests</a
+                >
+                <a
+                    href="#optimistic"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >4. Optimistic UI</a
+                >
+                <a
+                    href="#global"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >5. Global State</a
+                >
+                <a
+                    href="#lazy"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >6. Lazy Loading</a
+                >
+                <a
+                    href="#persist"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >7. Persistent State</a
+                >
+                <a
+                    href="#memo"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >8. Memoization</a
+                >
+                <a
+                    href="#animate"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >9. Auto-Animate</a
+                >
+                <a
+                    href="#polling"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >10. Polling</a
+                >
+                <a
+                    href="#refs"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >11. Refs</a
+                >
+                <a
+                    href="#error"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >12. Error Fallback</a
+                >
+                <a
+                    href="#modifiers"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >13. Event Modifiers</a
+                >
+                <a
+                    href="#html"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >14. Raw HTML</a
+                >
+                <a
+                    href="#form"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >15. Form Inclusion</a
+                >
+                <a
+                    href="#boost"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >16. SPA Boosting</a
+                >
+                <a
+                    href="#bind"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >17. Binding & Swapping</a
+                >
+                <a
+                    href="#holiday"
+                    class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
+                    >18. Holiday Theme</a
+                >
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-3 space-y-16">
+            <!-- Header -->
+            <div class="text-center max-w-3xl mx-auto">
+                <h1
+                    class="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-emerald-600"
+                >
+                    Feature Examples
+                </h1>
+                <p class="text-xl text-slate-600 dark:text-slate-400">
+                    Interactive demos showcasing the power of SpruceX.
+                </p>
+            </div>
+
+            <!-- 1. Reactivity & Binding -->
+            <div id="reactivity" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 flex items-center justify-center text-sm"
+                                >1</span
+                            > Reactivity & Binding
+                        </h2>
+                        <p class="text-slate-600 dark:text-slate-400 mb-6">
+                            Two-way data binding with modifiers, computed
+                            properties, and watchers.
+                        </p>
+                        <div
+                            class="glass rounded-2xl p-8 shadow-xl"
+                            sx-data="{
+                                name: 'Spruce', age: 0, get greeting() { return 'Hello, ' +
+                                this.name + ' (' + this.age + ')' }, watch: { age(val) { if(val
+                                > 100) this.age = 100; } } }"
+                        >
+                            <div class="space-y-4">
+                                <div>
+                                    <label
+                                        class="block text-sm font-medium mb-1"
+                                        >Name (sx-model.trim)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        sx-model.trim="name"
+                                        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-brand-500 outline-none"
+                                    />
+                                </div>
+                                <div is:raw>
+                                    <label is:raw class="block text-sm
+                                    font-medium mb-1" >Age (Number, Max 100)
+                                    (sx-model.number)</label > <input is:raw
+                                    type="number" sx-model.number="age"
+                                    class="w-full px-4 py-2 rounded-lg border
+                                    border-slate-200 dark:border-slate-700
+                                    bg-white dark:bg-slate-800 focus:ring-2
+                                    focus:ring-brand-500 outline-none" />
+                                </div>
+                                <div
+                                    class="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg border border-brand-100 dark:border-brand-800"
+                                >
+                                    <p is:raw>sx-text="greeting"</p>
+                                    <p
+                                        class="font-mono text-brand-700
+                                    dark:text-brand-300"
+                                        sx-text="greeting"
+                                    >
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl
+                            bg-slate-900 dark:bg-white text-white
+                            dark:text-slate-900 font-semibold hover:opacity-90
+                            transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <pre
+                            sx-show="showCode">
+                            <code is:raw class="language-html">
+                                &lt;div class=&quot;glass rounded-2xl p-8
+                                shadow-xl&quot; sx-data=&quot;{ name:
+                                &#39;Spruce&#39;, age: 0, get greeting() {
+                                return &#39;Hello, &#39; + this.name + &#39;
+                                (&#39; + this.age + &#39;)&#39; }, watch: {
+                                age(val) { if(val &gt; 100) this.age = 100;
+                                } } }&quot;&gt; &lt;div
+                                class=&quot;space-y-4&quot;&gt; &lt;div&gt;
+                                &lt;label class=&quot;block text-sm
+                                font-medium mb-1&quot;&gt;Name
+                                (sx-model.trim)&lt;/label&gt; &lt;input
+                                type=&quot;text&quot;
+                                sx-model.trim=&quot;name&quot;
+                                class=&quot;w-full px-4 py-2 rounded-lg
+                                border border-slate-200
+                                dark:border-slate-700 bg-white
+                                dark:bg-slate-800 focus:ring-2
+                                focus:ring-brand-500 outline-none&quot;&gt;
+                                &lt;/div&gt; &lt;div&gt; &lt;label
+                                class=&quot;block text-sm font-medium
+                                mb-1&quot;&gt;Age (Number, Max 100)
+                                (sx-model.number)&lt;/label&gt; &lt;input
+                                type=&quot;number&quot;
+                                sx-model.number=&quot;age&quot;
+                                class=&quot;w-full px-4 py-2 rounded-lg
+                                border border-slate-200
+                                dark:border-slate-700 bg-white
+                                dark:bg-slate-800 focus:ring-2
+                                focus:ring-brand-500 outline-none&quot;&gt;
+                                &lt;/div&gt; &lt;div class=&quot;p-4
+                                bg-brand-50 dark:bg-brand-900/20 rounded-lg
+                                border border-brand-100
+                                dark:border-brand-800&quot;&gt;
+                                &lt;p&gt;sx-text=&quot;greeting&quot;&gt;&lt;/p&gt;
+                                &lt;p class=&quot;font-mono text-brand-700
+                                dark:text-brand-300&quot;
+                                sx-text=&quot;greeting&quot;&gt;&lt;/p&gt;
+                                &lt;/div&gt; &lt;/div&gt; &lt;/div&gt;
+                            </code>
+                        </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 2. Control Flow -->
+            <div id="network" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm"
+                            >
+                                2
+                            </span>
+                            Control Flow
+                        </h2>
+                        <p class="text-slate-600 dark:text-slate-400 mb-6">
+                            Loops with <code>sx-for</code> and memoization with <code
+                                >sx-memo</code
+                            >.
+                        </p>
+                        <div
+                            class="glass rounded-2xl p-8 shadow-xl"
+                            sx-data="{
+                            items: ['Apple', 'Banana', 'Cherry'], newItem: '', add()
+                            { if(this.newItem) { this.items.push(this.newItem);
+                            this.newItem = ''; } }, remove(idx) {
+                            this.items.splice(idx, 1); } }"
+                        >
+                            <div class="flex gap-2 mb-4">
+                                <input
+                                    type="text"
+                                    sx-model="newItem"
+                                    sx-on:keydown.enter="add()"
+                                    placeholder="Add fruit..."
+                                    class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                                <button
+                                    sx-on:click="add()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            <ul class="space-y-2" sx-animate>
+                                <template sx-for="(item, index) in items">
+                                    <li
+                                        class="flex justify-between items-center p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm"
+                                    >
+                                        <span>
+                                            <span class="text-slate-400 mr-2">
+                                                #
+                                                <span sx-text="index + 1"
+                                                ></span>
+                                            </span>
+                                            <span sx-text="item"></span>
+                                        </span>
+                                        <button
+                                            sx-on:click="remove(index)"
+                                            class="text-red-500 hover:text-red-600 text-sm"
+                                        >
+                                            Remove
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode">
+                            <code is:raw class="language-html">
+                                &lt;div sx-data=&quot;{ items:
+                                [&#39;Apple&#39;, &#39;Banana&#39;, &#39;Cherry&#39;],
+                                newItem: &#39;&#39;, add() { if(this.newItem) {
+                                this.items.push(this.newItem); this.newItem =
+                                &#39;&#39;; } }, remove(idx) { this.items.splice(idx,
+                                1); } }&quot;&gt; &lt;div class=&quot;flex gap-2
+                                mb-4&quot;&gt; &lt;input type=&quot;text&quot;
+                                sx-model=&quot;newItem&quot;
+                                sx-on:keydown.enter=&quot;add()&quot;
+                                placeholder=&quot;Add fruit...&quot; class=&quot;flex-1
+                                px-4 py-2 rounded-lg border&quot;&gt; &lt;button
+                                sx-on:click=&quot;add()&quot; class=&quot;bg-blue-600
+                                text-white px-4 py-2
+                                rounded-lg&quot;&gt;Add&lt;/button&gt; &lt;/div&gt;
+                                &lt;ul class=&quot;space-y-2&quot; sx-animate&gt;
+                                &lt;template sx-for=&quot;(item, index) in
+                                items&quot;&gt; &lt;li class=&quot;flex justify-between
+                                items-center p-3 rounded-lg shadow-sm&quot;&gt;
+                                &lt;span&gt; &lt;span class=&quot;text-slate-400
+                                mr-2&quot;&gt;#&lt;span sx-text=&quot;index +
+                                1&quot;&gt;&lt;/span&gt;&lt;/span&gt; &lt;span
+                                sx-text=&quot;item&quot;&gt;&lt;/span&gt; &lt;/span&gt;
+                                &lt;button sx-on:click=&quot;remove(index)&quot;
+                                class=&quot;text-red-500
+                                text-sm&quot;&gt;Remove&lt;/button&gt; &lt;/li&gt;
+                                &lt;/template&gt; &lt;/ul&gt; &lt;/div&gt;
+                            </code>
+                        </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 3. Network Requests -->
+            <div id="network" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 flex items-center justify-center text-sm"
+                            >
+                                3
+                            </span>
+                            Network Requests
+                        </h2>
+
+                        <p class="text-slate-600 dark:text-slate-400 mb-6">
+                            Declarative AJAX with URL templating and JSON
+                            hydration.
+                        </p>
+                        <div
+                            class="glass rounded-2xl p-8 shadow-xl"
+                            sx-data="{postId: 1, post: null, loading: false }"
+                        >
+                            <div class="flex items-center gap-4 mb-6">
+                                <button
+                                    sx-on:click="postId > 1 ? postId-- : null"
+                                    class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    ←
+                                </button>
+                                <span class="font-mono">
+                                    Post ID:
+                                    <span sx-text="postId"></span>
+                                </span>
+                                <button
+                                    sx-on:click="postId++"
+                                    class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    →
+                                </button>
+                                <button
+                                    sx-vars="{ id: postId }"
+                                    sx-get="https://jsonplaceholder.typicode.com/posts/${id}"
+                                    sx-json-into="post"
+                                    sx-on:click="loading = true"
+                                    sx-on:success="loading = false"
+                                    class="ml-auto bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
+                                >
+                                    Fetch JSON
+                                </button>
+                            </div>
+
+                            <div
+                                sx-show="loading"
+                                class="text-center py-8 text-slate-500"
+                            >
+                                Loading...
+                            </div>
+
+                            <div
+                                sx-show="post && !loading"
+                                class="space-y-2 animate-fade-in"
+                            >
+                                <h3
+                                    class="font-bold text-lg"
+                                    sx-text="post?.title"
+                                >
+                                </h3>
+                                <p
+                                    class="text-slate-600 dark:text-slate-400"
+                                    sx-text="post?.body"
+                                >
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode">
+                            <code is:raw class="language-html">
+                                &lt;div sx-data=&quot;{ postId: 1,
+                                post: null, loading: false }&quot;&gt; &lt;div
+                                class=&quot;flex items-center gap-4 mb-6&quot;&gt;
+                                &lt;button sx-on:click=&quot;postId &gt; 1 ? postId-- :
+                                null&quot;&gt;←&lt;/button&gt; &lt;span&gt;Post ID:
+                                &lt;span
+                                sx-text=&quot;postId&quot;&gt;&lt;/span&gt;&lt;/span&gt;
+                                &lt;button
+                                sx-on:click=&quot;postId++&quot;&gt;→&lt;/button&gt;
+                                &lt;button sx-vars=&quot;{ id: postId }&quot;
+                                sx-get=&quot;https://jsonplaceholder.typicode.com/posts/${id}&quot;
+                                sx-json-into=&quot;post&quot; sx-on:click=&quot;loading
+                                = true&quot; sx-on:success=&quot;loading =
+                                false&quot;&gt; Fetch JSON &lt;/button&gt; &lt;/div&gt;
+                                &lt;div
+                                sx-show=&quot;loading&quot;&gt;Loading...&lt;/div&gt;
+                                &lt;div sx-show=&quot;post &amp;&amp; !loading&quot;&gt;
+                                &lt;h3 sx-text=&quot;post?.title&quot;&gt;&lt;/h3&gt;
+                                &lt;p sx-text=&quot;post?.body&quot;&gt;&lt;/p&gt;
+                                &lt;/div&gt; &lt;/div&gt;
+                            </code>
+                        </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 4. Optimistic UI -->
+            <div id="optimistic" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm"
+                            >
+                                4
+                            </span>
+                            Optimistic UI
+                        </h2>
+                        <div
+                            class="glass rounded-2xl p-8 shadow-xl mt-8"
+                            sx-data="{ likes: 0 }"
+                        >
+                            <h3 class="font-bold mb-4">Optimistic UI</h3>
+                            <p class="text-sm text-slate-500 mb-4">
+                                Updates immediately, reverts on error
+                                (simulated).
+                            </p>
+                            <button
+                                sx-post="https://jsonplaceholder.typicode.com/posts"
+                                sx-optimistic="likes++"
+                                sx-revert-on-error="likes--"
+                                class="flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/40 transition-colors"
+                            >
+                                <span> ❤️ </span>
+                                <span sx-text="likes"></span>
+                                Likes
+                            </button>
+                        </div>
+                    </div>
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode">
+                                <code is:raw class="language-html">
+                                    &lt;div sx-data=&quot;{ likes: 0
+                                    }&quot;&gt; &lt;button
+                                    sx-post=&quot;https://jsonplaceholder.typicode.com/posts&quot;
+                                    sx-optimistic=&quot;likes++&quot;
+                                    sx-revert-on-error=&quot;likes--&quot;&gt; ❤️ &lt;span
+                                    sx-text=&quot;likes&quot;&gt;&lt;/span&gt; Likes
+                                    &lt;/button&gt; &lt;/div&gt;
+                                </code>
+                            </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 5. Global State -->
+            <div id="global" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm"
+                            >
+                                5
+                            </span>
+                            Global State
+                        </h2>
+                        <div
+                            class="glass rounded-2xl p-8 shadow-xl"
+                            sx-data="{ g: $store('global') }"
+                        >
+                            <p class="mb-4">
+                                Shared state across components (check the navbar
+                                bell icon!). This store is also persisted to
+                                localStorage.
+                            </p>
+                            <div class="flex justify-center gap-4">
+                                <button
+                                    sx-on:click="g.notifications += 1; console.log(g.notifications);"
+                                    class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg"
+                                >
+                                    Increment Notifications
+                                </button>
+                                <button
+                                    sx-on:click="g.notifications = 0"
+                                    class="bg-slate-200 dark:bg-slate-700 px-6 py-2 rounded-lg"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode">
+                            <code is:raw class="language-html">
+                                &lt;div sx-data=&quot;{ g:
+                                $store(&#39;global&#39;) }&quot;&gt; &lt;button
+                                sx-on:click=&quot;g.notifications += 1&quot;&gt;
+                                Increment Notifications &lt;/button&gt; &lt;button
+                                sx-on:click=&quot;g.notifications = 0&quot;&gt; Clear
+                                &lt;/button&gt; &lt;/div&gt;
+                            </code>
+                        </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 6. Lazy Loading -->
+            <div id="lazy" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex
+                items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full
+                bg-amber-100 dark:bg-amber-900 text-amber-600
+                dark:text-amber-400 flex items-center justify-center text-sm"
+                                >6</span
+                            > Lazy Loading
+                        </h2>
+                        <div
+                            sx-data="{ loaded:
+                false, init() { this.loaded = true; } }"
+                            sx-lazy
+                            class="glass rounded-2xl p-12 shadow-xl text-center
+                transition-all duration-1000 transform translate-y-4"
+                            sx-class="{ 'opacity-100 translate-y-0': loaded, 'opacity-0':
+                !loaded }"
+                        >
+                            <div class="text-6xl mb-4">🚀</div>
+                            <h3 class="text-2xl font-bold mb-2">
+                                I was lazy loaded!
+                            </h3>
+                            <p class="text-slate-600 dark:text-slate-400">
+                                My <code>init()</code> hook only ran when I entered
+                                the viewport.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode">
+                            <code is:raw class="language-html">
+                                &lt;div sx-data=&quot;{ loaded: false,
+                                init() { this.loaded = true } }&quot; sx-lazy
+                                class=&quot;transition-all duration-1000 transform
+                                translate-y-4&quot; sx-class=&quot;{ &#39;opacity-100
+                                translate-y-0&#39;: loaded, &#39;opacity-0&#39;: !loaded
+                                }&quot;&gt; &lt;h3&gt;I was lazy loaded!&lt;/h3&gt; &lt;p&gt;My
+                                init() hook only ran when I entered the viewport.&lt;/p&gt;
+                                &lt;/div&gt;
+                            </code>
+                        </pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 7. Persistent State -->
+            <div id="persist" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex
+                items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full
+                bg-amber-100 dark:bg-amber-900 text-amber-600
+                dark:text-amber-400 flex items-center justify-center text-sm"
+                                >7</span
+                            > Persistent State
+                        </h2>
+                        <div
+                            class="glass
+                rounded-2xl p-8 shadow-xl"
+                            sx-data="{ note: 'Edit me and
+                reload!' }"
+                            sx-local="sprucex-demo-note"
+                        >
+                            <h3
+                                class="text-xl font-bold text-slate-800 dark:text-white mb-4"
+                            >
+                                Sticky Note
+                            </h3>
+                            <p
+                                class="mb-4 text-slate-600
+                dark:text-slate-300"
+                            >
+                                This note is saved to localStorage. Edit it and
+                                reload the page!
+                            </p>
+                            <textarea
+                                sx-model="note"
+                                rows="4"
+                                class="w-full p-3 rounded-lg bg-white/50
+                dark:bg-slate-800/50 border border-slate-200
+                dark:border-slate-700 focus:ring-2 focus:ring-purple-500
+                outline-none transition-all"
+                            ></textarea>
+                            <p
+                                class="mt-2
+                text-sm text-slate-500"
+                            >
+                                Current value: <span sx-text="note"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode"><code is:raw class="language-html">&lt;div sx-data=&quot;{ note: &#39;Edit me
+                and reload!&#39; }&quot;
+                sx-local=&quot;sprucex-demo-note&quot;&gt; &lt;textarea
+                sx-model=&quot;note&quot;&gt;&lt;/textarea&gt; &lt;p&gt;Current
+                value: &lt;span
+                sx-text=&quot;note&quot;&gt;&lt;/span&gt;&lt;/p&gt;
+                &lt;/div&gt;</code></pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 8. Memoization -->
+            <div id="memo" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start">
+                    <div>
+                        <h2
+                            class="text-2xl font-bold mb-6 flex
+                items-center gap-2"
+                        >
+                            <span
+                                class="w-8 h-8 rounded-full
+                bg-amber-100 dark:bg-amber-900 text-amber-600
+                dark:text-amber-400 flex items-center justify-center text-sm"
+                                >8</span
+                            > Memoization
+                        </h2>
+                        <div
+                            class="glass
+                rounded-2xl p-8 shadow-xl"
+                            sx-data="{ a: 10, b: 20, c: 30,
+                expensive(x, y) { // Simulate work return x * y + this.c; } }"
+                        >
+                            <h3 class="font-bold mb-4">Memoization</h3>
+                            <div class="flex gap-4 mb-4">
+                                <input
+                                    type="number"
+                                    sx-model.number="a"
+                                    class="w-20 px-2 py-1 rounded border
+                dark:bg-slate-800 dark:border-slate-700"
+                                />
+                                <span class="self-center">×</span>
+                                <input
+                                    type="number"
+                                    sx-model.number="b"
+                                    class="w-20 px-2 py-1 rounded border
+                dark:bg-slate-800 dark:border-slate-700"
+                                />
+                                <span class="self-center">+</span>
+                                <input
+                                    type="number"
+                                    sx-model.number="c"
+                                    class="w-20 px-2 py-1 rounded border
+                dark:bg-slate-800 dark:border-slate-700"
+                                />
+                            </div>
+                            <div
+                                class="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg"
+                            >
+                                Result: <span
+                                    sx-text="expensive(a, b)"
+                                    sx-memo="['a',
+                'b']"
+                                    class="font-bold text-blue-600"></span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-2">
+                                Result is cached until inputs change.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6" sx-data="{ showCode: false }">
+                        <button
+                            class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                            sx-toggle="showCode"
+                        >
+                            Show Code
+                        </button>
+                        <!-- Code snippet -->
+                        <pre
+                            sx-show="showCode"><code is:raw class="language-html">&lt;div sx-data=&quot;{ a: 10, b: 20, c:
+                30, expensive(x, y) { return x * y + this.c; } }&quot;&gt;
+                &lt;input type=&quot;number&quot;
+                sx-model.number=&quot;a&quot;&gt; × &lt;input
+                type=&quot;number&quot; sx-model.number=&quot;b&quot;&gt; +
+                &lt;input type=&quot;number&quot;
+                sx-model.number=&quot;c&quot;&gt; &lt;div&gt; Result: &lt;span
+                sx-text=&quot;expensive(a, b)&quot; sx-memo=&quot;[&#39;a&#39;,
+                &#39;b&#39;]&quot;&gt; &lt;/span&gt; &lt;/div&gt;
+                &lt;/div&gt;</code></pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 9. Auto-Animate -->
+            <div is:raw id="animate" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-400
+                flex items-center justify-center text-sm" >9</span >
+                Auto-Animate </h2> <p is:raw class="text-slate-600
+                dark:text-slate-400 mb-6"> Smooth animations for list changes
+                with <code is:raw>sx-animate</code>. No CSS required! </p> <div
+                is:raw class="glass rounded-2xl p-8 shadow-xl" sx-data="{
+                colors: ['🔴 Red', '🟠 Orange', '🟡 Yellow', '🟢 Green', '🔵
+                Blue'], shuffle() { for (let i = this.colors.length - 1; i > 0;
+                i--) { const j = Math.floor(Math.random() * (i + 1));
+                [this.colors[i], this.colors[j]] = [this.colors[j],
+                this.colors[i]]; } }, addRandom() { const emojis = ['🟣 Purple',
+                '⚫ Black', '⚪ White', '🟤 Brown', '💗 Pink']; const random =
+                emojis[Math.floor(Math.random() * emojis.length)];
+                this.colors.push(random); }, remove(idx) {
+                this.colors.splice(idx, 1); } }" > <div is:raw class="flex gap-2
+                mb-4 flex-wrap"> <button is:raw sx-on:click="shuffle()"
+                class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2
+                rounded-lg" > 🔀 Shuffle </button> <button is:raw
+                sx-on:click="addRandom()" class="bg-emerald-600
+                hover:bg-emerald-700 text-white px-4 py-2 rounded-lg" > ➕ Add
+                </button>
+            </div>
+            <ul is:raw class="space-y-2" sx-animate='{"duration": 300}'>
+                <template is:raw sx-for="(color, index) in colors"> <li is:raw
+                class="flex justify-between items-center p-3 bg-white
+                dark:bg-slate-800 rounded-lg shadow-sm" > <span is:raw
+                sx-text="color"></span> <button is:raw
+                sx-on:click="remove(index)" class="text-red-500
+                hover:text-red-600 text-sm" > ✕ </button> </li> </template>
+            </ul>
+            <p is:raw class="text-xs text-slate-500 mt-4">
+                Items smoothly animate in, out, and when reordered.
+            </p>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;ul
+                sx-animate="{&quot;duration&quot;: 300}"&gt; &lt;template
+                sx-for="(color, index) in colors"&gt; &lt;li&gt; &lt;span
+                sx-text="color"&gt;&lt;/span&gt; &lt;button
+                sx-on:click="remove(index)"&gt;✕&lt;/button&gt; &lt;/li&gt;
+                &lt;/template&gt; &lt;/ul&gt;</code></pre>
+            </div>
+
+            <!-- 10. Polling -->
+            <div is:raw id="polling" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-400
+                flex items-center justify-center text-sm" >10</span > Polling
+                </h2> <p is:raw class="text-slate-600 dark:text-slate-400 mb-6">
+                Keep data fresh with <code is:raw>sx-poll</code>. </p> <div
+                is:raw class="glass rounded-2xl p-8 shadow-xl" sx-data="{
+                updated: 'Never', user: null }" > <div is:raw class="flex
+                items-center justify-between mb-4" > <h3 is:raw
+                class="font-bold">Live Data</h3> <span is:raw class="text-xs
+                text-slate-500" >Updates every 5s</span >
+            </div>
+
+            <div
+                is:raw
+                sx-get="https://jsonplaceholder.typicode.com/users/1"
+                sx-poll="5000"
+                sx-json-into="user"
+                sx-on:success="updated = new Date().toLocaleTimeString()"
+                class="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+            >
+                <div is:raw sx-show="!user && updated === 'Never'"> Waiting for
+                update...
+            </div>
+
+            <div is:raw sx-show="updated !== 'Never'" class="animate-fade-in">
+                <p is:raw class="font-medium" sx-text="user?.name" ></p> <p
+                is:raw class="text-sm text-slate-500" sx-text="user?.email"
+                ></p> <div is:raw class="mt-3 text-xs text-cyan-600 bg-cyan-50
+                dark:bg-cyan-900/20 py-1 px-2 rounded inline-block" > Last
+                update: <span is:raw sx-text="updated"></span>
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-data=&quot;{ updated: &#39;Never&#39;, user: null }&quot;&gt;
+                &lt;div
+                sx-get=&quot;https://jsonplaceholder.typicode.com/users/1&quot;
+                sx-poll=&quot;5000&quot; sx-json-into=&quot;user&quot;
+                sx-on:success=&quot;updated = new
+                Date().toLocaleTimeString()&quot;&gt; &lt;div
+                sx-show=&quot;updated !== &#39;Never&#39;&quot;&gt; &lt;p
+                sx-text=&quot;user?.name&quot;&gt;&lt;/p&gt; &lt;p&gt;Last
+                update: &lt;span
+                sx-text=&quot;updated&quot;&gt;&lt;/span&gt;&lt;/p&gt;
+                &lt;/div&gt; &lt;/div&gt; &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 11. Component References -->
+            <div is:raw id="refs" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-teal-100 dark:bg-teal-900 text-teal-600 dark:text-teal-400
+                flex items-center justify-center text-sm" >11</span > Refs </h2>
+                <p is:raw class="text-slate-600 dark:text-slate-400 mb-6">
+                Access DOM elements directly with <code is:raw>sx-ref</code> and
+                <code is:raw>$refs</code>. </p> <div is:raw class="glass
+                rounded-2xl p-8 shadow-xl" sx-data="{}" > <div is:raw
+                class="flex gap-2 mb-4"> <input is:raw type="text"
+                sx-ref="inputRef" placeholder="I have a ref..." class="flex-1
+                px-4 py-2 rounded-lg border border-slate-200
+                dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2
+                focus:ring-teal-500 outline-none" />
+            </div>
+            <div is:raw class="flex gap-2">
+                <button is:raw sx-on:click="$refs.inputRef.focus()"
+                class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2
+                rounded-lg text-sm" > Focus Input </button> <button is:raw
+                sx-on:click="$refs.inputRef.value = 'Hello via Ref!'"
+                class="bg-slate-200 dark:bg-slate-700 px-4 py-2 rounded-lg
+                text-sm" > Set Value </button>
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-data=&quot;{}&quot;&gt; &lt;input type=&quot;text&quot;
+                sx-ref=&quot;inputRef&quot;&gt; &lt;button
+                sx-on:click=&quot;$refs.inputRef.focus()&quot;&gt; Focus Input
+                &lt;/button&gt; &lt;button
+                sx-on:click=&quot;$refs.inputRef.value =
+                &#39;Hello!&#39;&quot;&gt; Set Value &lt;/button&gt;
+                &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 12. Error Handling -->
+            <div is:raw id="error" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 flex
+                items-center justify-center text-sm" >12</span > Error Fallback
+                </h2> <p is:raw class="text-slate-600 dark:text-slate-400 mb-6">
+                Gracefully handle missing data or errors with <code
+                is:raw>sx-error-fallback</code>. </p> <div is:raw class="glass
+                rounded-2xl p-8 shadow-xl" sx-data="{ broken: null }" > <div
+                is:raw class="space-y-4"> <div is:raw class="p-4 bg-red-50
+                dark:bg-red-900/20 border border-red-100 dark:border-red-800
+                rounded-lg" > <p is:raw class="text-sm text-slate-500 mb-1">
+                Attempting to read <code is:raw>broken.value</code>: </p> <p
+                is:raw class="font-bold text-red-600 dark:text-red-400"
+                sx-text="broken.value" sx-error-fallback="Error: Data is missing
+                (Expected)" ></p>
+            </div>
+
+            <p is:raw class="text-sm text-slate-500">
+                Without fallback, this would log an error to the console.
+            </p>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-data=&quot;{ broken: null }&quot;&gt; &lt;p
+                sx-text=&quot;broken.value&quot; sx-error-fallback=&quot;Error:
+                Data is missing&quot;&gt; &lt;/p&gt; &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 13. Event Modifiers -->
+            <div is:raw id="modifiers" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-indigo-100 dark:bg-indigo-900 text-indigo-600
+                dark:text-indigo-400 flex items-center justify-center text-sm"
+                >13</span > Event Modifiers </h2> <p is:raw
+                class="text-slate-600 dark:text-slate-400 mb-6"> Control event
+                propagation and default behavior easily. </p> <div is:raw
+                class="glass rounded-2xl p-8 shadow-xl" sx-data="{ log: [] }" >
+                <div is:raw class="space-y-4"> <div is:raw class="p-6
+                bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer
+                hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                sx-on:click="log.unshift('Outer clicked')" > <span is:raw
+                class="text-sm font-bold block mb-2" >Outer Div (logs
+                click)</span > <button is:raw
+                sx-on:click.stop="log.unshift('Inner clicked (Propagation
+                Stopped)')" class="bg-indigo-600 text-white px-4 py-2 rounded
+                shadow-lg hover:bg-indigo-700 transition-colors" > Click Me
+                (Stop Prop) </button>
+            </div>
+
+            <div
+                is:raw
+                class="h-32 overflow-y-auto bg-black text-green-400 font-mono text-xs p-4 rounded-lg"
+            >
+                <template is:raw sx-for="msg in log"> <div is:raw class="mb-1">
+                &gt; <span is:raw sx-text="msg"></span>
+            </div>
+
+            <div
+                is:raw
+                sx-show="log.length === 0"
+                class="text-slate-500 italic"
+            >
+                Event log...
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-data=&quot;{ log: [] }&quot;&gt; &lt;div
+                sx-on:click=&quot;log.push(&#39;Outer&#39;)&quot;&gt; Outer
+                &lt;button sx-on:click.stop=&quot;log.push(&#39;Inner
+                (Stop)&#39;)&quot;&gt; Click Me &lt;/button&gt; &lt;/div&gt;
+                &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 14. Raw HTML -->
+            <div is:raw id="html" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-orange-100 dark:bg-orange-900 text-orange-600
+                dark:text-orange-400 flex items-center justify-center text-sm"
+                >14</span > Raw HTML </h2> <p is:raw class="text-slate-600
+                dark:text-slate-400 mb-6"> Render HTML content safely with <code
+                is:raw>sx-html</code>. </p> <div is:raw class="glass rounded-2xl
+                p-8 shadow-xl" sx-data="{ content: '<b>Bold</b> and
+                <i>Italic</i>' }" > <div is:raw class="space-y-4"> <div is:raw>
+                <label is:raw class="block text-sm font-medium mb-1" >Edit
+                HTML</label > <input is:raw type="text" sx-model="content"
+                class="w-full px-4 py-2 rounded-lg border border-slate-200
+                dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+                />
+            </div>
+            <div
+                is:raw
+                class="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-lg"
+            >
+                <p is:raw class="text-sm text-slate-500 mb-1"> Rendered Output:
+                </p> <div is:raw sx-html="content" class="text-lg" >
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-data=&quot;{ content: &#39;&lt;b&gt;Bold&lt;/b&gt;&#39;
+                }&quot;&gt; &lt;input type=&quot;text&quot;
+                sx-model=&quot;content&quot;&gt; &lt;div
+                sx-html=&quot;content&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 15. Form Inclusion -->
+            <div is:raw id="form" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-lime-100 dark:bg-lime-900 text-lime-600 dark:text-lime-400
+                flex items-center justify-center text-sm" >15</span > Form
+                Inclusion </h2> <p is:raw class="text-slate-600
+                dark:text-slate-400 mb-6"> Include data from other elements in
+                requests using <code is:raw>sx-include</code>. </p> <div is:raw
+                class="glass rounded-2xl p-8 shadow-xl" sx-data="{ response:
+                null }" > <div is:raw class="space-y-4"> <form is:raw
+                id="search-form" onsubmit="event.preventDefault()" > <label
+                is:raw class="block text-sm font-medium mb-1" >Search
+                Query</label > <input is:raw type="text" name="q" value="spruce"
+                class="w-full px-4 py-2 rounded-lg border border-slate-200
+                dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+                /> </form> <button is:raw
+                sx-get="https://jsonplaceholder.typicode.com/posts"
+                sx-include="#search-form" sx-json-into="response"
+                class="bg-lime-600 text-white px-4 py-2 rounded-lg
+                hover:bg-lime-700 transition-colors" > Search (Simulated)
+                </button> <div is:raw sx-show="response" class="text-xs
+                font-mono bg-slate-900 text-lime-400 p-4 rounded-lg
+                overflow-x-auto" > <div is:raw sx-text="JSON.stringify(response,
+                null, 2)" >
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;form
+                id=&quot;search-form&quot;&gt; &lt;input name=&quot;q&quot;
+                value=&quot;spruce&quot;&gt; &lt;/form&gt; &lt;button
+                sx-get=&quot;/api/search&quot;
+                sx-include=&quot;#search-form&quot;&gt; Search
+                &lt;/button&gt;</code></pre>
+            </div>
+
+            <!-- 16. SPA Boosting -->
+            <div is:raw id="boost" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-600
+                dark:text-fuchsia-400 flex items-center justify-center text-sm"
+                >16</span > SPA Boosting </h2> <p is:raw class="text-slate-600
+                dark:text-slate-400 mb-6"> Turn standard links into SPA
+                navigation with prefetching using <code is:raw>sx-boost</code>.
+                </p> <div is:raw class="glass rounded-2xl p-8 shadow-xl"
+                sx-data="{}" > <div is:raw class="space-y-4 text-center"> <p
+                is:raw class="mb-4"> Hover over the link below to prefetch,
+                click to navigate without full reload. </p> <div is:raw sx-boost
+                class="inline-block"> <a is:raw href="/examples"
+                class="inline-flex items-center gap-2 text-fuchsia-600
+                dark:text-fuchsia-400 hover:underline text-lg font-medium" >
+                <span is:raw>🚀</span> Boosted Link (This Page) </a>
+            </div>
+
+            <p is:raw class="text-xs text-slate-500 mt-4">
+                Check the Network tab to see the prefetch request on hover!
+            </p>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;div
+                sx-boost&gt; &lt;a href=&quot;/other-page&quot;&gt; Boosted Link
+                &lt;/a&gt; &lt;/div&gt;</code></pre>
+            </div>
+
+            <!-- 17. Binding & Swapping -->
+            <div is:raw id="bind" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-indigo-100 dark:bg-indigo-900 text-indigo-600
+                dark:text-indigo-400 flex items-center justify-center text-sm"
+                >17</span > Binding & Swapping </h2> <p is:raw
+                class="text-slate-600 dark:text-slate-400 mb-6"> Bind attributes
+                dynamically with <code is:raw>sx-bind</code> and swap HTML
+                content from requests. </p> <div is:raw class="glass rounded-2xl
+                p-8 shadow-xl" sx-data="{ imageUrl:
+                'https://via.assets.so/img.jpg?text=Gray&w=100&h=100&bg=e5e7eb&fontColor=000000',
+                isGray: false, toggle() { this.isGray = !this.isGray;
+                this.imageUrl = this.isGray ?
+                'https://via.assets.so/img.jpg?text=Gray&w=100&h=100&bg=e5e7eb&fontColor=000000'
+                :
+                'https://via.assets.so/img.jpg?text=Blue&w=100&h=100&bg=dbeafe&fontColor=000000';
+                } }" > <div is:raw class="flex items-center gap-6"> <img is:raw
+                sx-bind:src="imageUrl" sx-bind:alt="isGray ? 'Gray Placeholder'
+                : 'Blue Placeholder'" class="rounded-lg shadow-md transition-all
+                duration-300 w-24 h-24" sx-class="{ 'grayscale': isGray }" />
+                <div is:raw class="space-y-2"> <button is:raw
+                sx-on:click="toggle()" class="text-sm bg-slate-900 dark:bg-white
+                text-white dark:text-slate-900 px-4 py-2 rounded-lg" > Toggle
+                Image </button> <div is:raw class="text-xs text-slate-500"> <p
+                is:raw> Src: <span is:raw sx-text="imageUrl"></span> </p>
+            </div>
+
+            <div
+                is:raw
+                class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700"
+            >
+                <h3 is:raw class="font-bold text-sm mb-2"> HTML Swap Demo </h3>
+                <button is:raw
+                sx-get="https://jsonplaceholder.typicode.com/users/1"
+                sx-swap="innerHTML" sx-target="#swap-target" class="text-sm
+                border border-slate-300 dark:border-slate-600 px-3 py-1 rounded
+                hover:bg-slate-100 dark:hover:bg-slate-800" > Load Content
+                </button> <div is:raw id="swap-target" class="mt-2 p-2
+                bg-slate-50 dark:bg-slate-900/50 rounded text-xs font-mono h-20
+                overflow-auto" > (Content will appear here)
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;img
+                sx-bind:src=&quot;imageUrl&quot; sx-class=&quot;{
+                &#39;grayscale&#39;: isGray }&quot;&gt; &lt;button
+                sx-get=&quot;/api/content&quot; sx-swap=&quot;innerHTML&quot;
+                sx-target=&quot;#target&quot;&gt; Load
+                &lt;/button&gt;</code></pre>
+            </div>
+
+            <!-- 18. Holiday Theme -->
+            <div is:raw id="holiday" class="scroll-mt-24">
+                <section class="grid md:grid-cols-2 gap-12 items-start"> <div
+                is:raw> <h2 is:raw class="text-2xl font-bold mb-6 flex
+                items-center gap-2" > <span is:raw class="w-8 h-8 rounded-full
+                bg-green-100 dark:bg-green-900 text-green-600
+                dark:text-green-400 flex items-center justify-center text-sm"
+                >18</span > Holiday Theme </h2> <p is:raw class="text-slate-600
+                dark:text-slate-400 mb-6"> Add seasonal decorations to your logo
+                based on the date (December-January). </p> <div is:raw
+                class="glass rounded-2xl p-8 shadow-xl" sx-data="{
+                isHolidaySeason: (() => { const m = new Date().getMonth();
+                return m === 11 || m === 0; })() }" > <div is:raw class="flex
+                flex-col items-center gap-6"> <div is:raw class="relative"> <img
+                is:raw src="/logo.svg" alt="SpruceX" width="120" height="120" />
+            </div>
+            <div is:raw class="text-center">
+                <p is:raw class="text-sm text-slate-600 dark:text-slate-400
+                mb-2" > Current month: <span is:raw sx-text="new
+                Date().toLocaleString('default', { month: 'long' })" ></span>
+                </p> <p is:raw class="text-xs"> <span is:raw
+                sx-show="isHolidaySeason" class="text-green-600
+                dark:text-green-400" >🎄 Holiday decorations visible!</span >
+                <span is:raw sx-show="!isHolidaySeason" class="text-slate-500"
+                >Regular logo (decorations hidden)</span > </p>
+            </div>
+
+            <div is:raw class="space-y-6" sx-data="{ showCode: false }">
+                <button is:raw class="px-8 py-3.5 rounded-xl bg-slate-900
+                dark:bg-white text-white dark:text-slate-900 font-semibold
+                hover:opacity-90 transition-opacity shadow-xl"
+                sx-toggle="showCode" > Show Code </button> <p is:rawre
+                sx-show="showCode" ><code is:raw class="language-html">&lt;svg
+                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"
+                width="120" height="120"&gt; &lt;defs&gt; &lt;linearGradient
+                id="holidayGrad" x1="0%" y1="0%" x2="100%" y2="100%"&gt;
+                &lt;stop offset="0%" stopColor="#10B981"/&gt; &lt;stop
+                offset="100%" stopColor="#065F46"/&gt; &lt;/linearGradient&gt;
+                &lt;/defs&gt; &lt;!-- Base Tree --&gt; &lt;path d="M64 16 L82 42
+                L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42
+                Z" fill="url(#holidayGrad)"/&gt; &lt;rect x="58" y="88"
+                width="12" height="14" rx="2" fill="#78350F"/&gt; &lt;!--
+                Holiday Decorations --&gt; &lt;g sx-show="isHolidaySeason"&gt;
+                &lt;!-- Star --&gt; &lt;polygon points="64,6 67,14 76,14 69,19
+                71,28 64,23 57,28 59,19 52,14 61,14" fill="#FBBF24"/&gt; &lt;!--
+                Blinking Ornaments --&gt; &lt;circle cx="64" cy="36" r="4"
+                fill="#EF4444"&gt; &lt;animate attributeName="opacity"
+                values="1;0.6;1" dur="1.5s" repeatCount="indefinite"/&gt;
+                &lt;/circle&gt; &lt;circle cx="52" cy="55" r="4"
+                fill="#3B82F6"&gt; &lt;animate attributeName="opacity"
+                values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"
+                begin="0.3s"/&gt; &lt;/circle&gt; &lt;circle cx="76" cy="55"
+                r="4" fill="#EF4444"&gt; &lt;animate attributeName="opacity"
+                values="1;0.6;1" dur="1.5s" repeatCount="indefinite"
+                begin="0.6s"/&gt; &lt;/circle&gt; &lt;circle cx="64" cy="75"
+                r="4" fill="#A855F7"&gt; &lt;animate attributeName="opacity"
+                values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"
+                begin="0.9s"/&gt; &lt;/circle&gt; &lt;/g&gt; &lt;/svg&gt;
+                &lt;script&gt; // Check if it's December or January const month
+                = new Date().getMonth(); const isHolidaySeason = month === 11 ||
+                month === 0; &lt;/script&gt;</code></pre>
+            </div>
+
+            <!-- Footer -->
+        </div>
+    </section>
+</Layout>
