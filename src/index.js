@@ -11,15 +11,70 @@ import { Component } from "./core/component.js";
 import { setAutoAnimate, getAutoAnimate } from "./utils/animations.js";
 import { morphNodes } from "./utils/morph.js";
 import { walk } from "./utils/helpers.js";
+import {
+  DATA_FACTORY_NOT_READY_ERROR,
+  getDataFactory,
+  registerDataFactory,
+} from "./utils/data-factories.js";
 
 // Page/boost cache for prefetching
 const pageCache = new Map();
 const pendingFetches = new Map();
 const PAGE_CACHE_TTL = 30000; // 30 seconds
+const pendingRoots = new Set();
+let pendingRootFlushQueued = false;
+let pendingRootPollTimer = null;
+
+function ensurePendingRootPolling() {
+  if (pendingRootPollTimer || pendingRoots.size === 0) return;
+  pendingRootPollTimer = setInterval(() => {
+    flushPendingRoots();
+  }, 100);
+}
+
+function flushPendingRoots() {
+  pendingRoots.forEach((root) => {
+    if (!root || !root.isConnected || root.__sprucex) {
+      pendingRoots.delete(root);
+      return;
+    }
+    const comp = initSpruceXRoot(root);
+    if (comp) {
+      pendingRoots.delete(root);
+    }
+  });
+
+  if (pendingRoots.size === 0 && pendingRootPollTimer) {
+    clearInterval(pendingRootPollTimer);
+    pendingRootPollTimer = null;
+  }
+}
+
+function queuePendingRoot(root) {
+  if (!root || root.__sprucex) return;
+  const wasPending = pendingRoots.has(root);
+  pendingRoots.add(root);
+  ensurePendingRootPolling();
+
+  if (wasPending || pendingRootFlushQueued) return;
+  pendingRootFlushQueued = true;
+  queueMicrotask(() => {
+    pendingRootFlushQueued = false;
+    flushPendingRoots();
+  });
+}
 
 export const SpruceX = {
   init: initSpruceX,
   store: initStore,
+  data(name, factory) {
+    if (arguments.length === 1 && typeof name === "string") {
+      return getDataFactory(name);
+    }
+    const result = registerDataFactory(name, factory);
+    flushPendingRoots();
+    return result;
+  },
   inspect() {
     const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
     return Array.from(roots).map((r) => ({
@@ -96,9 +151,18 @@ function runBootHook() {
 
 function initSpruceXRoot(root) {
   if (root.__sprucex) return root.__sprucex;
-  const comp = new Component(root);
-  root.__sprucex = comp;
-  return comp;
+  try {
+    const comp = new Component(root);
+    root.__sprucex = comp;
+    return comp;
+  } catch (e) {
+    if (e && e.code === DATA_FACTORY_NOT_READY_ERROR) {
+      queuePendingRoot(root);
+      return null;
+    }
+    console.error("SpruceX component init error:", e);
+    return null;
+  }
 }
 
 export function initSpruceX() {
@@ -134,6 +198,7 @@ export function initSpruceX() {
 
   // Initialize auto-cleanup
   initAutoCleanup();
+  flushPendingRoots();
 
   // Mark all initial scripts as executed
   Array.from(document.scripts).forEach((script) => {
@@ -455,6 +520,9 @@ function getCachedPage(url) {
 // Auto-start
 if (typeof document !== "undefined") {
   runBootHook();
+  window.addEventListener("load", () => {
+    flushPendingRoots();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSpruceX);
@@ -478,7 +546,18 @@ function runScript(script) {
   Array.from(script.attributes).forEach((attr) => {
     newScript.setAttribute(attr.name, attr.value);
   });
+  if (newScript.src) {
+    newScript.addEventListener("load", () => flushPendingRoots(), {
+      once: true,
+    });
+    newScript.addEventListener("error", () => flushPendingRoots(), {
+      once: true,
+    });
+  }
   newScript.textContent = script.textContent;
   newScript.__sprucex_executed = true;
   script.replaceWith(newScript);
+  if (!newScript.src) {
+    queueMicrotask(() => flushPendingRoots());
+  }
 }

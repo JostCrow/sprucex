@@ -60,6 +60,13 @@ import { globalStores, storeSubscribers, getStore } from "../store/index.js";
 import { getAutoAnimate } from "../utils/animations.js";
 import { evalInScope, safeEval, execInScope } from "../utils/eval.js";
 import { morphNodes } from "../utils/morph.js";
+import {
+  getDataFactory,
+  getDataExpressionReference,
+  isFactoryLikeDataExpression,
+  resolveGlobalDataReference,
+  createDataFactoryNotReadyError,
+} from "../utils/data-factories.js";
 
 // We need to split Component because it's huge.
 // But for now, I'll write the class as is, importing dependencies.
@@ -121,32 +128,33 @@ export class Component {
       this.updatePending = false;
       this.rafId = null;
 
-      // Check if an input inside a for-block is focused
+      // Check if a text-entry control inside a for-block is focused.
+      // We intentionally do not include checkbox/radio/select/button controls,
+      // because those interactions should immediately reflect loop updates.
       const activeEl = document.activeElement;
+      const isTextInput =
+        activeEl &&
+        activeEl.tagName === "INPUT" &&
+        ![
+          "checkbox",
+          "radio",
+          "button",
+          "submit",
+          "reset",
+          "file",
+          "color",
+          "range",
+          "hidden",
+        ].includes((activeEl.type || "text").toLowerCase());
       const isInputFocused =
         activeEl &&
-        (activeEl.tagName === "INPUT" ||
-          activeEl.tagName === "TEXTAREA" ||
-          activeEl.tagName === "SELECT" ||
-          activeEl.isContentEditable);
+        (isTextInput || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
 
-      // Check if the focused input is inside a for-block
-      const isInsideForBlock =
-        isInputFocused &&
-        this.root.contains(activeEl) &&
-        this.forBlocks.some((block) => {
-          return block.instances.some(
-            (inst) =>
-              inst.elements &&
-              inst.elements.some((el) => el.contains(activeEl)),
-          );
-        });
-
-      // Skip for-block re-rendering if input is focused inside one
-      // This prevents focus flicker while typing
-      if (!isInsideForBlock) {
-        this.renderForBlocks();
-      }
+      // Preserve focus while typing by skipping only the focused loop block,
+      // not all sx-for blocks in the component.
+      const focusedForInput =
+        isInputFocused && this.root.contains(activeEl) ? activeEl : null;
+      this.renderForBlocks(focusedForInput);
 
       this.updateBindings();
       this.modelBindings.forEach((mb) => mb.updateDom());
@@ -157,7 +165,15 @@ export class Component {
   }
 
   initState() {
-    const rawExpr = this.root.getAttribute(ATTR_DATA) || "{}";
+    const rawExpr = (this.root.getAttribute(ATTR_DATA) || "{}").trim();
+
+    const storeAccessor = (name) => {
+      const store = getStore(name);
+      if (store && storeSubscribers[name]) {
+        storeSubscribers[name].add(this);
+      }
+      return store;
+    };
 
     let raw;
     const jsonScript = this.root.querySelector("script[sx-init-data]");
@@ -172,19 +188,69 @@ export class Component {
         raw = {};
       }
     } else {
+      const dataRef = getDataExpressionReference(rawExpr);
+      const registeredFactory = dataRef ? getDataFactory(dataRef) : undefined;
+      const globalFactory = dataRef
+        ? resolveGlobalDataReference(dataRef)
+        : undefined;
+      const resolvedFactory =
+        registeredFactory !== undefined ? registeredFactory : globalFactory;
+
       try {
-        const fn = new Function("$store", `return (${rawExpr});`);
-        raw = fn((name) => {
-          const store = getStore(name);
-          if (store && storeSubscribers[name]) {
-            storeSubscribers[name].add(this);
+        if (dataRef && resolvedFactory !== undefined) {
+          const callExprMatch = rawExpr.match(
+            /^([A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)\s*\(([\s\S]*)\)$/,
+          );
+          const isDirectCallExpr =
+            !!callExprMatch && callExprMatch[1] === dataRef;
+          if (isDirectCallExpr && typeof resolvedFactory === "function") {
+            const argsSource = callExprMatch[2].trim();
+            const args = argsSource
+              ? new Function(
+                  "$store",
+                  "$data",
+                  `return [${argsSource}];`,
+                )(storeAccessor, getDataFactory)
+              : [];
+            raw = resolvedFactory.apply(this.root, args);
+          } else if (rawExpr === dataRef && typeof resolvedFactory === "function") {
+            raw = resolvedFactory.call(this.root);
+          } else if (rawExpr === dataRef) {
+            raw = resolvedFactory;
+          } else {
+            const fn = new Function(
+              "$store",
+              "$data",
+              `return (${rawExpr});`,
+            );
+            raw = fn(storeAccessor, getDataFactory);
           }
-          return store;
-        });
+        } else {
+          const fn = new Function("$store", "$data", `return (${rawExpr});`);
+          raw = fn(storeAccessor, getDataFactory);
+        }
       } catch (e) {
+        const missingReference =
+          e instanceof ReferenceError ||
+          /is not defined/.test(String(e && e.message ? e.message : ""));
+        if (missingReference && isFactoryLikeDataExpression(rawExpr)) {
+          throw createDataFactoryNotReadyError(rawExpr, e);
+        }
         console.error("SpruceX sx-data parse error:", rawExpr, e);
         raw = {};
       }
+    }
+
+    if (typeof raw === "function") {
+      try {
+        raw = raw.call(this.root);
+      } catch (e) {
+        console.error("SpruceX sx-data factory execution error:", rawExpr, e);
+        raw = {};
+      }
+    }
+    if (raw == null || typeof raw !== "object") {
+      raw = {};
     }
 
     const localKey = this.root.getAttribute(ATTR_LOCAL);
@@ -1609,9 +1675,77 @@ export class Component {
     }
   }
 
-  renderForBlocks() {
-    this.forBlocks.forEach((block) => {
+  isForBlockDetached(block) {
+    if (!block) return true;
+    const { parent, marker } = block;
+    if (!parent || !marker) return true;
+    if (!parent.isConnected || !marker.isConnected) return true;
+    if (marker.parentNode !== parent) return true;
+    return false;
+  }
+
+  teardownForBlock(block) {
+    if (!block) return;
+
+    const instances = Array.isArray(block.instances) ? [...block.instances] : [];
+    instances.forEach((inst) => {
+      if (inst.elements) {
+        inst.elements.forEach((el) => el.remove());
+      } else if (inst.fragmentRoot) {
+        inst.fragmentRoot.remove();
+      }
+      this.cleanupInstanceBindings(inst.bindings);
+    });
+
+    if (block.instances) block.instances.length = 0;
+
+    const idx = this.forBlocks.indexOf(block);
+    if (idx !== -1) this.forBlocks.splice(idx, 1);
+  }
+
+  teardownDetachedForBlocks() {
+    this.forBlocks.slice().forEach((block) => {
+      if (this.isForBlockDetached(block)) {
+        this.teardownForBlock(block);
+      }
+    });
+  }
+
+  teardownAllForBlocks() {
+    this.forBlocks.slice().forEach((block) => this.teardownForBlock(block));
+    this.forBlocks = [];
+  }
+
+  renderForBlocks(focusedEl = null) {
+    this.teardownDetachedForBlocks();
+
+    // Queue-style traversal: nested blocks created while scanning are processed
+    // in this same render cycle instead of waiting for another update.
+    let blockIndex = 0;
+    while (blockIndex < this.forBlocks.length) {
+      const block = this.forBlocks[blockIndex];
+      if (!block) {
+        blockIndex += 1;
+        continue;
+      }
+      if (this.isForBlockDetached(block)) {
+        this.teardownForBlock(block);
+        continue;
+      }
+
       const { def, template, parent, marker, instances, parentLocals } = block;
+
+      const skipFocusedBlock =
+        focusedEl &&
+        block.instances.some(
+          (inst) =>
+            inst.elements &&
+            inst.elements.some((el) => el.contains(focusedEl)),
+        );
+      if (skipFocusedBlock) {
+        blockIndex += 1;
+        continue;
+      }
 
       // For nested loops, set the parent locals before evaluating
       const prevLocals = this.locals;
@@ -1739,7 +1873,8 @@ export class Component {
       // Replace instances array with new order
       block.instances.length = 0;
       block.instances.push(...newInstances);
-    });
+      blockIndex += 1;
+    }
   }
 
   scanFragmentBindings(rootNode, locals) {
@@ -2083,24 +2218,26 @@ export class Component {
   }
 
   cleanupInstanceBindings(instanceBindings) {
+    if (!instanceBindings) return;
+
     // Remove bindings from main arrays
-    instanceBindings.bindings.forEach((b) => {
+    (instanceBindings.bindings || []).forEach((b) => {
       const idx = this.bindings.indexOf(b);
       if (idx !== -1) this.bindings.splice(idx, 1);
     });
 
-    instanceBindings.memoBindings.forEach((b) => {
+    (instanceBindings.memoBindings || []).forEach((b) => {
       const idx = this.memoBindings.indexOf(b);
       if (idx !== -1) this.memoBindings.splice(idx, 1);
     });
 
-    instanceBindings.modelBindings.forEach((b) => {
+    (instanceBindings.modelBindings || []).forEach((b) => {
       const idx = this.modelBindings.indexOf(b);
       if (idx !== -1) this.modelBindings.splice(idx, 1);
     });
 
     // Remove event handlers
-    instanceBindings.eventHandlers.forEach(({ el, event, handler }) => {
+    (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
       // For delegated events, we don't track them in instanceBindings.eventHandlers usually
       // But if we did (non-delegated), remove them
       el.removeEventListener(event, handler);
@@ -2108,6 +2245,12 @@ export class Component {
         (h) => h.el === el && h.event === event && h.handler === handler,
       );
       if (idx !== -1) this.eventHandlers.splice(idx, 1);
+    });
+
+    // Recursively remove nested sx-for blocks created for this instance.
+    // If these remain in forBlocks, they keep stale locals and continue rendering.
+    instanceBindings.nestedForBlocks?.forEach((block) => {
+      this.teardownForBlock(block);
     });
   }
 
@@ -2247,6 +2390,7 @@ export class Component {
     this.teardownGridBindings();
     this.clearDebounceTimers();
     this.clearEmitterHandlers();
+    this.teardownAllForBlocks();
 
     this.bindings = [];
     this.memoBindings = [];
@@ -2296,6 +2440,7 @@ export class Component {
     this.animatedElements.clear();
     this.teardownChartBindings();
     this.teardownGridBindings();
+    this.teardownAllForBlocks();
 
     // Clean up event handlers
     this.eventHandlers.forEach(({ el, event, handler }) => {

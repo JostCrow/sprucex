@@ -496,6 +496,64 @@
     }
   }
 
+  // src/utils/data-factories.js
+  var DATA_FACTORY_NOT_READY_ERROR = "SPRUCEX_DATA_FACTORY_NOT_READY";
+  var dataFactories = Object.create(null);
+  function getDataFactory(name) {
+    if (!name || typeof name !== "string")
+      return;
+    return dataFactories[name];
+  }
+  function registerDataFactory(name, factory) {
+    if (name && typeof name === "object" && !Array.isArray(name)) {
+      Object.entries(name).forEach(([key, value]) => {
+        registerDataFactory(key, value);
+      });
+      return dataFactories;
+    }
+    if (typeof name !== "string" || !name.trim())
+      return;
+    if (arguments.length === 1)
+      return getDataFactory(name);
+    dataFactories[name] = factory;
+    return factory;
+  }
+  function getDataExpressionReference(rawExpr) {
+    const expr = String(rawExpr || "").trim();
+    if (!expr)
+      return null;
+    const identifierPath = /^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*$/;
+    if (identifierPath.test(expr))
+      return expr;
+    const callMatch = expr.match(/^([A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)\s*\(/);
+    if (callMatch)
+      return callMatch[1];
+    return null;
+  }
+  function isFactoryLikeDataExpression(rawExpr) {
+    return !!getDataExpressionReference(rawExpr);
+  }
+  function resolveGlobalDataReference(reference) {
+    if (!reference || typeof reference !== "string")
+      return;
+    const root = typeof window !== "undefined" ? window : globalThis;
+    let cur = root;
+    for (const segment of reference.split(".")) {
+      if (cur == null)
+        return;
+      cur = cur[segment];
+    }
+    return cur;
+  }
+  function createDataFactoryNotReadyError(rawExpr, cause = null) {
+    const err = new Error(`SpruceX sx-data factory not ready: ${rawExpr}`);
+    err.code = DATA_FACTORY_NOT_READY_ERROR;
+    err.rawExpr = rawExpr;
+    if (cause)
+      err.cause = cause;
+    return err;
+  }
+
   // src/core/component.js
   class Component {
     constructor(root) {
@@ -546,13 +604,20 @@
         this.updatePending = false;
         this.rafId = null;
         const activeEl = document.activeElement;
-        const isInputFocused = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT" || activeEl.isContentEditable);
-        const isInsideForBlock = isInputFocused && this.root.contains(activeEl) && this.forBlocks.some((block) => {
-          return block.instances.some((inst) => inst.elements && inst.elements.some((el) => el.contains(activeEl)));
-        });
-        if (!isInsideForBlock) {
-          this.renderForBlocks();
-        }
+        const isTextInput = activeEl && activeEl.tagName === "INPUT" && ![
+          "checkbox",
+          "radio",
+          "button",
+          "submit",
+          "reset",
+          "file",
+          "color",
+          "range",
+          "hidden"
+        ].includes((activeEl.type || "text").toLowerCase());
+        const isInputFocused = activeEl && (isTextInput || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
+        const focusedForInput = isInputFocused && this.root.contains(activeEl) ? activeEl : null;
+        this.renderForBlocks(focusedForInput);
         this.updateBindings();
         this.modelBindings.forEach((mb) => mb.updateDom());
         this.updateMemoBindings();
@@ -561,7 +626,14 @@
       });
     }
     initState() {
-      const rawExpr = this.root.getAttribute(ATTR_DATA) || "{}";
+      const rawExpr = (this.root.getAttribute(ATTR_DATA) || "{}").trim();
+      const storeAccessor = (name) => {
+        const store = getStore(name);
+        if (store && storeSubscribers[name]) {
+          storeSubscribers[name].add(this);
+        }
+        return store;
+      };
       let raw;
       const jsonScript = this.root.querySelector("script[sx-init-data]");
       const looksLikeIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(rawExpr);
@@ -574,19 +646,49 @@
           raw = {};
         }
       } else {
+        const dataRef = getDataExpressionReference(rawExpr);
+        const registeredFactory = dataRef ? getDataFactory(dataRef) : undefined;
+        const globalFactory = dataRef ? resolveGlobalDataReference(dataRef) : undefined;
+        const resolvedFactory = registeredFactory !== undefined ? registeredFactory : globalFactory;
         try {
-          const fn = new Function("$store", `return (${rawExpr});`);
-          raw = fn((name) => {
-            const store = getStore(name);
-            if (store && storeSubscribers[name]) {
-              storeSubscribers[name].add(this);
+          if (dataRef && resolvedFactory !== undefined) {
+            const callExprMatch = rawExpr.match(/^([A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)\s*\(([\s\S]*)\)$/);
+            const isDirectCallExpr = !!callExprMatch && callExprMatch[1] === dataRef;
+            if (isDirectCallExpr && typeof resolvedFactory === "function") {
+              const argsSource = callExprMatch[2].trim();
+              const args = argsSource ? new Function("$store", "$data", `return [${argsSource}];`)(storeAccessor, getDataFactory) : [];
+              raw = resolvedFactory.apply(this.root, args);
+            } else if (rawExpr === dataRef && typeof resolvedFactory === "function") {
+              raw = resolvedFactory.call(this.root);
+            } else if (rawExpr === dataRef) {
+              raw = resolvedFactory;
+            } else {
+              const fn = new Function("$store", "$data", `return (${rawExpr});`);
+              raw = fn(storeAccessor, getDataFactory);
             }
-            return store;
-          });
+          } else {
+            const fn = new Function("$store", "$data", `return (${rawExpr});`);
+            raw = fn(storeAccessor, getDataFactory);
+          }
         } catch (e) {
+          const missingReference = e instanceof ReferenceError || /is not defined/.test(String(e && e.message ? e.message : ""));
+          if (missingReference && isFactoryLikeDataExpression(rawExpr)) {
+            throw createDataFactoryNotReadyError(rawExpr, e);
+          }
           console.error("SpruceX sx-data parse error:", rawExpr, e);
           raw = {};
         }
+      }
+      if (typeof raw === "function") {
+        try {
+          raw = raw.call(this.root);
+        } catch (e) {
+          console.error("SpruceX sx-data factory execution error:", rawExpr, e);
+          raw = {};
+        }
+      }
+      if (raw == null || typeof raw !== "object") {
+        raw = {};
       }
       const localKey = this.root.getAttribute(ATTR_LOCAL);
       if (localKey) {
@@ -1813,9 +1915,66 @@
           target.innerHTML = html;
       }
     }
-    renderForBlocks() {
-      this.forBlocks.forEach((block) => {
+    isForBlockDetached(block) {
+      if (!block)
+        return true;
+      const { parent, marker } = block;
+      if (!parent || !marker)
+        return true;
+      if (!parent.isConnected || !marker.isConnected)
+        return true;
+      if (marker.parentNode !== parent)
+        return true;
+      return false;
+    }
+    teardownForBlock(block) {
+      if (!block)
+        return;
+      const instances = Array.isArray(block.instances) ? [...block.instances] : [];
+      instances.forEach((inst) => {
+        if (inst.elements) {
+          inst.elements.forEach((el) => el.remove());
+        } else if (inst.fragmentRoot) {
+          inst.fragmentRoot.remove();
+        }
+        this.cleanupInstanceBindings(inst.bindings);
+      });
+      if (block.instances)
+        block.instances.length = 0;
+      const idx = this.forBlocks.indexOf(block);
+      if (idx !== -1)
+        this.forBlocks.splice(idx, 1);
+    }
+    teardownDetachedForBlocks() {
+      this.forBlocks.slice().forEach((block) => {
+        if (this.isForBlockDetached(block)) {
+          this.teardownForBlock(block);
+        }
+      });
+    }
+    teardownAllForBlocks() {
+      this.forBlocks.slice().forEach((block) => this.teardownForBlock(block));
+      this.forBlocks = [];
+    }
+    renderForBlocks(focusedEl = null) {
+      this.teardownDetachedForBlocks();
+      let blockIndex = 0;
+      while (blockIndex < this.forBlocks.length) {
+        const block = this.forBlocks[blockIndex];
+        if (!block) {
+          blockIndex += 1;
+          continue;
+        }
+        if (this.isForBlockDetached(block)) {
+          this.teardownForBlock(block);
+          continue;
+        }
         const { def, template, parent, marker, instances, parentLocals } = block;
+        const skipFocusedBlock = focusedEl && block.instances.some((inst) => inst.elements && inst.elements.some((el) => el.contains(focusedEl)));
+        if (skipFocusedBlock) {
+          blockIndex += 1;
+          continue;
+        }
         const prevLocals = this.locals;
         if (parentLocals) {
           this.locals = parentLocals;
@@ -1904,7 +2063,8 @@
         }
         block.instances.length = 0;
         block.instances.push(...newInstances);
-      });
+        blockIndex += 1;
+      }
     }
     scanFragmentBindings(rootNode, locals) {
       const self = this;
@@ -2220,26 +2380,31 @@
       return modelBinding;
     }
     cleanupInstanceBindings(instanceBindings) {
-      instanceBindings.bindings.forEach((b) => {
+      if (!instanceBindings)
+        return;
+      (instanceBindings.bindings || []).forEach((b) => {
         const idx = this.bindings.indexOf(b);
         if (idx !== -1)
           this.bindings.splice(idx, 1);
       });
-      instanceBindings.memoBindings.forEach((b) => {
+      (instanceBindings.memoBindings || []).forEach((b) => {
         const idx = this.memoBindings.indexOf(b);
         if (idx !== -1)
           this.memoBindings.splice(idx, 1);
       });
-      instanceBindings.modelBindings.forEach((b) => {
+      (instanceBindings.modelBindings || []).forEach((b) => {
         const idx = this.modelBindings.indexOf(b);
         if (idx !== -1)
           this.modelBindings.splice(idx, 1);
       });
-      instanceBindings.eventHandlers.forEach(({ el, event, handler }) => {
+      (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
         const idx = this.eventHandlers.findIndex((h) => h.el === el && h.event === event && h.handler === handler);
         if (idx !== -1)
           this.eventHandlers.splice(idx, 1);
+      });
+      instanceBindings.nestedForBlocks?.forEach((block) => {
+        this.teardownForBlock(block);
       });
     }
     applyInitialRender() {
@@ -2363,6 +2528,7 @@
       this.teardownGridBindings();
       this.clearDebounceTimers();
       this.clearEmitterHandlers();
+      this.teardownAllForBlocks();
       this.bindings = [];
       this.memoBindings = [];
       this.modelBindings = [];
@@ -2402,6 +2568,7 @@
       this.animatedElements.clear();
       this.teardownChartBindings();
       this.teardownGridBindings();
+      this.teardownAllForBlocks();
       this.eventHandlers.forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
       });
@@ -2430,9 +2597,57 @@
   var pageCache = new Map;
   var pendingFetches = new Map;
   var PAGE_CACHE_TTL = 30000;
+  var pendingRoots = new Set;
+  var pendingRootFlushQueued = false;
+  var pendingRootPollTimer = null;
+  function ensurePendingRootPolling() {
+    if (pendingRootPollTimer || pendingRoots.size === 0)
+      return;
+    pendingRootPollTimer = setInterval(() => {
+      flushPendingRoots();
+    }, 100);
+  }
+  function flushPendingRoots() {
+    pendingRoots.forEach((root) => {
+      if (!root || !root.isConnected || root.__sprucex) {
+        pendingRoots.delete(root);
+        return;
+      }
+      const comp = initSpruceXRoot(root);
+      if (comp) {
+        pendingRoots.delete(root);
+      }
+    });
+    if (pendingRoots.size === 0 && pendingRootPollTimer) {
+      clearInterval(pendingRootPollTimer);
+      pendingRootPollTimer = null;
+    }
+  }
+  function queuePendingRoot(root) {
+    if (!root || root.__sprucex)
+      return;
+    const wasPending = pendingRoots.has(root);
+    pendingRoots.add(root);
+    ensurePendingRootPolling();
+    if (wasPending || pendingRootFlushQueued)
+      return;
+    pendingRootFlushQueued = true;
+    queueMicrotask(() => {
+      pendingRootFlushQueued = false;
+      flushPendingRoots();
+    });
+  }
   var SpruceX = {
     init: initSpruceX,
     store: initStore,
+    data(name, factory) {
+      if (arguments.length === 1 && typeof name === "string") {
+        return getDataFactory(name);
+      }
+      const result = registerDataFactory(name, factory);
+      flushPendingRoots();
+      return result;
+    },
     inspect() {
       const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
       return Array.from(roots).map((r) => ({
@@ -2501,9 +2716,18 @@
   function initSpruceXRoot(root) {
     if (root.__sprucex)
       return root.__sprucex;
-    const comp = new Component(root);
-    root.__sprucex = comp;
-    return comp;
+    try {
+      const comp = new Component(root);
+      root.__sprucex = comp;
+      return comp;
+    } catch (e) {
+      if (e && e.code === DATA_FACTORY_NOT_READY_ERROR) {
+        queuePendingRoot(root);
+        return null;
+      }
+      console.error("SpruceX component init error:", e);
+      return null;
+    }
   }
   function initSpruceX() {
     runBootHook();
@@ -2531,6 +2755,7 @@
     }
     initBoostingGlobal();
     initAutoCleanup();
+    flushPendingRoots();
     Array.from(document.scripts).forEach((script) => {
       script.__sprucex_executed = true;
     });
@@ -2770,6 +2995,9 @@
   }
   if (typeof document !== "undefined") {
     runBootHook();
+    window.addEventListener("load", () => {
+      flushPendingRoots();
+    });
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", initSpruceX);
     } else {
@@ -2784,8 +3012,19 @@
     Array.from(script.attributes).forEach((attr) => {
       newScript.setAttribute(attr.name, attr.value);
     });
+    if (newScript.src) {
+      newScript.addEventListener("load", () => flushPendingRoots(), {
+        once: true
+      });
+      newScript.addEventListener("error", () => flushPendingRoots(), {
+        once: true
+      });
+    }
     newScript.textContent = script.textContent;
     newScript.__sprucex_executed = true;
     script.replaceWith(newScript);
+    if (!newScript.src) {
+      queueMicrotask(() => flushPendingRoots());
+    }
   }
 })();
