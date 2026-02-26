@@ -1,0 +1,82 @@
+SpruceX LLM.txt
+Version: 0.4.0
+
+Plugin Authoring Guide
+
+SpruceX plugins are integrations registered with:
+SpruceX.integration(name, integration)
+
+Use plugins when you want to support custom directives that are not built into SpruceX.
+
+Integration Hooks
+
+1) setup(component)  (optional)
+- Called once per component instance before scanning starts.
+- Use this to initialize plugin-owned state on the component.
+
+2) scan(component, el)  (optional)
+- Called for each scanned element in a component.
+- Read your custom attributes and collect bindings.
+- Do not perform expensive DOM work here.
+
+3) update(component)  (optional)
+- Called after initial render and on reactive updates.
+- Apply DOM updates based on current state/expression values.
+
+4) teardown(component)  (optional)
+- Called when a component refreshes or is destroyed.
+- Remove plugin event listeners/timers and clear plugin-owned data.
+
+Useful Component Helpers for Plugins
+
+- component.evaluateExpressionOrLiteral(raw)
+  Evaluates an expression in component scope. If expression resolves to undefined,
+  returns the raw string as a literal.
+
+- component.assignStateValue(targetExpr, value)
+  Writes a value into component state at the provided expression path.
+
+- component.state
+  Reactive state object for the current component instance.
+
+- component.root
+  The component root element.
+
+Minimal Example: sx-uppercase
+
+<script>
+  SpruceX.integration("uppercase", {
+    setup(component) {
+      component._uppercaseBindings = [];
+    },
+
+    scan(component, el) {
+      const expr = el.getAttribute("sx-uppercase");
+      if (!expr) return;
+      component._uppercaseBindings.push({ el, expr });
+    },
+
+    update(component) {
+      (component._uppercaseBindings || []).forEach(({ el, expr }) => {
+        const value = component.evaluateExpressionOrLiteral(expr);
+        el.textContent = String(value ?? "").toUpperCase();
+      });
+    },
+
+    teardown(component) {
+      component._uppercaseBindings = [];
+    },
+  });
+</script>
+
+Usage:
+<div sx-data="{ name: 'sprucex' }">
+  <span sx-uppercase="name"></span>
+</div>
+
+Tips
+
+- Namespace plugin internals on the component (example: component._myPluginBindings).
+- Keep scan() cheap; do work in update().
+- Always clean up in teardown() if you add listeners, timers, observers, or instances.
+- Handle missing/invalid expressions defensively.

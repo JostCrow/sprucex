@@ -405,6 +405,45 @@ pre,
     line-height: 1.45;
 }
 
+:where(.grid-stack) {
+    border: 1px solid var(--bp-line-soft);
+    border-radius: 0.9rem;
+    padding: 0.35rem;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.65),
+        rgba(240, 248, 255, 0.72)
+    );
+}
+
+:where(.dark .grid-stack) {
+    border-color: rgba(97, 157, 223, 0.24);
+    background: linear-gradient(
+        180deg,
+        rgba(3, 13, 27, 0.94),
+        rgba(2, 9, 20, 0.96)
+    );
+}
+
+:where(.grid-stack .grid-stack-item-content) {
+    min-height: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--bp-line-soft);
+    border-radius: 0.65rem;
+    box-shadow: 0 10px 24px -20px rgba(16, 52, 92, 0.72);
+    background: rgba(55, 125, 198, 0.14);
+    color: var(--bp-text);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+:where(.dark .grid-stack .grid-stack-item-content) {
+    border-color: rgba(97, 157, 223, 0.24);
+    background: rgba(17, 58, 96, 0.34);
+}
+
 .site-main input,
 .site-main textarea,
 .site-main select {
@@ -418,6 +457,22 @@ pre,
 .dark .site-main select {
     background-color: rgba(8, 20, 37, 0.86);
     color: var(--bp-text);
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"] {
+    cursor: pointer;
+}
+
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled,
+[role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
 }
 
 .site-main input:focus-visible,

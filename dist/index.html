@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en" class="scroll-smooth" sx-data="{ darkMode: false }" sx-local="darkMode" sx-class="{ 'dark': darkMode }"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SpruceX - Documentation</title><link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script>
+<!DOCTYPE html><html lang="en" class="scroll-smooth" sx-data="{ darkMode: document.documentElement.classList.contains('dark') }" sx-local="darkMode" sx-class="{ 'dark': darkMode }"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SpruceX - Documentation</title><link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script>
             window.SpruceXBoot = window.SpruceXBoot || {};
             window.SpruceXBoot.initTheme = function initTheme() {
                 try {
@@ -12,45 +12,59 @@
                     document.documentElement.classList.remove("dark");
                 }
             };
+            window.SpruceXBoot.initTheme();
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.DkFWgkkV.css"></head> <body sx-page class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300"> <!-- Navbar --> <nav class="fixed w-full z-50 glass border-b border-slate-200 dark:border-slate-800"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="flex justify-between h-16 items-center"> <a href="/" class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128
-                        128" width="50" height="50"> <defs> <linearGradient
-                        id="spruceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#10B981"/> <stop
-                        offset="100%" stop-color="#065F46"/> </linearGradient>
-                        <linearGradient id="xGrad" x1="0%" y1="0%" x2="100%"
-                        y2="100%"> <stop offset="0%" stop-color="#F59E0B"/>
-                        <stop offset="100%" stop-color="#D97706"/>
-                        </linearGradient> </defs> <path d="M64 16 L82 42 L74 42
-                        L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42
-                        Z" fill="url(#spruceGrad)"/> <g stroke="url(#xGrad)"
-                        stroke-width="6" stroke-linecap="round"> <line x1="76"
-                        y1="100" x2="100" y2="76"/> <line x1="100" y1="100"
-                        x2="76" y2="76"/> </g> <g class="holiday-decorations"
-                        style="display: none;"> <polygon points="64,6 67,14
-                        76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14"
-                        fill="#FBBF24"/> <circle cx="64" cy="36" r="3"
-                        fill="#EF4444"/> <circle cx="52" cy="55" r="3"
-                        fill="#3B82F6"/> <circle cx="76" cy="55" r="3"
-                        fill="#EF4444"/> <circle cx="64" cy="75" r="3"
-                        fill="#A855F7"/> </g> </svg> <script> (function() {
-                        const month = new Date().getMonth(); const
-                        isHolidaySeason = month === 11 || month === 0; const
-                        decorations =
-                        document.querySelector('.holiday-decorations'); if
-                        (isHolidaySeason && decorations) {
-                        decorations.style.display = 'block'; } })(); </script>
-                        <span class="font-bold text-xl tracking-tight"
-                        >SpruceX</span >
-                    </a> <div class="hidden md:flex items-center space-x-8"> <a href="/" class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Documentation</a> <a href="/examples" class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Examples</a> <button sx-on:click="darkMode = !darkMode" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
-                            <span sx-show="!darkMode">🌙</span> <span
-                            sx-show="darkMode">☀️</span>
-                        </button> <a href="/dist/sprucex.js" download class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-brand-500/30">
-                            Download
-                        </a> </div> </div> </div> </nav>  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"> <!-- Sidebar --> <div class="hidden lg:block space-y-8 sticky top-24 h-fit"> <h2 class="font-bold text-slate-900 dark:text-white uppercase
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.CbzB6wsC.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 128 128"
+                            width="44"
+                            height="44"
+                            aria-hidden="true"
+                        >
+                            <defs>
+                                <linearGradient id="spruceBlueprint" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#6bd0ff" />
+                                    <stop offset="100%" stop-color="#0f77d8" />
+                                </linearGradient>
+                            </defs>
+                            <path
+                                d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z"
+                                fill="none"
+                                stroke="url(#spruceBlueprint)"
+                                stroke-width="6"
+                                stroke-linejoin="round"
+                            />
+                            <line
+                                x1="22"
+                                y1="106"
+                                x2="106"
+                                y2="106"
+                                stroke="url(#spruceBlueprint)"
+                                stroke-width="4"
+                                stroke-linecap="round"
+                            />
+                            <circle cx="64" cy="106" r="4" fill="#6bd0ff" />
+                        </svg>
+                        <div class="brand-copy">
+                            <span class="brand-wordmark">SpruceX</span>
+                            <span class="brand-subtitle">Reactive Blueprint Framework</span>
+                        </div>
+                    </a> <div class="flex items-center gap-2 sm:gap-3"> <button sx-on:click="darkMode = !darkMode" class="theme-toggle" aria-label="Toggle color theme">
+                            <span
+                                class="theme-dot"
+                                sx-class="{ 'theme-dot--dark': darkMode }"
+                            ></span>
+                            <span
+                                class="theme-label"
+                                sx-text="darkMode ? 'Dark' : 'Light'"
+                                >Light</span
+                            >
+                        </button> <div class="hidden md:flex items-center gap-2 lg:gap-3"> <a href="/" class="site-link">Documentation</a> <a href="/examples" class="site-link">Examples</a> <a href="/dist/sprucex.js" download class="download-link">
+                                Download
+                            </a> </div> </div> </div> </div> </nav> <main class="site-main">  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"> <!-- Sidebar --> <div class="hidden lg:block space-y-8 sticky top-2 h-fit"> <h2 class="font-bold text-slate-900 dark:text-white uppercase
             tracking-wider text-sm">
 Contents
 </h2> <div class="space-y-3 text-sm border-l border-slate-200
@@ -64,7 +78,11 @@ Contents
             pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
             hover:text-brand-600 dark-hover:text-brand-400 transition-colors">4. Auto-Animate</a> <a href="#holiday-theme" class="block
             pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors">5. Holiday Themes</a> </div> </div> <!-- Main Content --> <div class="lg:col-span-3 space-y-16"> <!-- 1. Introduction --> <div id="introduction" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex items-center
+            hover:text-brand-600 dark-hover:text-brand-400 transition-colors">5. Holiday Themes</a> <a href="#plugins" class="block
+            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
+            hover:text-brand-600 dark-hover:text-brand-400 transition-colors">6. Plugins</a> <a href="#llm-txt" class="block
+            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
+            hover:text-brand-600 dark-hover:text-brand-400 transition-colors">7. LLM.txt</a> </div> </div> <!-- Main Content --> <div class="lg:col-span-3 space-y-16"> <!-- 1. Introduction --> <div id="introduction" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex items-center
                 gap-2 text-brand-600 dark:text-brand-400"> <span class="text-slate-400 dark:text-slate-600 font-normal">1.</span>
 Introduction
 </h3> <p class="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
@@ -204,9 +222,8 @@ Defines the URL and method for the
 sx-trigger
 </td> <td class="py-2">
 Event that triggers the request
-                                        (default: "click", forms use
-                                        "submit"). Supports modifier syntax
-                                        like <code>input.debounce.300</code>.
+                                        (default: "click", forms use "submit").
+                                        Supports modifier syntax like <code>input.debounce.300</code>.
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-trigger-debounce
 </td> <td class="py-2">
@@ -235,7 +252,8 @@ Object defining variables for the URL
                         border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-body
 </td> <td class="py-2">
-Request body from expression/object/string.
+Request body from
+                                        expression/object/string.
 </td> </tr> <tr class="border-b
                         border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-body-type
@@ -377,8 +395,7 @@ Declarative Chart.js binding with
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-chart-type
 </td> <td class="py-2">
-Explicit chart type override
-                                        (e.g. <code>line</code>, <code>bar</code>).
+Explicit chart type override (e.g. <code>line</code>, <code>bar</code>).
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-chart-options
 </td> <td class="py-2">
@@ -387,8 +404,8 @@ Expression object forwarded to Chart.js
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-gridstack
 </td> <td class="py-2">
-Initializes a GridStack instance from
-                                        an options expression.
+Initializes a GridStack instance from an
+                                        options expression.
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-gridstack-options
 </td> <td class="py-2">
@@ -406,8 +423,8 @@ Writes GridStack event payloads into
 Early Bootstrap Hook
 </h4> <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
 Define <code>window.SpruceXBoot.initTheme()</code>
-before loading SpruceX to toggle theme classes
-                            before deferred component init.
+before loading SpruceX to toggle theme classes before
+                            deferred component init.
 </p> <p class="text-xs font-mono text-slate-500">
 window.SpruceXBoot = &#123; initTheme() &#123; ...
                             &#125; &#125;
@@ -482,152 +499,175 @@ Pass a JSON object to <code class="text-brand-600
                                     </li> <li>
                                         sx-animate="{ duration: 200, easing:
                                         'linear' }"
-                                    </li> </ul> </div> <!-- 5. Holiday Themes --> <div id="holiday-theme" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex
-                                items-center gap-2 text-brand-600
-                                dark:text-brand-400"> <span class="text-slate-400 dark:text-slate-600
-                                font-normal">5.</span> Holiday Themes
-</h3> <div class="prose dark:prose-invert
-                                max-w-none space-y-6"> <div class="bg-slate-50 dark:bg-slate-900/50
-                                rounded-xl p-6 border border-slate-200
-                                dark:border-slate-800"> <h4 class="font-bold text-slate-900 dark:text-white
-                                mb-2">
-Seasonal SVG Decorations
-</h4> <p class="text-sm text-slate-600
-                                dark:text-slate-400 mb-4">
-Add festive flair to your logo or
-                                            icons by conditionally showing
-                                            holiday decorations based on the
-                                            date.
-</p> <div class="grid md:grid-cols-2 gap-4"> <div class="p-4 bg-white dark:bg-slate-800
-                                rounded-lg"> <p class="text-xs
-                                text-slate-500 mb-2">
-Regular Logo
-</p> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64"> <defs> <linearGradient id="spruceGrad2" x1="0%" y1="0%" x2="100%" y2="100%"> <stop offset="0%" style="stop-color:#10B981"></stop> <stop offset="100%" style="stop-color:#065F46"></stop> </linearGradient> </defs> <path d="M64 16
-                                L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64
-                                L38 64 L54 42 L46 42 Z" fill="url(#spruceGrad2)"></path> <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect> </svg> </div> <div class="p-4 bg-white dark:bg-slate-800 rounded-lg"> <p class="text-xs text-slate-500 mb-2">
-Holiday Logo (Dec-Jan)
-</p> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
-                                128 128" width="64" height="64"> <defs> <linearGradient id="spruceGrad3" x1="0%" y1="0%" x2="100%" y2="100%"> <stop offset="0%" style="stop-color:#10B981"></stop> <stop offset="100%" style="stop-color:#065F46"></stop> </linearGradient> </defs> <path d="M64 16
-                                L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64
-                                L38 64 L54 42 L46 42 Z" fill="url(#spruceGrad3)"></path> <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect> <polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28
-                                59,19 52,14 61,14" fill="#FBBF24"></polygon> <circle cx="64" cy="36" r="3" fill="#EF4444"></circle> <circle cx="52" cy="55" r="3" fill="#3B82F6"></circle> <circle cx="76" cy="55" r="3" fill="#EF4444"></circle> <circle cx="64" cy="75" r="3" fill="#A855F7"></circle> </svg> </div> <div class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800"> <pre class="font-mono text-sm
-                                text-slate-300 overflow-x-auto"><code>&lt;svg
-                                xmlns="http://www.w3.org/2000/svg" viewBox="0 0
-                                128 128"&gt; &lt;defs&gt; &lt;linearGradient
-                                id="spruceGrad" x1="0%" y1="0%" x2="100%"
-                                y2="100%"&gt; &lt;stop offset="0%"
-                                style="stop-color:#10B981"/&gt; &lt;stop
-                                offset="100%" style="stop-color:#065F46"/&gt;
-                                &lt;/linearGradient&gt; &lt;/defs&gt; &lt;!--
-                                Base Tree --&gt; &lt;path d="M64 16 L82 42 L74
-                                42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54
-                                42 L46 42 Z" fill="url(#spruceGrad)"/&gt;
-                                &lt;rect x="58" y="88" width="12" height="14"
-                                rx="2" fill="#78350F"/&gt; &lt;!-- Holiday
-                                Decorations (visible Dec-Jan) --&gt; &lt;g
-                                class="holiday-decorations" style="display:
-                                none;"&gt; &lt;!-- Star --&gt; &lt;polygon
-                                points="64,6 67,14 76,14 69,19 71,28 64,23 57,28
-                                59,19 52,14 61,14" fill="#FBBF24"/&gt; &lt;!--
-                                Ornaments --&gt; &lt;circle cx="64" cy="36"
-                                r="3" fill="#EF4444"/&gt; &lt;circle cx="52"
-                                cy="55" r="3" fill="#3B82F6"/&gt; &lt;circle
-                                cx="76" cy="55" r="3" fill="#EF4444"/&gt;
-                                &lt;circle cx="64" cy="75" r="3"
-                                fill="#A855F7"/&gt; &lt;/g&gt; &lt;/svg&gt;
-                                &lt;script&gt; // Check if it's December or
-                                January const month = new Date().getMonth();
-                                const isHolidaySeason = month === 11 || month
-                                === 0; if (isHolidaySeason) {
-                                document.querySelector('.holiday-decorations').style.display
-                                = 'block'; } &lt;/script&gt;</code></pre> </div> <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"> <h4 class="font-bold text-slate-900
-                                dark:text-white mb-2">
-Using CSS Classes
-</h4> <p class="text-sm text-slate-600
-                                dark:text-slate-400 mb-4">
-Toggle a class on the parent
-                                                    element for cleaner
-                                                    separation:
-</p> <pre class="font-mono text-sm
-                                bg-slate-900 text-green-400 p-4 rounded-lg
-                                overflow-x-auto">                                                                        <code>&lt;style&gt;
-                                                                            .holiday-theme
-                                                                            .holiday-decorations
-                                                                            {
-                                                                            display:
-                                                                            block;
-                                                                            }
-                                                                            .holiday-decorations
-                                                                            {
-                                                                            display:
-                                                                            none;
-                                                                            }
-                                                                            &lt;/style&gt;
-                                                                            &lt;script&gt;
-                                                                            const
-                                                                            month
-                                                                            =
-                                                                            new
-                                                                            Date().getMonth();
-                                                                            const
-                                                                            isHolidaySeason
-                                                                            =
-                                                                            month
-                                                                            ===
-                                                                            11
-                                                                            ||
-                                                                            month
-                                                                            ===
-                                                                            0;
-                                                                            document.getElementById('logo-container').classList.toggle('holiday-theme',
-                                                                            isHolidaySeason);
-                                                                            &lt;/script&gt;</code>
-                                                                    </pre> </div> <script>
-                                                // Simple Dark Mode Toggle
-                                                const toggle =
-                                                    document.getElementById(
-                                                        "darkMode",
-                                                    );
-                                                const html =
-                                                    document.documentElement;
+                                    </li> </ul> </div> <!-- 5. Holiday Themes --> <div id="holiday-theme" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"> <span class="text-slate-400 dark:text-slate-600 font-normal">5.</span>
+Holiday Themes
+</h3> <div class="prose dark:prose-invert max-w-none space-y-6"> <p class="text-slate-600 dark:text-slate-300">
+Keep the SVG static, hide decorations by
+                                        default, and toggle a parent class based
+                                        on date. This keeps markup clean and the
+                                        behavior predictable.
+</p> <div class="grid md:grid-cols-2 gap-4 not-prose"> <div class="glass rounded-xl p-5 space-y-3"> <p class="text-xs tracking-wider uppercase text-slate-500 dark:text-slate-400">
+Base Logo
+</p> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="72" height="72"> <defs> <linearGradient id="spruceBaseGrad" x1="0%" y1="0%" x2="100%" y2="100%"> <stop offset="0%" stop-color="#10B981"></stop> <stop offset="100%" stop-color="#065F46"></stop> </linearGradient> </defs> <path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" fill="url(#spruceBaseGrad)"></path> <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect> </svg> </div> <div class="glass rounded-xl p-5 space-y-3 holiday-theme"> <p class="text-xs tracking-wider uppercase text-slate-500 dark:text-slate-400">
+Holiday Variant (Dec-Jan)
+</p> <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="72" height="72"> <defs> <linearGradient id="spruceHolidayGrad" x1="0%" y1="0%" x2="100%" y2="100%"> <stop offset="0%" stop-color="#10B981"></stop> <stop offset="100%" stop-color="#065F46"></stop> </linearGradient> </defs> <path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" fill="url(#spruceHolidayGrad)"></path> <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect> <g class="holiday-decorations"> <polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" fill="#FBBF24"></polygon> <circle cx="64" cy="36" r="3" fill="#EF4444"></circle> <circle cx="52" cy="55" r="3" fill="#3B82F6"></circle> <circle cx="76" cy="55" r="3" fill="#EF4444"></circle> <circle cx="64" cy="75" r="3" fill="#A855F7"></circle> </g> </svg> </div> </div> <div class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800 not-prose"> <pre class="font-mono text-sm text-slate-300 overflow-x-auto"><code>&lt;div id="logo-container"&gt;
+  &lt;svg viewBox="0 0 128 128" aria-label="SpruceX logo"&gt;
+    &lt;!-- base tree --&gt;
+    &lt;path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" /&gt;
+    &lt;rect x="58" y="88" width="12" height="14" rx="2" /&gt;
 
-                                                if (
-                                                    localStorage.theme ===
-                                                        "dark" ||
-                                                    (!(
-                                                        "theme" in localStorage
-                                                    ) &&
-                                                        window.matchMedia(
-                                                            "(prefers-color-scheme: dark)",
-                                                        ).matches)
-                                                ) {
-                                                    html.classList.add("dark");
-                                                } else {
-                                                    html.classList.remove(
-                                                        "dark",
-                                                    );
-                                                }
+    &lt;!-- holiday-only details --&gt;
+    &lt;g class="holiday-decorations"&gt;
+      &lt;polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" /&gt;
+      &lt;circle cx="64" cy="36" r="3" /&gt;
+      &lt;circle cx="52" cy="55" r="3" /&gt;
+      &lt;circle cx="76" cy="55" r="3" /&gt;
+      &lt;circle cx="64" cy="75" r="3" /&gt;
+    &lt;/g&gt;
+  &lt;/svg&gt;
+&lt;/div&gt;
 
-                                                toggle.addEventListener(
-                                                    "click",
-                                                    () => {
-                                                        if (
-                                                            html.classList.contains(
-                                                                "dark",
-                                                            )
-                                                        ) {
-                                                            html.classList.remove(
-                                                                "dark",
-                                                            );
-                                                            localStorage.theme =
-                                                                "light";
-                                                        } else {
-                                                            html.classList.add(
-                                                                "dark",
-                                                            );
-                                                            localStorage.theme =
-                                                                "dark";
-                                                        }
-                                                    },
-                                                );
-                                            </script> </div> </div> </div> </div> </div> </div> </div> </div> </div> </section>  <!-- Footer --> <footer class="bg-slate-900 text-slate-400 py-12"> <div class="max-w-7xl mx-auto px-4 text-center"> <div class="mb-8"> <span class="text-2xl font-bold text-white tracking-tight">SpruceX</span> </div> <div class="flex justify-center gap-8 mb-8"> <a href="#" class="hover:text-white transition-colors">GitHub</a> <a href="#" class="hover:text-white transition-colors">Twitter</a> <a href="#" class="hover:text-white transition-colors">Discord</a> </div> <p class="text-sm">© 2024 SpruceX. MIT License.</p> </div> </footer> <script src="/prism.js"></script> </body> </html>
+&lt;style&gt;
+  .holiday-decorations { display: none; }
+  .holiday-theme .holiday-decorations { display: block; }
+&lt;/style&gt;
+
+&lt;script type="module"&gt;
+  function applyHolidayTheme(containerId = "logo-container", date = new Date()) {
+    const month = date.getMonth();
+    const isHolidaySeason = month === 11 || month === 0; // Dec or Jan
+    document.getElementById(containerId)
+      ?.classList.toggle("holiday-theme", isHolidaySeason);
+  }
+
+  applyHolidayTheme();
+&lt;/script&gt;</code></pre> </div> </div> </div> <!-- 6. Plugin Authoring --> <div id="plugins" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"> <span class="text-slate-400 dark:text-slate-600 font-normal">6.</span>
+Plugins
+</h3> <div class="prose dark:prose-invert max-w-none space-y-6"> <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"> <h4 class="font-bold text-slate-900 dark:text-white mb-2">
+Writing a Plugin
+</h4> <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+Register plugins with <code>SpruceX.integration(name, integration)</code>. Each integration can provide hooks
+                                            to set up, scan elements, update UI,
+                                            and clean up.
+</p> <ul class="space-y-1 text-sm text-slate-600 dark:text-slate-400 list-disc list-inside"> <li> <code>setup(component)</code>
+initializes plugin state.
+</li> <li> <code>scan(component, el)</code>
+collects directive bindings.
+</li> <li> <code>update(component)</code>
+applies changes on initial render
+                                                and reactive updates.
+</li> <li> <code>teardown(component)</code>
+removes listeners/timers and
+                                                clears plugin state.
+</li> </ul> </div> <div class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800 not-prose"> <p class="text-xs tracking-wider uppercase text-slate-400 mb-3">
+Minimal Integration Example
+</p> <pre class="font-mono text-sm text-slate-300 overflow-x-auto"><code>&lt;script&gt;
+  SpruceX.integration("uppercase", {
+    setup(component) {
+      component._uppercaseBindings = [];
+    },
+    scan(component, el) {
+      const expr = el.getAttribute("sx-uppercase");
+      if (!expr) return;
+      component._uppercaseBindings.push({ el, expr });
+    },
+    update(component) {
+      (component._uppercaseBindings || []).forEach(({ el, expr }) => {
+        const value = component.evaluateExpressionOrLiteral(expr);
+        el.textContent = String(value ?? "").toUpperCase();
+      });
+    },
+    teardown(component) {
+      component._uppercaseBindings = [];
+    },
+  });
+&lt;/script&gt;</code></pre> </div> </div> </div> <!-- 7. LLM.txt --> <div id="llm-txt" class="scroll-mt-24"> <h3 class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"> <span class="text-slate-400 dark:text-slate-600 font-normal">7.</span>
+LLM.txt
+</h3> <div class="prose dark:prose-invert max-w-none space-y-6"> <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800 not-prose"> <div class="flex flex-wrap items-center justify-between gap-3 mb-3"> <h4 class="font-bold text-slate-900 dark:text-white">
+LLM.txt
+</h4> <a href="/LLM.txt" download class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold">Download LLM.txt</a> </div> <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
+Machine-readable plugin authoring
+                                            guide exposed at <code>/LLM.txt</code>.
+</p> <pre class="font-mono text-xs text-slate-200 bg-slate-900 rounded-lg p-4 max-h-80 overflow-auto border border-slate-800"><code>SpruceX LLM.txt
+Version: 0.4.0
+
+Plugin Authoring Guide
+
+SpruceX plugins are integrations registered with:
+SpruceX.integration(name, integration)
+
+Use plugins when you want to support custom directives that are not built into SpruceX.
+
+Integration Hooks
+
+1) setup(component)  (optional)
+- Called once per component instance before scanning starts.
+- Use this to initialize plugin-owned state on the component.
+
+2) scan(component, el)  (optional)
+- Called for each scanned element in a component.
+- Read your custom attributes and collect bindings.
+- Do not perform expensive DOM work here.
+
+3) update(component)  (optional)
+- Called after initial render and on reactive updates.
+- Apply DOM updates based on current state/expression values.
+
+4) teardown(component)  (optional)
+- Called when a component refreshes or is destroyed.
+- Remove plugin event listeners/timers and clear plugin-owned data.
+
+Useful Component Helpers for Plugins
+
+- component.evaluateExpressionOrLiteral(raw)
+  Evaluates an expression in component scope. If expression resolves to undefined,
+  returns the raw string as a literal.
+
+- component.assignStateValue(targetExpr, value)
+  Writes a value into component state at the provided expression path.
+
+- component.state
+  Reactive state object for the current component instance.
+
+- component.root
+  The component root element.
+
+Minimal Example: sx-uppercase
+
+&lt;script&gt;
+  SpruceX.integration(&quot;uppercase&quot;, {
+    setup(component) {
+      component._uppercaseBindings = [];
+    },
+
+    scan(component, el) {
+      const expr = el.getAttribute(&quot;sx-uppercase&quot;);
+      if (!expr) return;
+      component._uppercaseBindings.push({ el, expr });
+    },
+
+    update(component) {
+      (component._uppercaseBindings || []).forEach(({ el, expr }) =&gt; {
+        const value = component.evaluateExpressionOrLiteral(expr);
+        el.textContent = String(value ?? &quot;&quot;).toUpperCase();
+      });
+    },
+
+    teardown(component) {
+      component._uppercaseBindings = [];
+    },
+  });
+&lt;/script&gt;
+
+Usage:
+&lt;div sx-data=&quot;{ name: &#39;sprucex&#39; }&quot;&gt;
+  &lt;span sx-uppercase=&quot;name&quot;&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+Tips
+
+- Namespace plugin internals on the component (example: component._myPluginBindings).
+- Keep scan() cheap; do work in update().
+- Always clean up in teardown() if you add listeners, timers, observers, or instances.
+- Handle missing/invalid expressions defensively.
+</code></pre> </div> </div> </div> </div> </div> </div> </div> </div> </section>  </main> <footer class="site-footer"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-footer-shell"> <div class="footer-brand"> <span class="brand-wordmark">SpruceX</span> <p class="footer-note">Blueprint-grade reactive markup tooling.</p> </div> <div class="footer-links"> <a href="#" class="footer-link">GitHub</a> <a href="#" class="footer-link">Twitter</a> <a href="#" class="footer-link">Discord</a> </div> <p class="footer-copy">© 2024 SpruceX. MIT License.</p> </div> </div> </footer> <script src="/prism.js"></script> </body> </html>

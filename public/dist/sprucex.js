@@ -2032,15 +2032,15 @@
         const collection = safeEval(def.iterable, this) || [];
         const arr = Array.from(collection);
         this.locals = prevLocals;
-        const instanceMap = new Map;
+        const instanceBuckets = new Map;
         instances.forEach((inst) => {
           const key = inst.itemKey;
-          if (key !== undefined) {
-            instanceMap.set(key, inst);
-          }
+          if (!instanceBuckets.has(key))
+            instanceBuckets.set(key, []);
+          instanceBuckets.get(key).push(inst);
         });
         const newInstances = [];
-        const usedKeys = new Set;
+        const reusedInstances = new Set;
         for (let i = 0;i < arr.length; i++) {
           const item = arr[i];
           const idxName = def.index || "$index";
@@ -2048,11 +2048,18 @@
           if (typeof item === "object" && item !== null) {
             key = item;
           }
-          let inst = instanceMap.get(key);
-          if (inst && !usedKeys.has(key)) {
-            usedKeys.add(key);
+          const bucket = instanceBuckets.get(key);
+          const inst = bucket && bucket.length > 0 ? bucket.shift() : null;
+          if (inst) {
+            if (parentLocals) {
+              Object.keys(parentLocals).forEach((parentKey) => {
+                inst.scopeLocals[parentKey] = parentLocals[parentKey];
+              });
+            }
+            inst.scopeLocals[def.item] = item;
             inst.scopeLocals[idxName] = i;
             newInstances.push(inst);
+            reusedInstances.add(inst);
           } else {
             const locals = parentLocals ? { ...parentLocals } : {};
             locals[def.item] = item;
@@ -2088,11 +2095,10 @@
               itemKey: key
             };
             newInstances.push(newInst);
-            usedKeys.add(key);
           }
         }
         instances.forEach((inst) => {
-          if (!usedKeys.has(inst.itemKey)) {
+          if (!reusedInstances.has(inst)) {
             if (inst.elements) {
               inst.elements.forEach((el) => el.remove());
             } else if (inst.fragmentRoot) {
@@ -3127,9 +3133,10 @@
       newScript.setAttribute(attr.name, attr.value);
     });
     if (newScript.src) {
-      newScript.addEventListener("load", () => flushPendingRoots(), {
-        once: true
-      });
+      newScript.addEventListener("load", () => {
+        flushPendingRoots();
+        refreshAllMountedComponents();
+      }, { once: true });
       newScript.addEventListener("error", () => flushPendingRoots(), {
         once: true
       });

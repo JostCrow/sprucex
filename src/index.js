@@ -572,9 +572,14 @@ function runScript(script) {
     newScript.setAttribute(attr.name, attr.value);
   });
   if (newScript.src) {
-    newScript.addEventListener("load", () => flushPendingRoots(), {
-      once: true,
-    });
+    newScript.addEventListener(
+      "load",
+      () => {
+        flushPendingRoots();
+        refreshAllMountedComponents();
+      },
+      { once: true },
+    );
     newScript.addEventListener("error", () => flushPendingRoots(), {
       once: true,
     });

@@ -1773,17 +1773,17 @@ export class Component {
       // Restore locals
       this.locals = prevLocals;
 
-      // Build a map of existing instances by their item value
-      const instanceMap = new Map();
+      // Build buckets of existing instances by key so duplicate primitive
+      // values can re-use one instance per occurrence instead of leaking.
+      const instanceBuckets = new Map();
       instances.forEach((inst) => {
         const key = inst.itemKey;
-        if (key !== undefined) {
-          instanceMap.set(key, inst);
-        }
+        if (!instanceBuckets.has(key)) instanceBuckets.set(key, []);
+        instanceBuckets.get(key).push(inst);
       });
 
       const newInstances = [];
-      const usedKeys = new Set();
+      const reusedInstances = new Set();
 
       // Pass 1: Prepare instances (match existing or create new)
       for (let i = 0; i < arr.length; i++) {
@@ -1797,15 +1797,20 @@ export class Component {
           key = item;
         }
 
-        let inst = instanceMap.get(key);
+        const bucket = instanceBuckets.get(key);
+        const inst = bucket && bucket.length > 0 ? bucket.shift() : null;
 
-        // If we found an existing instance with this key and haven't used it yet
-        if (inst && !usedKeys.has(key)) {
-          usedKeys.add(key);
-
-          // Update the index
+        // Reuse an existing instance for this occurrence (if available)
+        if (inst) {
+          if (parentLocals) {
+            Object.keys(parentLocals).forEach((parentKey) => {
+              inst.scopeLocals[parentKey] = parentLocals[parentKey];
+            });
+          }
+          inst.scopeLocals[def.item] = item;
           inst.scopeLocals[idxName] = i;
           newInstances.push(inst);
+          reusedInstances.add(inst);
         } else {
           // Create new instance - merge parentLocals into locals
           const locals = parentLocals ? { ...parentLocals } : {};
@@ -1854,13 +1859,12 @@ export class Component {
           };
 
           newInstances.push(newInst);
-          usedKeys.add(key);
         }
       }
 
       // Pass 2: Remove unused instances from DOM immediately
       instances.forEach((inst) => {
-        if (!usedKeys.has(inst.itemKey)) {
+        if (!reusedInstances.has(inst)) {
           if (inst.elements) {
             inst.elements.forEach((el) => el.remove());
           } else if (inst.fragmentRoot) {
