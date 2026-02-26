@@ -58,6 +58,40 @@ Handy expression globals:
 - `$emit(name, detail)`
 - `$index` (inside `sx-for`)
 
+## Integration Plugins
+
+SpruceX supports integration plugins through `SpruceX.integration(...)`.
+
+```html
+<script>
+  SpruceX.integration("my-widget", {
+    scan(component, el) {
+      const expr = el.getAttribute("sx-my-widget");
+      if (!expr) return;
+      if (!component._myWidgetBindings) component._myWidgetBindings = [];
+      component._myWidgetBindings.push({ el, expr });
+    },
+    update(component) {
+      const bindings = component._myWidgetBindings || [];
+      bindings.forEach(({ el, expr }) => {
+        // evaluate through component scope
+        const value = component.evaluateExpressionOrLiteral(expr);
+        el.textContent = String(value ?? "");
+      });
+    },
+    teardown(component) {
+      component._myWidgetBindings = [];
+    },
+  });
+</script>
+```
+
+Plugin hooks:
+- `setup(component)` optional one-time setup per component instance
+- `scan(component, el)` collect integration bindings while SpruceX scans markup
+- `update(component)` run on initial render and reactive updates
+- `teardown(component)` cleanup on refresh/destroy
+
 ## Feature Tour
 
 Core UI:

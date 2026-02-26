@@ -12,6 +12,11 @@ import { setAutoAnimate, getAutoAnimate } from "./utils/animations.js";
 import { morphNodes } from "./utils/morph.js";
 import { walk } from "./utils/helpers.js";
 import {
+  getIntegration,
+  registerIntegration,
+} from "./integrations/index.js";
+import { ensureBuiltInIntegrationsRegistered } from "./integrations/builtins.js";
+import {
   DATA_FACTORY_NOT_READY_ERROR,
   getDataFactory,
   registerDataFactory,
@@ -24,6 +29,8 @@ const PAGE_CACHE_TTL = 30000; // 30 seconds
 const pendingRoots = new Set();
 let pendingRootFlushQueued = false;
 let pendingRootPollTimer = null;
+
+ensureBuiltInIntegrationsRegistered();
 
 function ensurePendingRootPolling() {
   if (pendingRootPollTimer || pendingRoots.size === 0) return;
@@ -61,6 +68,16 @@ function queuePendingRoot(root) {
   queueMicrotask(() => {
     pendingRootFlushQueued = false;
     flushPendingRoots();
+  });
+}
+
+function refreshAllMountedComponents() {
+  if (typeof document === "undefined") return;
+
+  document.querySelectorAll(`[${ATTR_DATA}]`).forEach((root) => {
+    if (root.__sprucex && typeof root.__sprucex.refresh === "function") {
+      root.__sprucex.refresh();
+    }
   });
 }
 
@@ -124,6 +141,14 @@ export const SpruceX = {
     return aa(el, options);
   },
   setAutoAnimate,
+  integration(name, integration) {
+    if (arguments.length === 1 && typeof name === "string") {
+      return getIntegration(name);
+    }
+    const registered = registerIntegration(name, integration);
+    refreshAllMountedComponents();
+    return registered;
+  },
 };
 
 // Expose globally

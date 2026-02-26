@@ -12,7 +12,7 @@ import "../index.css";
 <html
     lang="en"
     class="scroll-smooth"
-    sx-data="{ darkMode: false }"
+    sx-data="{ darkMode: document.documentElement.classList.contains('dark') }"
     sx-local="darkMode"
     sx-class="{ 'dark': darkMode }"
 >
@@ -36,6 +36,7 @@ import "../index.css";
                     document.documentElement.classList.remove("dark");
                 }
             };
+            window.SpruceXBoot.initTheme();
         </script>
         <script src="/dist/sprucex.js" is:inline></script>
         <script type="module" is:inline>
@@ -44,113 +45,119 @@ import "../index.css";
         </script>
         <link href="/prism.css" rel="stylesheet" />
         <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
             rel="stylesheet"
         />
     </head>
-    <body
-        sx-page
-        class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300"
-    >
-        <!-- Navbar -->
-        <nav
-            class="fixed w-full z-50 glass border-b border-slate-200 dark:border-slate-800"
-        >
+    <body sx-page class="bp-body transition-colors duration-300">
+        <div class="bp-grid-overlay" aria-hidden="true"></div>
+
+        <nav class="site-nav fixed w-full z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16 items-center">
-                    <a is:raw href="/" class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128
-                        128" width="50" height="50"> <defs> <linearGradient
-                        id="spruceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#10B981"/> <stop
-                        offset="100%" stop-color="#065F46"/> </linearGradient>
-                        <linearGradient id="xGrad" x1="0%" y1="0%" x2="100%"
-                        y2="100%"> <stop offset="0%" stop-color="#F59E0B"/>
-                        <stop offset="100%" stop-color="#D97706"/>
-                        </linearGradient> </defs> <path d="M64 16 L82 42 L74 42
-                        L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42
-                        Z" fill="url(#spruceGrad)"/> <g stroke="url(#xGrad)"
-                        stroke-width="6" stroke-linecap="round"> <line x1="76"
-                        y1="100" x2="100" y2="76"/> <line x1="100" y1="100"
-                        x2="76" y2="76"/> </g> <g class="holiday-decorations"
-                        style="display: none;"> <polygon points="64,6 67,14
-                        76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14"
-                        fill="#FBBF24"/> <circle cx="64" cy="36" r="3"
-                        fill="#EF4444"/> <circle cx="52" cy="55" r="3"
-                        fill="#3B82F6"/> <circle cx="76" cy="55" r="3"
-                        fill="#EF4444"/> <circle cx="64" cy="75" r="3"
-                        fill="#A855F7"/> </g> </svg> <script> (function() {
-                        const month = new Date().getMonth(); const
-                        isHolidaySeason = month === 11 || month === 0; const
-                        decorations =
-                        document.querySelector('.holiday-decorations'); if
-                        (isHolidaySeason && decorations) {
-                        decorations.style.display = 'block'; } })(); </script>
-                        <span class="font-bold text-xl tracking-tight"
-                        >SpruceX</span >
+                <div class="site-nav-shell flex justify-between items-center">
+                    <a is:raw href="/" class="brand-lockup flex items-center gap-3">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 128 128"
+                            width="44"
+                            height="44"
+                            aria-hidden="true"
+                        >
+                            <defs>
+                                <linearGradient id="spruceBlueprint" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#6bd0ff" />
+                                    <stop offset="100%" stop-color="#0f77d8" />
+                                </linearGradient>
+                            </defs>
+                            <path
+                                d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z"
+                                fill="none"
+                                stroke="url(#spruceBlueprint)"
+                                stroke-width="6"
+                                stroke-linejoin="round"
+                            />
+                            <line
+                                x1="22"
+                                y1="106"
+                                x2="106"
+                                y2="106"
+                                stroke="url(#spruceBlueprint)"
+                                stroke-width="4"
+                                stroke-linecap="round"
+                            />
+                            <circle cx="64" cy="106" r="4" fill="#6bd0ff" />
+                        </svg>
+                        <div class="brand-copy">
+                            <span class="brand-wordmark">SpruceX</span>
+                            <span class="brand-subtitle">Reactive Blueprint Framework</span>
+                        </div>
                     </a>
-                    <div class="hidden md:flex items-center space-x-8">
-                        <a
-                            is:raw
-                            href="/"
-                            class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                            >Documentation</a
-                        >
-                        <a
-                            is:raw
-                            href="/examples"
-                            class="text-sm font-medium hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                            >Examples</a
-                        >
+
+                    <div class="flex items-center gap-2 sm:gap-3">
                         <button
                             is:raw
                             sx-on:click="darkMode = !darkMode"
-                            class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                            class="theme-toggle"
+                            aria-label="Toggle color theme"
                         >
-                            <span sx-show="!darkMode">🌙</span> <span
-                            sx-show="darkMode">☀️</span>
+                            <span
+                                class="theme-dot"
+                                sx-class="{ 'theme-dot--dark': darkMode }"
+                            ></span>
+                            <span
+                                class="theme-label"
+                                sx-text="darkMode ? 'Dark' : 'Light'"
+                                >Light</span
+                            >
                         </button>
-                        <a
-                            is:raw
-                            href="/dist/sprucex.js"
-                            download
-                            class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-brand-500/30"
-                        >
-                            Download
-                        </a>
+
+                        <div class="hidden md:flex items-center gap-2 lg:gap-3">
+                            <a
+                                is:raw
+                                href="/"
+                                class="site-link"
+                                >Documentation</a
+                            >
+                            <a
+                                is:raw
+                                href="/examples"
+                                class="site-link"
+                                >Examples</a
+                            >
+                            <a
+                                is:raw
+                                href="/dist/sprucex.js"
+                                download
+                                class="download-link"
+                            >
+                                Download
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <slot />
+        <main class="site-main">
+            <slot />
+        </main>
 
-        <!-- Footer -->
-        <footer class="bg-slate-900 text-slate-400 py-12">
-            <div class="max-w-7xl mx-auto px-4 text-center">
-                <div class="mb-8">
-                    <span class="text-2xl font-bold text-white tracking-tight"
-                        >SpruceX</span
-                    >
+        <footer class="site-footer">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="site-footer-shell">
+                    <div class="footer-brand">
+                        <span class="brand-wordmark">SpruceX</span>
+                        <p class="footer-note">Blueprint-grade reactive markup tooling.</p>
+                    </div>
+
+                    <div class="footer-links">
+                        <a is:raw href="#" class="footer-link">GitHub</a>
+                        <a is:raw href="#" class="footer-link">Twitter</a>
+                        <a is:raw href="#" class="footer-link">Discord</a>
+                    </div>
+
+                    <p class="footer-copy">© 2024 SpruceX. MIT License.</p>
                 </div>
-                <div class="flex justify-center gap-8 mb-8">
-                    <a
-                        is:raw
-                        href="#"
-                        class="hover:text-white transition-colors">GitHub</a
-                    >
-                    <a
-                        is:raw
-                        href="#"
-                        class="hover:text-white transition-colors">Twitter</a
-                    >
-                    <a
-                        is:raw
-                        href="#"
-                        class="hover:text-white transition-colors">Discord</a
-                    >
-                </div>
-                <p class="text-sm">© 2024 SpruceX. MIT License.</p>
             </div>
         </footer>
         <script src="/prism.js" is:inline></script>

@@ -1,153 +1,243 @@
 <section
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
-    >
-        <aside class="hidden lg:block space-y-8 sticky top-24 h-fit">
-            <h2
-                class="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm"
+    class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
+>
+    <aside class="hidden lg:block space-y-8 sticky top-2 h-fit">
+        <h2
+            class="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm"
+        >
+            Examples
+        </h2>
+        <nav
+            class="space-y-3 text-sm border-l border-slate-200 dark:border-slate-800"
+        >
+            <a
+                href="#core"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >1. Core Binding</a
             >
-                Examples
-            </h2>
-            <nav
-                class="space-y-3 text-sm border-l border-slate-200 dark:border-slate-800"
+            <a
+                href="#events-model"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >2. Events & Model</a
             >
-                <a href="#core" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">1. Core Binding</a>
-                <a href="#events-model" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">2. Events & Model</a>
-                <a href="#loops" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">3. Loops, Memo, Refs</a>
-                <a href="#network" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">4. Network Basics</a>
-                <a href="#request-api" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">5. Request API + Form UX</a>
-                <a href="#polling" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">6. Polling + Optimistic</a>
-                <a href="#nav" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">7. Navigation + Morph</a>
-                <a href="#state" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">8. State + Lazy + Init Data</a>
-                <a href="#chart" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">9. Chart Directive</a>
-                <a href="#grid" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">10. GridStack Directive</a>
-                <a href="#boot" class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">11. Boot Hook</a>
-            </nav>
-        </aside>
+            <a
+                href="#loops"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >3. Loops, Memo, Refs</a
+            >
+            <a
+                href="#network"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >4. Network Basics</a
+            >
+            <a
+                href="#request-api"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >5. Request API + Form UX</a
+            >
+            <a
+                href="#polling"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >6. Polling + Optimistic</a
+            >
+            <a
+                href="#nav"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >7. Navigation + Morph</a
+            >
+            <a
+                href="#state"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >8. State + Lazy + Init Data</a
+            >
+            <a
+                href="#chart"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >9. Chart Directive</a
+            >
+            <a
+                href="#grid"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >10. GridStack Directive</a
+            >
+            <a
+                href="#boot"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >11. Boot Hook</a
+            >
+        </nav>
+    </aside>
 
-        <div class="lg:col-span-3 space-y-16">
-            <header class="text-center max-w-3xl mx-auto">
-                <h1
-                    class="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-emerald-600"
-                >
-                    Feature Coverage Examples
-                </h1>
-                <p class="text-xl text-slate-600 dark:text-slate-400">
-                    Runnable examples for every SpruceX feature and directive.
-                </p>
-            </header>
+    <div class="lg:col-span-3 space-y-16">
+        <header class="text-center max-w-3xl mx-auto">
+            <h1
+                class="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-emerald-600"
+            >
+                Feature Coverage Examples
+            </h1>
+            <p class="text-xl text-slate-600 dark:text-slate-400">
+                Runnable examples for every SpruceX feature and directive.
+            </p>
+        </header>
 
-            <section id="core" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">1. Core Binding</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-data</code>, <code>sx-text</code>, <code>sx-html</code>,
-                    <code>sx-show</code>, <code>sx-class</code>, <code>sx-bind</code>,
-                    <code>sx-toggle</code>, and <code>sx-error-fallback</code>.
-                </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+        <section id="core" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">1. Core Binding</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-data</code>, <code>sx-text</code>,
+                <code>sx-html</code>, <code>sx-show</code>,
+                <code>sx-class</code>, <code>sx-bind</code>,
+                <code>sx-toggle</code>, and <code>sx-error-fallback</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         name: 'SpruceX',
                         active: true,
                         bio: '<strong>Reactive</strong> micro-framework',
                         broken: null
                     }"
-                >
-                    <div class="flex flex-wrap gap-3">
-                        <input
-                            sx-model.trim="name"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                            placeholder="Edit name"
-                        />
-                        <button
-                            sx-toggle="active"
-                            class="px-3 py-2 rounded-lg bg-brand-600 text-white"
-                        >
-                            Toggle Active
-                        </button>
-                    </div>
+            >
+                <div class="flex flex-wrap gap-3">
+                    <input
+                        sx-model.trim="name"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="Edit name"
+                    />
+                    <button
+                        sx-toggle="active"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                    >
+                        Toggle Active
+                    </button>
+                </div>
 
-                    <div
-                        class="rounded-lg p-3 border"
-                        sx-class="{
+                <div
+                    class="rounded-lg p-3 border"
+                    sx-class="{
                             'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700': active,
                             'bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700': !active
                         }"
-                    >
-                        <p class="font-mono text-sm">Name: <span sx-text="name"></span></p>
-                        <p sx-show="active" class="text-sm">Active state is visible via <code>sx-show</code>.</p>
-                        <p sx-show="!active" class="text-sm">Inactive state is also controlled by <code>sx-show</code>.</p>
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                        <img
-                            sx-bind:src="active ? 'https://via.assets.so/img.jpg?text=ON&w=64&h=64&bg=bbf7d0&fontColor=14532d' : 'https://via.assets.so/img.jpg?text=OFF&w=64&h=64&bg=fecdd3&fontColor=881337'"
-                            sx-bind:alt="active ? 'active' : 'inactive'"
-                            class="w-16 h-16 rounded-lg"
-                        />
-                        <div>
-                            <p class="text-sm text-slate-500">Rich content via <code>sx-html</code>:</p>
-                            <p sx-html="bio"></p>
-                        </div>
-                    </div>
-
-                    <p class="text-sm" sx-text="broken.value" sx-error-fallback="'Fallback: broken.value is unavailable'"></p>
+                >
+                    <p class="font-mono text-sm">
+                        Name: <span sx-text="name"></span>
+                    </p>
+                    <p sx-show="active" class="text-sm">
+                        Active state is visible via <code>sx-show</code>.
+                    </p>
+                    <p sx-show="!active" class="text-sm">
+                        Inactive state is also controlled by
+                        <code>sx-show</code>.
+                    </p>
                 </div>
-            </section>
 
-            <section id="events-model" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">2. Events &amp; Model</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-on</code> modifiers plus <code>sx-model</code> modifiers:
-                    <code>.trim</code>, <code>.number</code>, <code>.lazy</code>,
-                    <code>.debounce-ms</code>.
-                </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+                <div class="flex items-center gap-3">
+                    <img
+                        sx-bind:src="active ? 'https://via.assets.so/img.jpg?text=ON&w=64&h=64&bg=bbf7d0&fontColor=14532d' : 'https://via.assets.so/img.jpg?text=OFF&w=64&h=64&bg=fecdd3&fontColor=881337'"
+                        sx-bind:alt="active ? 'active' : 'inactive'"
+                        class="w-16 h-16 rounded-lg"
+                    />
+                    <div>
+                        <p class="text-sm text-slate-500">
+                            Rich content via <code>sx-html</code>:
+                        </p>
+                        <p sx-html="bio"></p>
+                    </div>
+                </div>
+
+                <p
+                    class="text-sm"
+                    sx-text="broken.value"
+                    sx-error-fallback="'Fallback: broken.value is unavailable'"
+                ></p>
+            </div>
+        </section>
+
+        <section id="events-model" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">2. Events &amp; Model</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-on</code> modifiers plus
+                <code>sx-model</code> modifiers: <code>.trim</code>,
+                <code>.number</code>, <code>.lazy</code>,
+                <code>.debounce-ms</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         first: '',
                         age: 0,
                         delayed: '',
                         log: []
                     }"
+            >
+                <form
+                    class="grid sm:grid-cols-3 gap-3"
+                    sx-on:submit.prevent="log.unshift('submit.prevent fired')"
                 >
-                    <form
-                        class="grid sm:grid-cols-3 gap-3"
-                        sx-on:submit.prevent="log.unshift('submit.prevent fired')"
-                    >
-                        <input sx-model.trim="first" placeholder="sx-model.trim" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <input type="number" sx-model.number.lazy="age" placeholder="sx-model.number.lazy" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <input sx-model="delayed" sx-model.debounce-ms="300" placeholder="sx-model.debounce-ms" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                    </form>
+                    <input
+                        sx-model.trim="first"
+                        placeholder="sx-model.trim"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <input
+                        type="number"
+                        sx-model.number.lazy="age"
+                        placeholder="sx-model.number.lazy"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <input
+                        sx-model="delayed"
+                        sx-model.debounce-ms="300"
+                        placeholder="sx-model.debounce-ms"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                </form>
 
-                    <div class="text-sm text-slate-500">
-                        <p>First: <span sx-text="first"></span></p>
-                        <p>Age: <span sx-text="age"></span></p>
-                        <p>Debounced value: <span sx-text="delayed"></span></p>
-                    </div>
-
-                    <div class="p-3 rounded-lg border border-slate-300 dark:border-slate-700" sx-on:click.self="log.unshift('self modifier fired')">
-                        <p class="text-sm mb-2">Click this box or the inner button:</p>
-                        <button class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900" sx-on:click.stop="log.unshift('stop modifier blocked parent')">Inner .stop</button>
-                        <input class="mt-3 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" placeholder="Press Enter for key modifier" sx-on:keydown.enter="log.unshift('keydown.enter fired')" />
-                    </div>
-
-                    <div class="text-xs font-mono bg-slate-900 text-emerald-300 p-3 rounded-lg max-h-36 overflow-auto">
-                        <template sx-for="item in log">
-                            <div>&gt; <span sx-text="item"></span></div>
-                        </template>
-                        <div sx-show="log.length === 0">(No events yet)</div>
-                    </div>
+                <div class="text-sm text-slate-500">
+                    <p>First: <span sx-text="first"></span></p>
+                    <p>Age: <span sx-text="age"></span></p>
+                    <p>Debounced value: <span sx-text="delayed"></span></p>
                 </div>
-            </section>
 
-            <section id="loops" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">3. Loops, Memo, Refs</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-for</code>, <code>$index</code>, <code>sx-memo</code>, and <code>sx-ref</code>.
-                </p>
                 <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+                    class="p-3 rounded-lg border border-slate-300 dark:border-slate-700"
+                    sx-on:click.self="log.unshift('self modifier fired')"
+                >
+                    <p class="text-sm mb-2">
+                        Click this box or the inner button:
+                    </p>
+                    <button
+                        class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                        sx-on:click.stop="log.unshift('stop modifier blocked parent')"
+                    >
+                        Inner .stop
+                    </button>
+                    <input
+                        class="mt-3 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="Press Enter for key modifier"
+                        sx-on:keydown.enter="log.unshift('keydown.enter fired')"
+                    />
+                </div>
+
+                <div
+                    class="text-xs font-mono bg-slate-900 text-emerald-300 p-3 rounded-lg max-h-36 overflow-auto"
+                >
+                    <template sx-for="item in log">
+                        <div>&gt; <span sx-text="item"></span></div>
+                    </template>
+                    <div sx-show="log.length === 0">(No events yet)</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="loops" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">3. Loops, Memo, Refs</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-for</code>, <code>$index</code>, <code>sx-memo</code>,
+                and <code>sx-ref</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         items: ['Alpha', 'Beta'],
                         draft: '',
                         a: 2,
@@ -157,91 +247,189 @@
                         remove(i) { this.items.splice(i, 1); },
                         expensive(x, y) { return x * y + this.c; }
                     }"
-                >
-                    <div class="flex gap-2">
-                        <input sx-ref="draftInput" sx-model="draft" class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" placeholder="New item" />
-                        <button sx-on:click="add()" class="px-3 py-2 rounded-lg bg-brand-600 text-white">Add</button>
-                        <button sx-on:click="$refs.draftInput.focus()" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Focus Ref</button>
-                    </div>
-
-                    <ul class="space-y-2" sx-animate>
-                        <template sx-for="item in items">
-                            <li class="flex items-center justify-between rounded-lg px-3 py-2 bg-white dark:bg-slate-800">
-                                <span><strong sx-text="$index + 1"></strong>. <span sx-text="item"></span></span>
-                                <button sx-on:click="remove($index)" class="text-rose-600">Remove</button>
-                            </li>
-                        </template>
-                    </ul>
-
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="number" sx-model.number="a" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <input type="number" sx-model.number="b" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <input type="number" sx-model.number="c" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                    </div>
-                    <p class="font-mono">Memo result: <span sx-text="expensive(a, b)" sx-memo="['a', 'b']"></span></p>
-                </div>
-            </section>
-
-            <section id="network" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">4. Network Basics</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-get/post/put/delete</code>, <code>sx-vars</code>,
-                    <code>sx-target</code>, <code>sx-swap</code>, <code>sx-json-into</code>, and
-                    explicit <code>sx-trigger</code>.
-                </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{ postId: 1, post: null, methodResult: null }"
-                >
-                    <div class="flex flex-wrap gap-2">
-                        <button sx-on:click="postId = postId > 1 ? postId - 1 : 1" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">-</button>
-                        <span class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800">ID: <span sx-text="postId"></span></span>
-                        <button sx-on:click="postId = postId + 1" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">+</button>
-                        <button
-                            sx-get="https://jsonplaceholder.typicode.com/posts/${id}"
-                            sx-vars="{ id: postId }"
-                            sx-json-into="post"
-                            sx-trigger="click"
-                            class="px-3 py-2 rounded-lg bg-indigo-600 text-white"
-                        >
-                            GET with sx-vars
-                        </button>
-                    </div>
-
-                    <div class="flex flex-wrap gap-2">
-                        <button sx-post="https://jsonplaceholder.typicode.com/posts" sx-body="{ title: 'Created from sx-post' }" sx-body-type="json" sx-json-into="methodResult" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">POST</button>
-                        <button sx-post="https://jsonplaceholder.typicode.com/posts" sx-body="{ title: 'Created from form body', tag: 'form' }" sx-body-type="form" sx-json-into="methodResult" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">POST (form)</button>
-                        <button sx-put="https://jsonplaceholder.typicode.com/posts/1" sx-body="{ title: 'Updated from sx-put' }" sx-body-type="json" sx-json-into="methodResult" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">PUT</button>
-                        <button sx-delete="https://jsonplaceholder.typicode.com/posts/1" sx-body="{ reason: 'cleanup' }" sx-body-type="json" sx-json-into="methodResult" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">DELETE</button>
-                    </div>
-
+            >
+                <div class="flex gap-2">
+                    <input
+                        sx-ref="draftInput"
+                        sx-model="draft"
+                        class="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="New item"
+                    />
                     <button
-                        sx-get="https://jsonplaceholder.typicode.com/todos/1"
-                        sx-target="#swap-target"
-                        sx-swap="innerHTML"
-                        class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                        sx-on:click="add()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
                     >
-                        Swap Into Target
+                        Add
                     </button>
-                    <pre id="swap-target" class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 min-h-16 overflow-auto"></pre>
-
-                    <pre sx-show="post" class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto" sx-text="JSON.stringify(post, null, 2)"></pre>
-                    <pre sx-show="methodResult" class="p-3 text-xs rounded-lg bg-slate-900 text-amber-300 overflow-auto" sx-text="JSON.stringify(methodResult, null, 2)"></pre>
+                    <button
+                        sx-on:click="$refs.draftInput.focus()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Focus Ref
+                    </button>
                 </div>
-            </section>
 
-            <section id="request-api" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">5. Request API + Form UX</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-trigger-debounce</code>, <code>input.debounce.300</code>,
-                    <code>sx-body</code>, <code>sx-body-type</code>, <code>sx-headers</code>,
-                    <code>sx-loading-into</code>, <code>sx-error-into</code>,
-                    <code>sx-disable-while-request</code>, <code>sx-text-while-request</code>,
-                    and <code>sx-confirm</code> on native form submit.
+                <ul class="space-y-2" sx-animate>
+                    <template sx-for="item in items">
+                        <li
+                            class="flex items-center justify-between rounded-lg px-3 py-2 bg-white dark:bg-slate-800"
+                        >
+                            <span
+                                ><strong sx-text="$index + 1"></strong>.
+                                <span sx-text="item"></span
+                            ></span>
+                            <button
+                                sx-on:click="remove($index)"
+                                class="text-rose-600"
+                            >
+                                Remove
+                            </button>
+                        </li>
+                    </template>
+                </ul>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <input
+                        type="number"
+                        sx-model.number="a"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <input
+                        type="number"
+                        sx-model.number="b"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <input
+                        type="number"
+                        sx-model.number="c"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                </div>
+                <p class="font-mono">
+                    Memo result:
+                    <span sx-text="expensive(a, b)" sx-memo="['a', 'b']"></span>
                 </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+            </div>
+        </section>
+
+        <section id="network" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">4. Network Basics</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-get/post/put/delete</code>, <code>sx-vars</code>,
+                <code>sx-target</code>, <code>sx-swap</code>,
+                <code>sx-json-into</code>, and explicit <code>sx-trigger</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{ postId: 1, post: null, methodResult: null }"
+            >
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        sx-on:click="postId = postId > 1 ? postId - 1 : 1"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        -
+                    </button>
+                    <span
+                        class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800"
+                        >ID: <span sx-text="postId"></span
+                    ></span>
+                    <button
+                        sx-on:click="postId = postId + 1"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        +
+                    </button>
+                    <button
+                        sx-get="https://jsonplaceholder.typicode.com/posts/${id}"
+                        sx-vars="{ id: postId }"
+                        sx-json-into="post"
+                        sx-trigger="click"
+                        class="px-3 py-2 rounded-lg bg-indigo-600 text-white"
+                    >
+                        GET with sx-vars
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        sx-post="https://jsonplaceholder.typicode.com/posts"
+                        sx-body="{ title: 'Created from sx-post' }"
+                        sx-body-type="json"
+                        sx-json-into="methodResult"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        POST
+                    </button>
+                    <button
+                        sx-post="https://jsonplaceholder.typicode.com/posts"
+                        sx-body="{ title: 'Created from form body', tag: 'form' }"
+                        sx-body-type="form"
+                        sx-json-into="methodResult"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        POST (form)
+                    </button>
+                    <button
+                        sx-put="https://jsonplaceholder.typicode.com/posts/1"
+                        sx-body="{ title: 'Updated from sx-put' }"
+                        sx-body-type="json"
+                        sx-json-into="methodResult"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        PUT
+                    </button>
+                    <button
+                        sx-delete="https://jsonplaceholder.typicode.com/posts/1"
+                        sx-body="{ reason: 'cleanup' }"
+                        sx-body-type="json"
+                        sx-json-into="methodResult"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        DELETE
+                    </button>
+                </div>
+
+                <button
+                    sx-get="https://jsonplaceholder.typicode.com/todos/1"
+                    sx-target="#swap-target"
+                    sx-swap="innerHTML"
+                    class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                >
+                    Swap Into Target
+                </button>
+                <pre
+                    id="swap-target"
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 min-h-16 overflow-auto"
+                ></pre>
+
+                <pre
+                    sx-show="post"
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto"
+                    sx-text="JSON.stringify(post, null, 2)"
+                ></pre>
+                <pre
+                    sx-show="methodResult"
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-amber-300 overflow-auto"
+                    sx-text="JSON.stringify(methodResult, null, 2)"
+                ></pre>
+            </div>
+        </section>
+
+        <section id="request-api" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">5. Request API + Form UX</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-trigger-debounce</code>,
+                <code>input.debounce.300</code>, <code>sx-body</code>,
+                <code>sx-body-type</code>, <code>sx-headers</code>,
+                <code>sx-loading-into</code>, <code>sx-error-into</code>,
+                <code>sx-disable-while-request</code>,
+                <code>sx-text-while-request</code>, and
+                <code>sx-confirm</code> on native form submit.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         query: '',
                         queryMod: '',
                         users: [],
@@ -252,187 +440,319 @@
                         saveError: null,
                         saved: null
                     }"
-                >
-                    <div class="grid sm:grid-cols-2 gap-3">
-                        <input
-                            sx-model.trim="query"
-                            sx-get="https://jsonplaceholder.typicode.com/users?username=${q}"
-                            sx-vars="{ q: query }"
-                            sx-json-into="users"
-                            sx-trigger="input"
-                            sx-trigger-debounce="400"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                            placeholder="sx-trigger + sx-trigger-debounce"
-                        />
-                        <input
-                            sx-model.trim="queryMod"
-                            sx-get="https://jsonplaceholder.typicode.com/users?username=${q}"
-                            sx-vars="{ q: queryMod }"
-                            sx-json-into="usersMod"
-                            sx-trigger="input.debounce.300"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                            placeholder="sx-trigger='input.debounce.300'"
-                        />
-                    </div>
-
-                    <p class="text-sm text-slate-500">
-                        Debounced users: <span sx-text="users.length"></span> / Modifier users:
-                        <span sx-text="usersMod.length"></span>
-                    </p>
-
-                    <form
-                        class="space-y-3"
-                        sx-post="https://jsonplaceholder.typicode.com/posts"
-                        sx-body="{ title, body, demo: true }"
-                        sx-body-type="json"
-                        sx-headers="{ 'X-SpruceX-Demo': 'examples' }"
-                        sx-loading-into="saving"
-                        sx-error-into="saveError"
-                        sx-json-into="saved"
-                        sx-disable-while-request
-                        sx-text-while-request="'Saving...'"
-                        sx-confirm="'Submit ' + title + '?'"
-                    >
-                        <input sx-model.trim="title" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" placeholder="Title" />
-                        <textarea sx-model.trim="body" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" rows="3" placeholder="Body"></textarea>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">Save Draft</button>
-                    </form>
-
-                    <p sx-show="saving" class="text-sm text-emerald-600">Saving...</p>
-                    <p sx-show="saveError" class="text-sm text-rose-600" sx-text="saveError.message"></p>
-                    <pre sx-show="saved" class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto" sx-text="JSON.stringify(saved, null, 2)"></pre>
+            >
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <input
+                        sx-model.trim="query"
+                        sx-get="https://jsonplaceholder.typicode.com/users?username=${q}"
+                        sx-vars="{ q: query }"
+                        sx-json-into="users"
+                        sx-trigger="input"
+                        sx-trigger-debounce="400"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="sx-trigger + sx-trigger-debounce"
+                    />
+                    <input
+                        sx-model.trim="queryMod"
+                        sx-get="https://jsonplaceholder.typicode.com/users?username=${q}"
+                        sx-vars="{ q: queryMod }"
+                        sx-json-into="usersMod"
+                        sx-trigger="input.debounce.300"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="sx-trigger='input.debounce.300'"
+                    />
                 </div>
-            </section>
 
-            <section id="polling" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">6. Polling + Optimistic + Include</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-poll</code>, <code>sx-poll-while</code>, <code>sx-trigger='load'</code>,
-                    <code>sx-optimistic</code>, <code>sx-revert-on-error</code>, and
-                    <code>sx-include</code>.
+                <p class="text-sm text-slate-500">
+                    Debounced users: <span sx-text="users.length"></span> /
+                    Modifier users:
+                    <span sx-text="usersMod.length"></span>
                 </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{ likes: 0, polling: true, heartbeat: null, includeResult: null }"
+
+                <form
+                    class="space-y-3"
+                    sx-post="https://jsonplaceholder.typicode.com/posts"
+                    sx-body="{ title, body, demo: true }"
+                    sx-body-type="json"
+                    sx-headers="{ 'X-SpruceX-Demo': 'examples' }"
+                    sx-loading-into="saving"
+                    sx-error-into="saveError"
+                    sx-json-into="saved"
+                    sx-disable-while-request
+                    sx-text-while-request="'Saving...'"
+                    sx-confirm="'Submit ' + title + '?'"
                 >
+                    <input
+                        sx-model.trim="title"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="Title"
+                    />
+                    <textarea
+                        sx-model.trim="body"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        rows="3"
+                        placeholder="Body"
+                    ></textarea>
                     <button
-                        sx-post="https://jsonplaceholder.typicode.com/posts"
-                        sx-optimistic="likes++"
-                        sx-revert-on-error="likes--"
-                        class="px-4 py-2 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                        type="submit"
+                        class="px-4 py-2 rounded-lg bg-emerald-600 text-white"
                     >
-                        ❤️ Likes: <span sx-text="likes"></span>
+                        Save Draft
                     </button>
+                </form>
 
-                    <div class="flex items-center gap-2">
-                        <button sx-on:click="polling = !polling" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Toggle Polling</button>
-                        <span class="text-sm">Polling: <strong sx-text="polling ? 'ON' : 'OFF'"></strong></span>
-                    </div>
-
-                    <div
-                        sx-get="https://jsonplaceholder.typicode.com/todos/1"
-                        sx-json-into="heartbeat"
-                        sx-poll="5000"
-                        sx-poll-while="polling"
-                        sx-trigger="load"
-                    ></div>
-                    <p class="text-sm text-slate-500">Heartbeat title: <span sx-text="heartbeat?.title || 'waiting...' "></span></p>
-
-                    <form id="extra-meta" class="grid grid-cols-2 gap-2">
-                        <input name="team" value="growth" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <input name="region" value="us" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                    </form>
-
-                    <form
-                        class="space-y-2"
-                        sx-post="https://jsonplaceholder.typicode.com/posts"
-                        sx-include="#extra-meta"
-                        sx-json-into="includeResult"
-                    >
-                        <input name="title" value="Example payload" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                        <button type="submit" class="px-3 py-2 rounded-lg bg-cyan-600 text-white">Submit With sx-include</button>
-                    </form>
-
-                    <pre sx-show="includeResult" class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 overflow-auto" sx-text="JSON.stringify(includeResult, null, 2)"></pre>
-                </div>
-            </section>
-
-            <section id="nav" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">7. Navigation + Boost + Morph Keys</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-page</code> is active on this page layout. Here we demonstrate
-                    <code>sx-boost</code>, <code>sx-boost-on</code>, <code>sx-key</code>, and
-                    <code>sx-preserve</code> during morph updates.
+                <p sx-show="saving" class="text-sm text-emerald-600">
+                    Saving...
                 </p>
-                <div class="glass rounded-2xl p-6 shadow-xl space-y-4" sx-data="{ alt: false, morph() {
+                <p
+                    sx-show="saveError"
+                    class="text-sm text-rose-600"
+                    sx-text="saveError.message"
+                ></p>
+                <pre
+                    sx-show="saved"
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto"
+                    sx-text="JSON.stringify(saved, null, 2)"
+                ></pre>
+            </div>
+        </section>
+
+        <section id="polling" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">
+                6. Polling + Optimistic + Include
+            </h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-poll</code>, <code>sx-poll-while</code>,
+                <code>sx-trigger='load'</code>, <code>sx-optimistic</code>,
+                <code>sx-revert-on-error</code>, and <code>sx-include</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{ likes: 0, polling: true, heartbeat: null, includeResult: null }"
+            >
+                <button
+                    sx-post="https://jsonplaceholder.typicode.com/posts"
+                    sx-optimistic="likes++"
+                    sx-revert-on-error="likes--"
+                    class="px-4 py-2 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                >
+                    ❤️ Likes: <span sx-text="likes"></span>
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        sx-on:click="polling = !polling"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Toggle Polling
+                    </button>
+                    <span class="text-sm"
+                        >Polling:
+                        <strong sx-text="polling ? 'ON' : 'OFF'"></strong
+                    ></span>
+                </div>
+
+                <div
+                    sx-get="https://jsonplaceholder.typicode.com/todos/1"
+                    sx-json-into="heartbeat"
+                    sx-poll="5000"
+                    sx-poll-while="polling"
+                    sx-trigger="load"
+                ></div>
+                <p class="text-sm text-slate-500">
+                    Heartbeat title:
+                    <span sx-text="heartbeat?.title || 'waiting...' "></span>
+                </p>
+
+                <form id="extra-meta" class="grid grid-cols-2 gap-2">
+                    <input
+                        name="team"
+                        value="growth"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <input
+                        name="region"
+                        value="us"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                </form>
+
+                <form
+                    class="space-y-2"
+                    sx-post="https://jsonplaceholder.typicode.com/posts"
+                    sx-include="#extra-meta"
+                    sx-json-into="includeResult"
+                >
+                    <input
+                        name="title"
+                        value="Example payload"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <button
+                        type="submit"
+                        class="px-3 py-2 rounded-lg bg-cyan-600 text-white"
+                    >
+                        Submit With sx-include
+                    </button>
+                </form>
+
+                <pre
+                    sx-show="includeResult"
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 overflow-auto"
+                    sx-text="JSON.stringify(includeResult, null, 2)"
+                ></pre>
+            </div>
+        </section>
+
+        <section id="nav" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">
+                7. Navigation + Boost + Morph Keys
+            </h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-page</code> is active on this page layout. Here we
+                demonstrate <code>sx-boost</code>, <code>sx-boost-on</code>,
+                <code>sx-key</code>, and <code>sx-preserve</code> during morph
+                updates.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{ alt: false, morph() {
                     this.alt = !this.alt;
                     const html = this.alt
                       ? `<div class='rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2' sx-key='card'><p sx-key='label'>Version B</p><input sx-preserve class='w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800' placeholder='Type here, then morph again' /><p class='text-xs text-slate-500'>Input keeps value because of sx-preserve.</p></div>`
                       : `<div class='rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2' sx-key='card'><p sx-key='label'>Version A</p><input sx-preserve class='w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800' placeholder='Type here, then morph again' /><p class='text-xs text-slate-500'>Input keeps value because of sx-preserve.</p></div>`;
                     SpruceX.morph('#morph-target', html);
-                } }">
-                    <div sx-boost sx-boost-on="mouseenter focus" class="flex flex-wrap gap-2">
-                        <a href="/docs" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Boosted Docs Link</a>
-                        <a href="/examples" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Boosted Self Link</a>
-                    </div>
-
-                    <button sx-on:click="morph()" class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900">Morph With sx-key + sx-preserve</button>
-                    <div id="morph-target" class="rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2" sx-key="card">
-                        <p sx-key="label">Version A</p>
-                        <input sx-preserve class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800" placeholder="Type here, then morph again" />
-                        <p class="text-xs text-slate-500">Input keeps value because of sx-preserve.</p>
-                    </div>
-                </div>
-            </section>
-
-            <section id="state" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">8. State + Lazy + Init Data</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>SpruceX.store</code>, <code>sx-local</code>, <code>sx-lazy</code>, and
-                    <code>sx-init-data</code>.
-                </p>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div class="glass rounded-2xl p-6 shadow-xl space-y-3" sx-data="{ g: $store('global') }">
-                        <h3 class="font-semibold">Global Store</h3>
-                        <p>Notifications: <strong sx-text="g.notifications"></strong></p>
-                        <div class="flex gap-2">
-                            <button sx-on:click="g.notifications++" class="px-3 py-2 rounded-lg bg-amber-500 text-white">Increment</button>
-                            <button sx-on:click="g.notifications = 0" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Reset</button>
-                        </div>
-                    </div>
-
-                    <div class="glass rounded-2xl p-6 shadow-xl space-y-3" sx-data="{ note: 'This persists.' }" sx-local="sprucex-example-note">
-                        <h3 class="font-semibold">sx-local Persistence</h3>
-                        <textarea sx-model="note" rows="3" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"></textarea>
-                        <p class="text-sm">Current: <span sx-text="note"></span></p>
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div sx-lazy class="glass rounded-2xl p-6 shadow-xl" sx-data="{ loaded: false, init() { this.loaded = true; } }">
-                        <h3 class="font-semibold">sx-lazy</h3>
-                        <p sx-show="loaded">Initialized once visible in viewport.</p>
-                        <p sx-show="!loaded">Waiting to enter viewport...</p>
-                    </div>
-
-                    <div class="glass rounded-2xl p-6 shadow-xl" sx-data="serverData">
-                        <h3 class="font-semibold">sx-init-data</h3>
-                        <script sx-init-data type="application/json">{"label":"SSR payload","count":3}</script>
-                        <p><span sx-text="label"></span> (<span sx-text="count"></span>)</p>
-                    </div>
-                </div>
-            </section>
-
-            <section id="chart" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">9. Chart Directive</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-chart</code>, <code>sx-chart-type</code>, and
-                    <code>sx-chart-options</code> with managed init/update/destroy.
-                </p>
+                } }"
+            >
                 <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+                    sx-boost
+                    sx-boost-on="mouseenter focus"
+                    class="flex flex-wrap gap-2"
+                >
+                    <a
+                        href="/docs"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                        >Boosted Docs Link</a
+                    >
+                    <a
+                        href="/examples"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                        >Boosted Self Link</a
+                    >
+                </div>
+
+                <button
+                    sx-on:click="morph()"
+                    class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                >
+                    Morph With sx-key + sx-preserve
+                </button>
+                <div
+                    id="morph-target"
+                    class="rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2"
+                    sx-key="card"
+                >
+                    <p sx-key="label">Version A</p>
+                    <input
+                        sx-preserve
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        placeholder="Type here, then morph again"
+                    />
+                    <p class="text-xs text-slate-500">
+                        Input keeps value because of sx-preserve.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="state" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">8. State + Lazy + Init Data</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>SpruceX.store</code>, <code>sx-local</code>,
+                <code>sx-lazy</code>, and <code>sx-init-data</code>.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div
+                    class="glass rounded-2xl p-6 shadow-xl space-y-3"
+                    sx-data="{ g: $store('global') }"
+                >
+                    <h3 class="font-semibold">Global Store</h3>
+                    <p>
+                        Notifications:
+                        <strong sx-text="g.notifications"></strong>
+                    </p>
+                    <div class="flex gap-2">
+                        <button
+                            sx-on:click="g.notifications++"
+                            class="px-3 py-2 rounded-lg bg-amber-500 text-white"
+                        >
+                            Increment
+                        </button>
+                        <button
+                            sx-on:click="g.notifications = 0"
+                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                        >
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    class="glass rounded-2xl p-6 shadow-xl space-y-3"
+                    sx-data="{ note: 'This persists.' }"
+                    sx-local="sprucex-example-note"
+                >
+                    <h3 class="font-semibold">sx-local Persistence</h3>
+                    <textarea
+                        sx-model="note"
+                        rows="3"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    ></textarea>
+                    <p class="text-sm">Current: <span sx-text="note"></span></p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div
+                    sx-lazy
+                    class="glass rounded-2xl p-6 shadow-xl"
+                    sx-data="{ loaded: false, init() { this.loaded = true; } }"
+                >
+                    <h3 class="font-semibold">sx-lazy</h3>
+                    <p sx-show="loaded">
+                        Initialized once visible in viewport.
+                    </p>
+                    <p sx-show="!loaded">Waiting to enter viewport...</p>
+                </div>
+
+                <div
+                    class="glass rounded-2xl p-6 shadow-xl"
+                    sx-data="serverData"
+                >
+                    <h3 class="font-semibold">sx-init-data</h3>
+                    <script sx-init-data type="application/json">
+                        { "label": "SSR payload", "count": 3 }
+                    </script>
+                    <p>
+                        <span sx-text="label"></span> (<span
+                            sx-text="count"
+                        ></span
+                        >)
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="chart" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">9. Chart Directive</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-chart</code>, <code>sx-chart-type</code>, and
+                <code>sx-chart-options</code> with managed init/update/destroy.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         chartType: 'bar',
                         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                         values: [12, 19, 7, 14, 10],
@@ -455,29 +775,40 @@
                             this.chartType = this.chartType === 'bar' ? 'line' : 'bar';
                         }
                     }"
-                >
-                    <div class="flex gap-2 flex-wrap">
-                        <button sx-on:click="randomize()" class="px-3 py-2 rounded-lg bg-brand-600 text-white">Randomize Data</button>
-                        <button sx-on:click="toggleType()" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Toggle Type</button>
-                    </div>
-                    <canvas
-                        sx-chart="payload"
-                        sx-chart-type="chartType"
-                        sx-chart-options="{ responsive: true, plugins: { legend: { display: false } } }"
-                        class="w-full h-64"
-                    ></canvas>
+            >
+                <div class="flex gap-2 flex-wrap">
+                    <button
+                        sx-on:click="randomize()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                    >
+                        Randomize Data
+                    </button>
+                    <button
+                        sx-on:click="toggleType()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Toggle Type
+                    </button>
                 </div>
-            </section>
+                <canvas
+                    sx-chart="payload"
+                    sx-chart-type="chartType"
+                    sx-chart-options="{ responsive: true, plugins: { legend: { display: false } } }"
+                    class="w-full h-64"
+                ></canvas>
+            </div>
+        </section>
 
-            <section id="grid" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">10. GridStack Directive</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>sx-gridstack</code>, <code>sx-gridstack-options</code>,
-                    <code>sx-gridstack-option:&lt;name&gt;</code>, and grid events into state.
-                </p>
-                <div
-                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                    sx-data="{
+        <section id="grid" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">10. GridStack Directive</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>sx-gridstack</code>, <code>sx-gridstack-options</code>,
+                <code>sx-gridstack-option:&lt;name&gt;</code>, and grid events
+                into state.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
                         changes: [],
                         added: [],
                         removed: [],
@@ -535,98 +866,144 @@
                             this.resizeStop = [];
                         }
                     }"
-                >
-                    <p class="text-sm text-slate-500">
-                        Drag/resize widgets directly, or use the controls below.
-                    </p>
-                    <div class="flex flex-wrap gap-2">
-                        <button
-                            sx-on:click="addWidget()"
-                            class="px-3 py-2 rounded-lg bg-brand-600 text-white"
-                        >
-                            Add Widget
-                        </button>
-                        <button
-                            sx-on:click="removeLastWidget()"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
-                        >
-                            Remove Last
-                        </button>
-                        <button
-                            sx-on:click="saveLayout()"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
-                        >
-                            Save Layout
-                        </button>
-                        <button
-                            sx-on:click="restoreLayout()"
-                            sx-bind:disabled="!savedLayout"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Restore Layout
-                        </button>
-                        <button
-                            sx-on:click="clearEventLog()"
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
-                        >
-                            Clear Event Log
-                        </button>
-                    </div>
-
-                    <div
-                        class="grid-stack"
-                        id="example-grid"
-                        style="min-height: 220px;"
-                        sx-gridstack="{ float: true }"
-                        sx-gridstack-options="{ column: 6 }"
-                        sx-gridstack-option:cell-height="70"
-                        sx-gridstack-option:margin="8"
-                        sx-gridstack-on-change="changes"
-                        sx-gridstack-on-added="added"
-                        sx-gridstack-on-removed="removed"
-                        sx-gridstack-on-dragstop="dragStop"
-                        sx-gridstack-on-resizestop="resizeStop"
-                    >
-                        <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="3" gs-h="1">
-                            <div class="grid-stack-item-content rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center">Widget A</div>
-                        </div>
-                        <div class="grid-stack-item" gs-x="3" gs-y="0" gs-w="3" gs-h="1">
-                            <div class="grid-stack-item-content rounded-lg bg-indigo-600 text-white flex items-center justify-center">Widget B</div>
-                        </div>
-                        <div class="grid-stack-item" gs-x="0" gs-y="1" gs-w="6" gs-h="1">
-                            <div class="grid-stack-item-content rounded-lg bg-emerald-600 text-white flex items-center justify-center">Widget C</div>
-                        </div>
-                    </div>
-
-                    <p class="text-sm text-slate-500">
-                        change: <span sx-text="changes.length"></span>, added:
-                        <span sx-text="added.length"></span>, removed:
-                        <span sx-text="removed.length"></span>, dragstop:
-                        <span sx-text="dragStop.length"></span>, resizestop:
-                        <span sx-text="resizeStop.length"></span>
-                    </p>
-                    <p class="text-sm text-slate-500">
-                        Saved layout nodes: <span sx-text="savedLayout ? savedLayout.length : 0"></span>
-                    </p>
-                    <pre class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 overflow-auto" sx-text="JSON.stringify(changes, null, 2)"></pre>
-                </div>
-            </section>
-
-            <section id="boot" class="scroll-mt-24 space-y-4">
-                <h2 class="text-2xl font-bold">11. Early Bootstrap Hook</h2>
-                <p class="text-slate-600 dark:text-slate-400">
-                    <code>window.SpruceXBoot.initTheme()</code> is configured before SpruceX initialization.
+            >
+                <p class="text-sm text-slate-500">
+                    Drag/resize widgets directly, or use the controls below.
                 </p>
-                <div class="glass rounded-2xl p-6 shadow-xl space-y-3" sx-data="{ hasBoot: !!(window.SpruceXBoot && window.SpruceXBoot.initTheme), darkClass: document.documentElement.classList.contains('dark') }">
-                    <p>Hook installed: <strong sx-text="hasBoot ? 'yes' : 'no'"></strong></p>
-                    <p>Dark class at render start: <strong sx-text="darkClass ? 'present' : 'absent'"></strong></p>
-                    <pre class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto"><code>window.SpruceXBoot = {
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        sx-on:click="addWidget()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                    >
+                        Add Widget
+                    </button>
+                    <button
+                        sx-on:click="removeLastWidget()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Remove Last
+                    </button>
+                    <button
+                        sx-on:click="saveLayout()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Save Layout
+                    </button>
+                    <button
+                        sx-on:click="restoreLayout()"
+                        sx-bind:disabled="!savedLayout"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Restore Layout
+                    </button>
+                    <button
+                        sx-on:click="clearEventLog()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Clear Event Log
+                    </button>
+                </div>
+
+                <div
+                    class="grid-stack"
+                    id="example-grid"
+                    style="min-height: 220px"
+                    sx-gridstack="{ float: true }"
+                    sx-gridstack-options="{ column: 6 }"
+                    sx-gridstack-option:cell-height="70"
+                    sx-gridstack-option:margin="8"
+                    sx-gridstack-on-change="changes"
+                    sx-gridstack-on-added="added"
+                    sx-gridstack-on-removed="removed"
+                    sx-gridstack-on-dragstop="dragStop"
+                    sx-gridstack-on-resizestop="resizeStop"
+                >
+                    <div
+                        class="grid-stack-item"
+                        gs-x="0"
+                        gs-y="0"
+                        gs-w="3"
+                        gs-h="1"
+                    >
+                        <div
+                            class="grid-stack-item-content rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center"
+                        >
+                            Widget A
+                        </div>
+                    </div>
+                    <div
+                        class="grid-stack-item"
+                        gs-x="3"
+                        gs-y="0"
+                        gs-w="3"
+                        gs-h="1"
+                    >
+                        <div
+                            class="grid-stack-item-content rounded-lg bg-indigo-600 text-white flex items-center justify-center"
+                        >
+                            Widget B
+                        </div>
+                    </div>
+                    <div
+                        class="grid-stack-item"
+                        gs-x="0"
+                        gs-y="1"
+                        gs-w="6"
+                        gs-h="1"
+                    >
+                        <div
+                            class="grid-stack-item-content rounded-lg bg-emerald-600 text-white flex items-center justify-center"
+                        >
+                            Widget C
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-sm text-slate-500">
+                    change: <span sx-text="changes.length"></span>, added:
+                    <span sx-text="added.length"></span>, removed:
+                    <span sx-text="removed.length"></span>, dragstop:
+                    <span sx-text="dragStop.length"></span>, resizestop:
+                    <span sx-text="resizeStop.length"></span>
+                </p>
+                <p class="text-sm text-slate-500">
+                    Saved layout nodes:
+                    <span sx-text="savedLayout ? savedLayout.length : 0"></span>
+                </p>
+                <pre
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 overflow-auto"
+                    sx-text="JSON.stringify(changes, null, 2)"
+                ></pre>
+            </div>
+        </section>
+
+        <section id="boot" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">11. Early Bootstrap Hook</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                <code>window.SpruceXBoot.initTheme()</code> is configured before
+                SpruceX initialization.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-3"
+                sx-data="{ hasBoot: !!(window.SpruceXBoot && window.SpruceXBoot.initTheme), darkClass: document.documentElement.classList.contains('dark') }"
+            >
+                <p>
+                    Hook installed:
+                    <strong sx-text="hasBoot ? 'yes' : 'no'"></strong>
+                </p>
+                <p>
+                    Dark class at render start:
+                    <strong sx-text="darkClass ? 'present' : 'absent'"></strong>
+                </p>
+                <pre
+                    class="p-3 text-xs rounded-lg bg-slate-900 text-emerald-300 overflow-auto"
+                ><code>window.SpruceXBoot = {
   initTheme() {
     const saved = JSON.parse(localStorage.getItem('darkMode') || '{}');
     document.documentElement.classList.toggle('dark', !!saved.darkMode);
   }
 };</code></pre>
-                </div>
-            </section>
-        </div>
-    </section>
+            </div>
+        </section>
+    </div>
+</section>

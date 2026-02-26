@@ -35,17 +35,7 @@ import {
   ATTR_DISABLE_WHILE_REQUEST,
   ATTR_TEXT_WHILE_REQUEST,
   ATTR_CONFIRM,
-  ATTR_CHART,
-  ATTR_CHART_TYPE,
-  ATTR_CHART_OPTIONS,
-  ATTR_GRIDSTACK,
-  ATTR_GRIDSTACK_OPTIONS,
   ATTR_GRIDSTACK_OPTION_PREFIX,
-  ATTR_GRIDSTACK_ON_CHANGE,
-  ATTR_GRIDSTACK_ON_ADDED,
-  ATTR_GRIDSTACK_ON_REMOVED,
-  ATTR_GRIDSTACK_ON_DRAGSTOP,
-  ATTR_GRIDSTACK_ON_RESIZESTOP,
   ATTR_LAZY,
   ATTR_LOCAL,
   ATTR_ANIMATE,
@@ -67,6 +57,7 @@ import {
   resolveGlobalDataReference,
   createDataFactoryNotReadyError,
 } from "../utils/data-factories.js";
+import { listIntegrations } from "../integrations/index.js";
 
 // We need to split Component because it's huge.
 // But for now, I'll write the class as is, importing dependencies.
@@ -108,6 +99,7 @@ export class Component {
 
     this.initState();
     this.collectRefs();
+    this.initIntegrationBindings();
 
     this.setupDelegation();
 
@@ -159,8 +151,7 @@ export class Component {
       this.updateBindings();
       this.modelBindings.forEach((mb) => mb.updateDom());
       this.updateMemoBindings();
-      this.updateChartBindings();
-      this.initGridBindings();
+      this.updateIntegrations();
     });
   }
 
@@ -608,28 +599,7 @@ export class Component {
         }
       }
 
-      const chartExpr = el.getAttribute(ATTR_CHART);
-      if (chartExpr) {
-        self.chartBindings.push({
-          el,
-          chartExpr,
-          chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
-          chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS),
-        });
-      }
-
-      if (el.hasAttribute(ATTR_GRIDSTACK)) {
-        self.gridBindings.push({
-          el,
-          gridExpr: el.getAttribute(ATTR_GRIDSTACK),
-          gridOptionsExpr: el.getAttribute(ATTR_GRIDSTACK_OPTIONS),
-          onChangeInto: el.getAttribute(ATTR_GRIDSTACK_ON_CHANGE),
-          onAddedInto: el.getAttribute(ATTR_GRIDSTACK_ON_ADDED),
-          onRemovedInto: el.getAttribute(ATTR_GRIDSTACK_ON_REMOVED),
-          onDragstopInto: el.getAttribute(ATTR_GRIDSTACK_ON_DRAGSTOP),
-          onResizestopInto: el.getAttribute(ATTR_GRIDSTACK_ON_RESIZESTOP),
-        });
-      }
+      this.scanIntegrations(el);
     }
 
     // Auto-animate
@@ -1226,6 +1196,50 @@ export class Component {
       this.emitter.removeEventListener(event, handler);
     });
     this.emitterHandlers = [];
+  }
+
+  initIntegrationBindings() {
+    listIntegrations().forEach((integration) => {
+      if (typeof integration.setup !== "function") return;
+      try {
+        integration.setup(this);
+      } catch (e) {
+        console.error("SpruceX integration setup error:", e);
+      }
+    });
+  }
+
+  scanIntegrations(el) {
+    listIntegrations().forEach((integration) => {
+      if (typeof integration.scan !== "function") return;
+      try {
+        integration.scan(this, el);
+      } catch (e) {
+        console.error("SpruceX integration scan error:", e);
+      }
+    });
+  }
+
+  updateIntegrations() {
+    listIntegrations().forEach((integration) => {
+      if (typeof integration.update !== "function") return;
+      try {
+        integration.update(this);
+      } catch (e) {
+        console.error("SpruceX integration update error:", e);
+      }
+    });
+  }
+
+  teardownIntegrations() {
+    listIntegrations().forEach((integration) => {
+      if (typeof integration.teardown !== "function") return;
+      try {
+        integration.teardown(this);
+      } catch (e) {
+        console.error("SpruceX integration teardown error:", e);
+      }
+    });
   }
 
   async performRequest(nb) {
@@ -2258,8 +2272,7 @@ export class Component {
     this.updateBindings();
     this.modelBindings.forEach((mb) => mb.updateDom());
     this.updateMemoBindings();
-    this.updateChartBindings();
-    this.initGridBindings();
+    this.updateIntegrations();
   }
 
   updateBindings() {
@@ -2386,8 +2399,7 @@ export class Component {
   }
 
   refresh() {
-    this.teardownChartBindings();
-    this.teardownGridBindings();
+    this.teardownIntegrations();
     this.clearDebounceTimers();
     this.clearEmitterHandlers();
     this.teardownAllForBlocks();
@@ -2438,8 +2450,7 @@ export class Component {
       this.disableAutoAnimate(el);
     });
     this.animatedElements.clear();
-    this.teardownChartBindings();
-    this.teardownGridBindings();
+    this.teardownIntegrations();
     this.teardownAllForBlocks();
 
     // Clean up event handlers

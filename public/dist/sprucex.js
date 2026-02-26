@@ -554,6 +554,32 @@
     return err;
   }
 
+  // src/integrations/index.js
+  var integrationRegistry = new Map;
+  function assertName(name) {
+    if (typeof name !== "string" || !name.trim()) {
+      throw new Error("SpruceX integration name must be a non-empty string.");
+    }
+  }
+  function assertIntegration(integration) {
+    if (!integration || typeof integration !== "object") {
+      throw new Error("SpruceX integration must be an object.");
+    }
+  }
+  function registerIntegration(name, integration) {
+    assertName(name);
+    assertIntegration(integration);
+    integrationRegistry.set(name, integration);
+    return integration;
+  }
+  function getIntegration(name) {
+    assertName(name);
+    return integrationRegistry.get(name);
+  }
+  function listIntegrations() {
+    return Array.from(integrationRegistry.values());
+  }
+
   // src/core/component.js
   class Component {
     constructor(root) {
@@ -589,6 +615,7 @@
       };
       this.initState();
       this.collectRefs();
+      this.initIntegrationBindings();
       this.setupDelegation();
       this.scan(root);
       this.renderForBlocks();
@@ -621,8 +648,7 @@
         this.updateBindings();
         this.modelBindings.forEach((mb) => mb.updateDom());
         this.updateMemoBindings();
-        this.updateChartBindings();
-        this.initGridBindings();
+        this.updateIntegrations();
       });
     }
     initState() {
@@ -1009,27 +1035,7 @@
             self.netBindings.push(binding);
           }
         }
-        const chartExpr = el.getAttribute(ATTR_CHART);
-        if (chartExpr) {
-          self.chartBindings.push({
-            el,
-            chartExpr,
-            chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
-            chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS)
-          });
-        }
-        if (el.hasAttribute(ATTR_GRIDSTACK)) {
-          self.gridBindings.push({
-            el,
-            gridExpr: el.getAttribute(ATTR_GRIDSTACK),
-            gridOptionsExpr: el.getAttribute(ATTR_GRIDSTACK_OPTIONS),
-            onChangeInto: el.getAttribute(ATTR_GRIDSTACK_ON_CHANGE),
-            onAddedInto: el.getAttribute(ATTR_GRIDSTACK_ON_ADDED),
-            onRemovedInto: el.getAttribute(ATTR_GRIDSTACK_ON_REMOVED),
-            onDragstopInto: el.getAttribute(ATTR_GRIDSTACK_ON_DRAGSTOP),
-            onResizestopInto: el.getAttribute(ATTR_GRIDSTACK_ON_RESIZESTOP)
-          });
-        }
+        this.scanIntegrations(el);
       }
       if (el.hasAttribute(ATTR_ANIMATE)) {
         const optionsStr = el.getAttribute(ATTR_ANIMATE);
@@ -1543,6 +1549,50 @@
         this.emitter.removeEventListener(event, handler);
       });
       this.emitterHandlers = [];
+    }
+    initIntegrationBindings() {
+      listIntegrations().forEach((integration) => {
+        if (typeof integration.setup !== "function")
+          return;
+        try {
+          integration.setup(this);
+        } catch (e) {
+          console.error("SpruceX integration setup error:", e);
+        }
+      });
+    }
+    scanIntegrations(el) {
+      listIntegrations().forEach((integration) => {
+        if (typeof integration.scan !== "function")
+          return;
+        try {
+          integration.scan(this, el);
+        } catch (e) {
+          console.error("SpruceX integration scan error:", e);
+        }
+      });
+    }
+    updateIntegrations() {
+      listIntegrations().forEach((integration) => {
+        if (typeof integration.update !== "function")
+          return;
+        try {
+          integration.update(this);
+        } catch (e) {
+          console.error("SpruceX integration update error:", e);
+        }
+      });
+    }
+    teardownIntegrations() {
+      listIntegrations().forEach((integration) => {
+        if (typeof integration.teardown !== "function")
+          return;
+        try {
+          integration.teardown(this);
+        } catch (e) {
+          console.error("SpruceX integration teardown error:", e);
+        }
+      });
     }
     async performRequest(nb) {
       const url = this.buildUrl(nb);
@@ -2411,8 +2461,7 @@
       this.updateBindings();
       this.modelBindings.forEach((mb) => mb.updateDom());
       this.updateMemoBindings();
-      this.updateChartBindings();
-      this.initGridBindings();
+      this.updateIntegrations();
     }
     updateBindings() {
       for (const b of this.bindings) {
@@ -2524,8 +2573,7 @@
       }
     }
     refresh() {
-      this.teardownChartBindings();
-      this.teardownGridBindings();
+      this.teardownIntegrations();
       this.clearDebounceTimers();
       this.clearEmitterHandlers();
       this.teardownAllForBlocks();
@@ -2566,8 +2614,7 @@
         this.disableAutoAnimate(el);
       });
       this.animatedElements.clear();
-      this.teardownChartBindings();
-      this.teardownGridBindings();
+      this.teardownIntegrations();
       this.teardownAllForBlocks();
       this.eventHandlers.forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
@@ -2593,6 +2640,55 @@
     }
   }
 
+  // src/integrations/builtins.js
+  function ensureBuiltInIntegrationsRegistered() {
+    if (!getIntegration("chart")) {
+      registerIntegration("chart", {
+        scan(component, el) {
+          const chartExpr = el.getAttribute(ATTR_CHART);
+          if (!chartExpr)
+            return;
+          component.chartBindings.push({
+            el,
+            chartExpr,
+            chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
+            chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS)
+          });
+        },
+        update(component) {
+          component.updateChartBindings();
+        },
+        teardown(component) {
+          component.teardownChartBindings();
+        }
+      });
+    }
+    if (!getIntegration("gridstack")) {
+      registerIntegration("gridstack", {
+        scan(component, el) {
+          if (!el.hasAttribute(ATTR_GRIDSTACK))
+            return;
+          component.gridBindings.push({
+            el,
+            gridExpr: el.getAttribute(ATTR_GRIDSTACK),
+            gridOptionsExpr: el.getAttribute(ATTR_GRIDSTACK_OPTIONS),
+            onChangeInto: el.getAttribute(ATTR_GRIDSTACK_ON_CHANGE),
+            onAddedInto: el.getAttribute(ATTR_GRIDSTACK_ON_ADDED),
+            onRemovedInto: el.getAttribute(ATTR_GRIDSTACK_ON_REMOVED),
+            onDragstopInto: el.getAttribute(ATTR_GRIDSTACK_ON_DRAGSTOP),
+            onResizestopInto: el.getAttribute(ATTR_GRIDSTACK_ON_RESIZESTOP)
+          });
+        },
+        update(component) {
+          component.initGridBindings();
+        },
+        teardown(component) {
+          component.teardownGridBindings();
+        }
+      });
+    }
+  }
+
   // src/index.js
   var pageCache = new Map;
   var pendingFetches = new Map;
@@ -2600,6 +2696,7 @@
   var pendingRoots = new Set;
   var pendingRootFlushQueued = false;
   var pendingRootPollTimer = null;
+  ensureBuiltInIntegrationsRegistered();
   function ensurePendingRootPolling() {
     if (pendingRootPollTimer || pendingRoots.size === 0)
       return;
@@ -2635,6 +2732,15 @@
     queueMicrotask(() => {
       pendingRootFlushQueued = false;
       flushPendingRoots();
+    });
+  }
+  function refreshAllMountedComponents() {
+    if (typeof document === "undefined")
+      return;
+    document.querySelectorAll(`[${ATTR_DATA}]`).forEach((root) => {
+      if (root.__sprucex && typeof root.__sprucex.refresh === "function") {
+        root.__sprucex.refresh();
+      }
     });
   }
   var SpruceX = {
@@ -2691,7 +2797,15 @@
       }
       return aa(el, options);
     },
-    setAutoAnimate
+    setAutoAnimate,
+    integration(name, integration) {
+      if (arguments.length === 1 && typeof name === "string") {
+        return getIntegration(name);
+      }
+      const registered = registerIntegration(name, integration);
+      refreshAllMountedComponents();
+      return registered;
+    }
   };
   if (typeof window !== "undefined") {
     window.SpruceX = SpruceX;
