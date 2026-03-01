@@ -1085,6 +1085,27 @@ export class Component {
     return headers;
   }
 
+  getCsrfToken() {
+    if (typeof document === "undefined") return null;
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (const entry of cookies) {
+      const cookie = entry.trim();
+      if (cookie.startsWith("csrftoken=")) {
+        return decodeURIComponent(cookie.slice("csrftoken=".length));
+      }
+    }
+    return null;
+  }
+
+  addCsrfHeader(headers, method) {
+    const upperMethod = String(method || "GET").toUpperCase();
+    if (["GET", "HEAD", "OPTIONS", "TRACE"].includes(upperMethod)) return;
+    const csrfToken = this.getCsrfToken();
+    if (csrfToken && !headers.has("X-CSRFToken")) {
+      headers.set("X-CSRFToken", csrfToken);
+    }
+  }
+
   evaluateExpressionOrLiteral(raw) {
     const trimmed = String(raw ?? "").trim();
     if (!trimmed) return "";
@@ -1245,7 +1266,6 @@ export class Component {
   async performRequest(nb) {
     const url = this.buildUrl(nb);
     const { body, bodyKind } = this.buildBody(nb);
-    const headers = this.buildHeaders(nb, bodyKind, body != null);
     const {
       el,
       method,
@@ -1257,6 +1277,8 @@ export class Component {
       loadingInto,
       errorInto,
     } = nb;
+    const headers = this.buildHeaders(nb, bodyKind, body != null);
+    this.addCsrfHeader(headers, method);
     const endUiState = this.beginRequestUiState(nb);
 
     this.assignStateValue(loadingInto, true);
