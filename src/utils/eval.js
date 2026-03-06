@@ -9,6 +9,7 @@ export function evalInScope(expr, scope, extra = {}) {
   const locals = scope.locals || {};
   const extraKeys = Object.keys(extra);
   const cacheKey = expr + "|" + extraKeys.join(",");
+  const storeAccessor = scope.storeAccessor || getStore;
 
   let fn = evalFnCache.get(cacheKey);
   if (!fn) {
@@ -38,7 +39,7 @@ export function evalInScope(expr, scope, extra = {}) {
       scope.lastEvent || null,
       scope.refs,
       scope.emit,
-      getStore, // Changed from direct globalStores access to imported helper
+      storeAccessor,
       locals,
       ...Object.values(extra)
     );
@@ -73,6 +74,7 @@ export function execInScope(stmt, scope, extra = {}) {
   const locals = scope.locals || {};
   const extraKeys = Object.keys(extra);
   const cacheKey = stmt + "|" + extraKeys.join(",");
+  const storeAccessor = scope.storeAccessor || getStore;
 
   let fn = execFnCache.get(cacheKey);
   if (!fn) {
@@ -100,7 +102,7 @@ export function execInScope(stmt, scope, extra = {}) {
       scope.lastEvent || null,
       scope.refs,
       scope.emit,
-      getStore,
+      storeAccessor,
       locals,
       ...Object.values(extra)
     );

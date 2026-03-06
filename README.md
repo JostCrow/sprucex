@@ -33,13 +33,12 @@ SpruceX auto-initializes on `DOMContentLoaded`.
 
 ## Get SpruceX
 
-SpruceX is not on npm yet.
+SpruceX ships in two formats:
+- browser bundle: `public/dist/sprucex.js` or `public/dist/sprucex.min.js`
+- package entrypoints: `lib/sprucex.mjs`, `lib/sprucex.cjs`, and `lib/sprucex.d.ts`
 
-Use one of these distribution options:
-- grab `sprucex.js` or `sprucex.min.js` from this repository (`public/dist/`)
-- grab the hosted file from the SpruceX website
-
-Then include the file in your app and use the global `SpruceX` object.
+For script-tag usage, include the browser bundle and use the global `SpruceX` object.
+For package usage, import the built library entrypoint exposed by `package.json`.
 
 ## Basic API
 

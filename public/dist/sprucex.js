@@ -364,6 +364,8 @@
       target.replaceWith(source.cloneNode(true));
       return;
     }
+    if (target.hasAttribute("sx-preserve"))
+      return;
     syncAttributes(target, source);
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
       if (target.value !== source.value) {
@@ -381,8 +383,6 @@
       }
       return;
     }
-    if (target.hasAttribute("sx-preserve"))
-      return;
     morphChildren(target, source);
   }
   function morphChildren(target, source) {
@@ -2629,6 +2629,7 @@
       this.pollTimers.forEach((t) => clearInterval(t));
       this.pollTimers = [];
       this.collectRefs();
+      this.initIntegrationBindings();
       this.scan(this.root);
       this.renderForBlocks();
       this.applyInitialRender();

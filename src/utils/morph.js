@@ -35,6 +35,10 @@ export function morphElement(target, source) {
     return;
   }
 
+  // Skip morphing for elements marked to preserve.
+  // This must happen before syncing attributes or form-control values.
+  if (target.hasAttribute("sx-preserve")) return;
+
   // Sync attributes
   syncAttributes(target, source);
 
@@ -57,9 +61,6 @@ export function morphElement(target, source) {
     }
     return;
   }
-
-  // Skip morphing for elements marked to preserve
-  if (target.hasAttribute("sx-preserve")) return;
 
   // Morph children
   morphChildren(target, source);
