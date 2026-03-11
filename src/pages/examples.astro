@@ -23,6 +23,9 @@ import examplesMarkup from "../fragments/examples-markup.html?raw";
             },
             { persist: true },
         );
+        SpruceX.store("nested-roots-demo", {
+            items: ["Shell", "Canvas"],
+        });
     </script>
 
     <Fragment set:html={examplesMarkup} />

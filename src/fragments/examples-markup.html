@@ -90,6 +90,37 @@
             </p>
             <div
                 class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{ visible: true }"
+            >
+                <div class="space-y-2">
+                    <p class="font-semibold">Minimal <code>sx-show</code> example</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        Toggle a boolean with a checkbox and show or hide a
+                        single element.
+                    </p>
+                </div>
+
+                <label class="inline-flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        sx-model="visible"
+                        class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    <span class="text-sm">
+                        Visible:
+                        <strong sx-text="visible ? 'true' : 'false'"></strong>
+                    </span>
+                </label>
+
+                <div
+                    sx-show="visible"
+                    class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100"
+                >
+                    This element is controlled only by <code>sx-show="visible"</code>.
+                </div>
+            </div>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
                 sx-data="{
                         name: 'SpruceX',
                         active: true,
@@ -149,6 +180,130 @@
                     sx-text="broken.value"
                     sx-error-fallback="'Fallback: broken.value is unavailable'"
                 ></p>
+            </div>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
+                        title: 'Outer workspace',
+                        list: $store('nested-roots-demo'),
+                        draft: '',
+                        addSection() {
+                            if (!this.draft.trim()) return;
+                            this.list.items.push(this.draft.trim());
+                            this.draft = '';
+                        },
+                        removeLastSection() {
+                            if (this.list.items.length === 0) return;
+                            this.list.items.pop();
+                        },
+                        removeSection(index) {
+                            this.list.items.splice(index, 1);
+                        }
+                    }"
+            >
+                <div class="space-y-2">
+                    <p class="font-semibold">Nested <code>sx-data</code> roots</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        The outer root mutates the list. The nested root owns
+                        the visibility toggle for the rendered list below.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-300 p-4 space-y-4 dark:border-slate-700">
+                    <div class="space-y-3">
+                        <p class="text-sm">
+                            Outer title:
+                            <strong sx-text="title"></strong>
+                        </p>
+
+                        <div class="flex flex-col gap-3 sm:flex-row">
+                            <input
+                                sx-model.trim="draft"
+                                class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                placeholder="Add outer section"
+                            />
+                            <div class="flex gap-2">
+                                <button
+                                    sx-on:click="addSection()"
+                                    class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                                >
+                                    Add Section
+                                </button>
+                                <button
+                                    sx-on:click="removeLastSection()"
+                                    class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                                >
+                                    Remove Last
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            The buttons above mutate the list owned by the outer
+                            example state.
+                        </p>
+                    </div>
+
+                    <div
+                        class="rounded-xl border border-dashed border-slate-300 p-4 space-y-3 dark:border-slate-700"
+                        sx-data="{ label: 'Nested panel', visible: true, list: $store('nested-roots-demo') }"
+                    >
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm">
+                                Middle label:
+                                <strong sx-text="label"></strong>
+                            </p>
+                            <button
+                                sx-toggle="visible"
+                                class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                            >
+                                Toggle List
+                            </button>
+                        </div>
+
+                        <p class="text-sm text-slate-600 dark:text-slate-300">
+                            Nested state says the shared list is
+                            <strong
+                                sx-text="visible ? 'visible' : 'hidden'"
+                            ></strong>.
+                        </p>
+
+                        <div sx-show="visible" class="rounded-lg bg-slate-100 p-4 dark:bg-slate-800/80">
+                            <ul class="space-y-2">
+                                <template sx-for="item in list.items">
+                                    <li
+                                        class="flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                    >
+                                        <span sx-text="item"></span>
+                                        <button
+                                            sx-on:click="list.items.splice($index, 1)"
+                                            class="text-sm text-rose-600"
+                                        >
+                                            Remove
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <div
+                            class="rounded-lg bg-slate-100 p-4 dark:bg-slate-800/80"
+                            sx-data="{ items: ['Alpha', 'Beta'], note: 'Innermost list still owns this state.' }"
+                        >
+                            <div class="space-y-2">
+                                <p class="text-sm text-slate-600 dark:text-slate-300" sx-text="note"></p>
+                                <ul class="space-y-2">
+                                    <template sx-for="item in items">
+                                        <li
+                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                            sx-text="item"
+                                        ></li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 

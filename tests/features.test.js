@@ -99,6 +99,35 @@ describe("core directives and events", () => {
 });
 
 describe("model, loops, and memo", () => {
+  test("checkbox sx-model updates a boolean that drives sx-show", async () => {
+    const { component } = mount(`
+      <div sx-data="{ visible: true }">
+        <input id="toggle-visible" type="checkbox" sx-model="visible" />
+        <div id="panel" sx-show="visible">Visible content</div>
+      </div>
+    `);
+
+    const checkbox = document.querySelector("#toggle-visible");
+    const panel = document.querySelector("#panel");
+
+    expect(checkbox.checked).toBe(true);
+    expect(panel.style.display).toBe("");
+
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event("input", { bubbles: true }));
+    await waitForUpdates();
+
+    expect(component.state.visible).toBe(false);
+    expect(panel.style.display).toBe("none");
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event("input", { bubbles: true }));
+    await waitForUpdates();
+
+    expect(component.state.visible).toBe(true);
+    expect(panel.style.display).toBe("");
+  });
+
   test("sx-model modifiers, sx-for, and sx-memo behave as expected", async () => {
     const { component } = mount(`
       <div sx-data="{ name: '  Ada  ', qty: 1, lazyQty: 2, debounced: '', items: ['a', 'b'], count: 2 }">

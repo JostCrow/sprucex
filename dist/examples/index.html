@@ -16,7 +16,7 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.CbzB6wsC.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.BWJoArOv.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 128 128"
@@ -163,6 +163,37 @@
                 <code>sx-class</code>, <code>sx-bind</code>,
                 <code>sx-toggle</code>, and <code>sx-error-fallback</code>.
             </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{ visible: true }"
+            >
+                <div class="space-y-2">
+                    <p class="font-semibold">Minimal <code>sx-show</code> example</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        Toggle a boolean with a checkbox and show or hide a
+                        single element.
+                    </p>
+                </div>
+
+                <label class="inline-flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        sx-model="visible"
+                        class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    <span class="text-sm">
+                        Visible:
+                        <strong sx-text="visible ? 'true' : 'false'"></strong>
+                    </span>
+                </label>
+
+                <div
+                    sx-show="visible"
+                    class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100"
+                >
+                    This element is controlled only by <code>sx-show="visible"</code>.
+                </div>
+            </div>
             <div
                 class="glass rounded-2xl p-6 shadow-xl space-y-4"
                 sx-data="{

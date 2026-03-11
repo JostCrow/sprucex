@@ -284,6 +284,7 @@
     const locals = scope.locals || {};
     const extraKeys = Object.keys(extra);
     const cacheKey = expr + "|" + extraKeys.join(",");
+    const storeAccessor = scope.storeAccessor || getStore;
     let fn = evalFnCache.get(cacheKey);
     if (!fn) {
       try {
@@ -297,7 +298,7 @@
       }
     }
     try {
-      return fn(scope.state, scope.lastEvent || null, scope.refs, scope.emit, getStore, locals, ...Object.values(extra));
+      return fn(scope.state, scope.lastEvent || null, scope.refs, scope.emit, storeAccessor, locals, ...Object.values(extra));
     } catch (e) {
       if (scope.debug) {
         console.error("SpruceX expression error:", expr, e);
@@ -323,6 +324,7 @@
     const locals = scope.locals || {};
     const extraKeys = Object.keys(extra);
     const cacheKey = stmt + "|" + extraKeys.join(",");
+    const storeAccessor = scope.storeAccessor || getStore;
     let fn = execFnCache.get(cacheKey);
     if (!fn) {
       try {
@@ -334,7 +336,7 @@
       }
     }
     try {
-      fn(scope.state, scope.lastEvent || null, scope.refs, scope.emit, getStore, locals, ...Object.values(extra));
+      fn(scope.state, scope.lastEvent || null, scope.refs, scope.emit, storeAccessor, locals, ...Object.values(extra));
     } catch (e) {
       console.error("SpruceX statement error:", stmt, e);
     }
@@ -660,6 +662,7 @@
         }
         return store;
       };
+      this.storeAccessor = storeAccessor;
       let raw;
       const jsonScript = this.root.querySelector("script[sx-init-data]");
       const looksLikeIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(rawExpr);
@@ -730,7 +733,8 @@
       }
       Object.defineProperty(raw, "$emit", {
         value: this.emit,
-        enumerable: false
+        enumerable: false,
+        configurable: true
       });
       Object.defineProperty(raw, "$store", {
         value: (name) => {
@@ -740,7 +744,8 @@
           }
           return store;
         },
-        enumerable: false
+        enumerable: false,
+        configurable: true
       });
       const { proxy } = createReactiveState(raw, () => {
         if (localKey) {
@@ -951,7 +956,7 @@
               ev.preventDefault();
             if (mods.includes("stop"))
               ev.stopPropagation();
-            if (mods.includes("self") && ev.target !== ev.currentTarget)
+            if (mods.includes("self") && ev.target !== el)
               return;
             if (mods.includes("window") && ev.target !== window)
               return;
@@ -1042,22 +1047,31 @@
         queueMicrotask(() => this.setupAutoAnimate(el, optionsStr || {}));
       }
     }
+    parseModelBindingConfig(direct, modifierAttrs) {
+      const keyExpr = direct || modifierAttrs[0]?.value || null;
+      const mods = new Set;
+      let debounceMs = null;
+      modifierAttrs.forEach((attr) => {
+        const parts = attr.name.slice(ATTR_MODEL_PREFIX.length).split(".").filter(Boolean);
+        parts.forEach((part) => {
+          if (part === "debounce-ms") {
+            const parsed = Number(attr.value || "200");
+            if (Number.isFinite(parsed) && parsed > 0) {
+              debounceMs = parsed;
+            }
+            return;
+          }
+          mods.add(part);
+        });
+      });
+      return { keyExpr, mods, debounceMs };
+    }
     setupModelBinding(el, locals = null) {
       const direct = el.getAttribute(ATTR_MODEL);
       const modifierAttrs = Array.from(el.attributes).filter((a) => a.name.startsWith(ATTR_MODEL_PREFIX));
       if (!direct && modifierAttrs.length === 0)
         return;
-      const keyExpr = direct || modifierAttrs[0].value;
-      const mods = new Set;
-      let debounceMs = null;
-      modifierAttrs.forEach((a) => {
-        const rest = a.name.slice(ATTR_MODEL_PREFIX.length);
-        if (rest.startsWith("debounce-ms")) {
-          debounceMs = Number(a.value || "200");
-        } else {
-          mods.add(rest);
-        }
-      });
+      const { keyExpr, mods, debounceMs } = this.parseModelBindingConfig(direct, modifierAttrs);
       const type = (el.type || "").toLowerCase();
       const isCheckbox = type === "checkbox";
       const isRadio = type === "radio";
@@ -2305,7 +2319,7 @@
                 ev.preventDefault();
               if (mods.includes("stop"))
                 ev.stopPropagation();
-              if (mods.includes("self") && ev.target !== ev.currentTarget)
+              if (mods.includes("self") && ev.target !== el)
                 return;
               if (mods.includes("window") && ev.target !== window)
                 return;
@@ -2354,17 +2368,7 @@
       const modifierAttrs = Array.from(el.attributes).filter((a) => a.name.startsWith(ATTR_MODEL_PREFIX));
       if (!direct && modifierAttrs.length === 0)
         return null;
-      const keyExpr = direct || modifierAttrs[0].value;
-      const mods = new Set;
-      let debounceMs = null;
-      modifierAttrs.forEach((a) => {
-        const rest = a.name.slice(ATTR_MODEL_PREFIX.length);
-        if (rest.startsWith("debounce-ms")) {
-          debounceMs = Number(a.value || "200");
-        } else {
-          mods.add(rest);
-        }
-      });
+      const { keyExpr, mods, debounceMs } = this.parseModelBindingConfig(direct, modifierAttrs);
       const type = (el.type || "").toLowerCase();
       const isCheckbox = type === "checkbox";
       const isRadio = type === "radio";
