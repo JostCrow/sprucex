@@ -44,3 +44,18 @@ export function initStore(name, value, options = {}) {
   }
   return globalStores[name];
 }
+
+export function removeStore(name) {
+  if (!globalStores[name]) return;
+
+  // Notify subscribers one last time before removing
+  const subscribers = storeSubscribers[name];
+  if (subscribers) {
+    subscribers.forEach(comp => {
+      if (!comp.isDestroyed) comp.scheduleUpdate();
+    });
+  }
+
+  delete globalStores[name];
+  delete storeSubscribers[name];
+}

@@ -1,41 +1,25 @@
 
 import { isClass } from "../utils/helpers.js";
 
+// Mutating array methods that need to trigger reactivity
+const ARRAY_MUTATING_METHODS = new Set([
+  "push", "pop", "shift", "unshift", "splice", "sort", "reverse"
+]);
+
 // Deep reactive proxy for nested objects
 export function createDeepReactiveProxy(obj, onChange, visited = new WeakSet()) {
   if (obj === null || typeof obj !== "object") return obj;
   if (visited.has(obj)) return obj;
   visited.add(obj);
 
-  // Wrap arrays
+  // Make nested values reactive (without monkey-patching arrays)
   if (Array.isArray(obj)) {
-    const methods = [
-      "push",
-      "pop",
-      "shift",
-      "unshift",
-      "splice",
-      "sort",
-      "reverse"
-    ];
-    methods.forEach(method => {
-      const original = obj[method];
-      if (typeof original === "function") {
-        obj[method] = function (...args) {
-          const result = original.apply(this, args);
-          onChange();
-          return result;
-        };
-      }
-    });
-    // Make array elements reactive
     obj.forEach((item, i) => {
       if (item && typeof item === "object") {
         obj[i] = createDeepReactiveProxy(item, onChange, visited);
       }
     });
   } else {
-    // Make object properties reactive
     Object.keys(obj).forEach(key => {
       if (obj[key] && typeof obj[key] === "object") {
         obj[key] = createDeepReactiveProxy(obj[key], onChange, visited);
@@ -46,6 +30,23 @@ export function createDeepReactiveProxy(obj, onChange, visited = new WeakSet()) 
   const handler = {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver);
+
+      // Intercept array mutating methods and return wrapped versions
+      if (Array.isArray(target) && ARRAY_MUTATING_METHODS.has(key) && typeof value === "function") {
+        return function (...args) {
+          // Make new arguments reactive before inserting
+          const reactiveArgs = args.map(arg => {
+            if (arg && typeof arg === "object") {
+              return createDeepReactiveProxy(arg, onChange, new WeakSet());
+            }
+            return arg;
+          });
+          const result = value.apply(target, reactiveArgs);
+          onChange();
+          return result;
+        };
+      }
+
       if (typeof value === "function" && !isClass(value)) {
         return value.bind(receiver);
       }
@@ -91,21 +92,6 @@ export function createReactiveState(raw, onChange) {
   };
 
   const proxy = createDeepReactiveProxy(raw, notify);
-
-  // Note: Original code had:
-  // const proxy = createDeepReactiveProxy(raw, notify);
-  // return { proxy, watchers };
-  // And notify used 'proxy' in watchers[key].call(proxy...).
-  // In the original, 'proxy' variable was available to 'notify' because 'notify' was defined before 'proxy',
-  // but 'proxy' is assigned after 'notify' is created.
-  // Wait, ES const is block scoped but not hoisted.
-  // In original code (lines 255-267):
-  /*
-    const notify = ... watchers[key].call(proxy, ...) ...
-    const proxy = createDeepReactiveProxy(raw, notify);
-    return { proxy, watchers };
-  */
-  // This works because 'notify' is called LATER, after 'proxy' is initialized.
 
   return { proxy, watchers };
 }

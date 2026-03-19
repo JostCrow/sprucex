@@ -6,7 +6,7 @@ import {
   ATTR_LAZY,
   ATTR_LOCAL,
 } from "./constants.js";
-import { globalStores, initStore, storeSubscribers } from "./store/index.js";
+import { globalStores, initStore, removeStore, storeSubscribers } from "./store/index.js";
 import { Component } from "./core/component.js";
 import { setAutoAnimate, getAutoAnimate } from "./utils/animations.js";
 import { morphNodes } from "./utils/morph.js";
@@ -23,18 +23,29 @@ import {
 } from "./utils/data-factories.js";
 
 // Page/boost cache for prefetching
+const MAX_PAGE_CACHE_SIZE = 20;
 const pageCache = new Map();
 const pendingFetches = new Map();
 const PAGE_CACHE_TTL = 30000; // 30 seconds
 const pendingRoots = new Set();
 let pendingRootFlushQueued = false;
 let pendingRootPollTimer = null;
+let pendingRootPollCount = 0;
+const MAX_PENDING_ROOT_POLLS = 100; // 10 seconds total at 100ms
 
 ensureBuiltInIntegrationsRegistered();
 
 function ensurePendingRootPolling() {
   if (pendingRootPollTimer || pendingRoots.size === 0) return;
+  pendingRootPollCount = 0;
   pendingRootPollTimer = setInterval(() => {
+    pendingRootPollCount++;
+    if (pendingRootPollCount >= MAX_PENDING_ROOT_POLLS) {
+      clearInterval(pendingRootPollTimer);
+      pendingRootPollTimer = null;
+      console.warn(`SpruceX: Stopped polling for pending roots after ${MAX_PENDING_ROOT_POLLS} attempts. Make sure data factories are registered.`);
+      return;
+    }
     flushPendingRoots();
   }, 100);
 }
@@ -54,6 +65,7 @@ function flushPendingRoots() {
   if (pendingRoots.size === 0 && pendingRootPollTimer) {
     clearInterval(pendingRootPollTimer);
     pendingRootPollTimer = null;
+    pendingRootPollCount = 0;
   }
 }
 
@@ -84,6 +96,7 @@ function refreshAllMountedComponents() {
 export const SpruceX = {
   init: initSpruceX,
   store: initStore,
+  removeStore,
   data(name, factory) {
     if (arguments.length === 1 && typeof name === "string") {
       return getDataFactory(name);
@@ -100,8 +113,8 @@ export const SpruceX = {
     }));
   },
   config(newCfg) {
-    // No-op for now as config was mostly unused except strict mode
-    // Object.assign(config, newCfg || {});
+    // Merge new config, which includes csrfCookieName and potentially others
+    Object.assign(Component, newCfg || {});
   },
   navigate(url) {
     const pageRoot = document.querySelector(`[${ATTR_PAGE}]`);
@@ -399,7 +412,7 @@ async function navigateTo(url, container, pushState = true) {
     const newTitle = doc.querySelector("title");
     if (newTitle) document.title = newTitle.textContent;
 
-    // Destroy old components BEFORE morph (prevents interference)
+    // Destroy old components BEFORE morph to prevent double lifecycle
     reinitializeComponents(container);
 
     // Merge or replace content
@@ -419,10 +432,7 @@ async function navigateTo(url, container, pushState = true) {
       history.pushState({ url }, "", url);
     }
 
-    // Reinitialize all components in container
-    reinitializeComponents(container);
-
-    // Also reinit any components outside the container (just in case)
+    // Reinitialize components in container after DOM is ready
     initSpruceX();
 
     // Refresh ancestor components to re-scan bindings in the new content
@@ -514,6 +524,10 @@ async function fetchPage(url) {
       const html = await res.text();
 
       // Cache it
+      if (pageCache.size >= MAX_PAGE_CACHE_SIZE) {
+        const oldestKey = pageCache.keys().next().value;
+        pageCache.delete(oldestKey);
+      }
       pageCache.set(url, {
         html,
         timestamp: Date.now(),

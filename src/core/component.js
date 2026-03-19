@@ -41,6 +41,7 @@ import {
   ATTR_LOCAL,
   ATTR_ANIMATE,
   DELEGATED_EVENTS,
+  DEFAULT_CSRF_COOKIE_NAME,
 } from "../constants.js";
 import { walk, parseForExpression, cloneChildren } from "../utils/helpers.js";
 import {
@@ -874,10 +875,11 @@ export class Component {
     // Parse options from attribute if string
     if (typeof options === "string" && options.trim()) {
       try {
-        options = new Function(`return (${options})`)();
-      } catch (e) {
-        console.error("SpruceX sx-animate options parse error:", e);
-        options = {};
+        options = JSON.parse(options);
+      } catch (_jsonErr) {
+        // Fallback: try evaluating as expression in component scope
+        const evaluated = safeEval(options, this);
+        options = evaluated && typeof evaluated === "object" ? evaluated : {};
       }
     }
 
@@ -912,13 +914,16 @@ export class Component {
     const { urlTpl, varsExpr } = nb;
     if (!varsExpr) return urlTpl;
     const vars = safeEval(varsExpr, this) || {};
-    try {
-      const fn = new Function("vars", "with(vars){ return `" + urlTpl + "`; }");
-      return fn(vars);
-    } catch (e) {
-      console.error("SpruceX url template error:", urlTpl, e);
-      return urlTpl;
-    }
+    // Safe interpolation: only replace ${identifier} tokens, no arbitrary code execution
+    return urlTpl.replace(/\$\{([A-Za-z_$][A-Za-z0-9_$.]*)\}/g, (_match, key) => {
+      const segments = key.split(".");
+      let value = vars;
+      for (const seg of segments) {
+        if (value == null) return "";
+        value = value[seg];
+      }
+      return value ?? "";
+    });
   }
 
   buildBody(nb) {
@@ -1114,11 +1119,13 @@ export class Component {
 
   getCsrfToken() {
     if (typeof document === "undefined") return null;
+    const cookieName = Component.csrfCookieName || DEFAULT_CSRF_COOKIE_NAME;
+    const prefix = cookieName + "=";
     const cookies = document.cookie ? document.cookie.split(";") : [];
     for (const entry of cookies) {
       const cookie = entry.trim();
-      if (cookie.startsWith("csrftoken=")) {
-        return decodeURIComponent(cookie.slice("csrftoken=".length));
+      if (cookie.startsWith(prefix)) {
+        return decodeURIComponent(cookie.slice(prefix.length));
       }
     }
     return null;
@@ -2339,32 +2346,32 @@ export class Component {
   cleanupInstanceBindings(instanceBindings) {
     if (!instanceBindings) return;
 
-    // Remove bindings from main arrays
-    (instanceBindings.bindings || []).forEach((b) => {
-      const idx = this.bindings.indexOf(b);
-      if (idx !== -1) this.bindings.splice(idx, 1);
-    });
+    // Use Sets for O(1) lookup instead of O(n) indexOf per item
+    const bindingsToRemove = new Set(instanceBindings.bindings || []);
+    const memosToRemove = new Set(instanceBindings.memoBindings || []);
+    const modelsToRemove = new Set(instanceBindings.modelBindings || []);
 
-    (instanceBindings.memoBindings || []).forEach((b) => {
-      const idx = this.memoBindings.indexOf(b);
-      if (idx !== -1) this.memoBindings.splice(idx, 1);
-    });
-
-    (instanceBindings.modelBindings || []).forEach((b) => {
-      const idx = this.modelBindings.indexOf(b);
-      if (idx !== -1) this.modelBindings.splice(idx, 1);
-    });
+    if (bindingsToRemove.size > 0) {
+      this.bindings = this.bindings.filter((b) => !bindingsToRemove.has(b));
+    }
+    if (memosToRemove.size > 0) {
+      this.memoBindings = this.memoBindings.filter((b) => !memosToRemove.has(b));
+    }
+    if (modelsToRemove.size > 0) {
+      this.modelBindings = this.modelBindings.filter((b) => !modelsToRemove.has(b));
+    }
 
     // Remove event handlers
+    const handlersToRemove = new Set();
     (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
-      // For delegated events, we don't track them in instanceBindings.eventHandlers usually
-      // But if we did (non-delegated), remove them
       el.removeEventListener(event, handler);
-      const idx = this.eventHandlers.findIndex(
-        (h) => h.el === el && h.event === event && h.handler === handler,
-      );
-      if (idx !== -1) this.eventHandlers.splice(idx, 1);
+      handlersToRemove.add(handler);
     });
+    if (handlersToRemove.size > 0) {
+      this.eventHandlers = this.eventHandlers.filter(
+        (h) => !handlersToRemove.has(h.handler),
+      );
+    }
 
     // Recursively remove nested sx-for blocks created for this instance.
     // If these remain in forBlocks, they keep stale locals and continue rendering.

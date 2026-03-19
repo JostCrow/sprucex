@@ -55,6 +55,8 @@ export const ATTR_LAZY = "sx-lazy";
 export const ATTR_LOCAL = "sx-local";
 export const ATTR_ANIMATE = "sx-animate";
 
+export const DEFAULT_CSRF_COOKIE_NAME = "csrftoken";
+
 export const DELEGATED_EVENTS = new Set([
   "click", "dblclick", "mousedown", "mouseup",
   "input", "change", "submit",
