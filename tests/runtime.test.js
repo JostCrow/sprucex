@@ -5,11 +5,29 @@ import { Component } from "../src/core/component.js";
 import { installDom, waitForUpdates } from "./helpers/dom.js";
 
 let restoreDom = null;
+let previousFetch;
+let previousWarn;
+let previousNow;
 
 afterEach(() => {
   if (restoreDom) {
     restoreDom();
     restoreDom = null;
+  }
+
+  if (previousFetch !== undefined) {
+    globalThis.fetch = previousFetch;
+    previousFetch = undefined;
+  }
+
+  if (previousWarn !== undefined) {
+    console.warn = previousWarn;
+    previousWarn = undefined;
+  }
+
+  if (previousNow !== undefined) {
+    Date.now = previousNow;
+    previousNow = undefined;
   }
 });
 
@@ -267,5 +285,139 @@ describe("integrations", () => {
     expect(calls.teardown).toBe(2);
     expect(calls.scan).toBe(4);
     expect(calls.update).toBe(2);
+  });
+});
+
+describe("navigation", () => {
+  test("SpruceX.navigate resolves relative URLs and ignores stale older navigations", async () => {
+    const env = installDom(`
+      <!doctype html>
+      <html>
+        <body>
+          <div sx-page></div>
+        </body>
+      </html>
+    `);
+    restoreDom = env.cleanup;
+
+    window.scrollTo = () => {};
+
+    const requestedUrls = [];
+    const resolvers = [];
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = (url) =>
+      new Promise((resolve) => {
+        requestedUrls.push(String(url));
+        resolvers.push(resolve);
+      });
+
+    const uniqueId = `${Date.now()}-${Math.random()}`;
+    const { SpruceX } = await import(`../src/index.js?nav=${uniqueId}`);
+
+    const olderNav = SpruceX.navigate("/older");
+    const newerNav = SpruceX.navigate("/newer");
+    await waitForUpdates(5);
+
+    resolvers[1]({
+      ok: true,
+      text: async () =>
+        `
+          <!doctype html>
+          <html>
+            <head><title>Newer</title></head>
+            <body><div sx-page><main id="newer">newer</main></div></body>
+          </html>
+        `,
+    });
+    await newerNav;
+
+    resolvers[0]({
+      ok: true,
+      text: async () =>
+        `
+          <!doctype html>
+          <html>
+            <head><title>Older</title></head>
+            <body><div sx-page><main id="older">older</main></div></body>
+          </html>
+        `,
+    });
+    await olderNav;
+
+    expect(requestedUrls).toEqual([
+      "https://sprucex.test/older",
+      "https://sprucex.test/newer",
+    ]);
+    expect(document.title).toBe("Newer");
+    expect(document.querySelector("#newer")?.textContent).toBe("newer");
+    expect(document.querySelector("#older")).toBeNull();
+  });
+
+  test("modified link clicks are not intercepted by sx-page", async () => {
+    const env = installDom(`
+      <!doctype html>
+      <html>
+        <body>
+          <div sx-page></div>
+          <a id="next-link" href="/next">Next</a>
+        </body>
+      </html>
+    `);
+    restoreDom = env.cleanup;
+
+    let fetchCalls = 0;
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return {
+        ok: true,
+        text: async () => "<html><body><div sx-page></div></body></html>",
+      };
+    };
+
+    const uniqueId = `${Date.now()}-${Math.random()}`;
+    await import(`../src/index.js?mod=${uniqueId}`);
+
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+    });
+    document.querySelector("#next-link").dispatchEvent(event);
+    await waitForUpdates(20);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(fetchCalls).toBe(0);
+  });
+
+  test("pending roots stop retrying once the factory wait budget expires", async () => {
+    const env = installDom(`
+      <!doctype html>
+      <html>
+        <body>
+          <div id="late-root" sx-data="lateFactory"></div>
+        </body>
+      </html>
+    `);
+    restoreDom = env.cleanup;
+
+    const warnings = [];
+    previousWarn = console.warn;
+    console.warn = (...args) => warnings.push(args.join(" "));
+
+    let now = 1000;
+    previousNow = Date.now;
+    Date.now = () => now;
+
+    const uniqueId = `${Math.random()}`;
+    const { SpruceX } = await import(`../src/index.js?pending=${uniqueId}`);
+
+    now += 6000;
+    SpruceX.data("lateFactory", () => ({ ready: true }));
+
+    expect(document.querySelector("#late-root").__sprucex).toBeUndefined();
+    expect(warnings.some((entry) => entry.includes("did not become available"))).toBe(
+      true,
+    );
   });
 });
