@@ -14,22 +14,4 @@
         <line x1="76" y1="100" x2="100" y2="76"/>
         <line x1="100" y1="100" x2="76" y2="76"/>
     </g>
-    <g class="holiday-decorations" style="display: none;">
-        <polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" fill="#FBBF24"/>
-        <circle cx="64" cy="36" r="3" fill="#EF4444"/>
-        <circle cx="52" cy="55" r="3" fill="#3B82F6"/>
-        <circle cx="76" cy="55" r="3" fill="#EF4444"/>
-        <circle cx="64" cy="75" r="3" fill="#A855F7"/>
-    </g>
 </svg>
-
-<script>
-    (function() {
-        const month = new Date().getMonth();
-        const isHolidaySeason = month === 11 || month === 0;
-        const decorations = document.querySelector('.holiday-decorations');
-        if (isHolidaySeason && decorations) {
-            decorations.style.display = 'block';
-        }
-    })();
-</script>
