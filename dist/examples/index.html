@@ -16,38 +16,14 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.BWJoArOv.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 128 128"
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.Ceik4xFR.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+                        <img
+                            src="/logo.svg"
+                            alt="SpruceX logo"
                             width="44"
                             height="44"
-                            aria-hidden="true"
-                        >
-                            <defs>
-                                <linearGradient id="spruceBlueprint" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="#6bd0ff" />
-                                    <stop offset="100%" stop-color="#0f77d8" />
-                                </linearGradient>
-                            </defs>
-                            <path
-                                d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z"
-                                fill="none"
-                                stroke="url(#spruceBlueprint)"
-                                stroke-width="6"
-                                stroke-linejoin="round"
-                            />
-                            <line
-                                x1="22"
-                                y1="106"
-                                x2="106"
-                                y2="106"
-                                stroke="url(#spruceBlueprint)"
-                                stroke-width="4"
-                                stroke-linecap="round"
-                            />
-                            <circle cx="64" cy="106" r="4" fill="#6bd0ff" />
-                        </svg>
+                            class="brand-mark"
+                        />
                         <div class="brand-copy">
                             <span class="brand-wordmark">SpruceX</span>
                             <span class="brand-subtitle">Reactive Blueprint Framework</span>
@@ -73,6 +49,9 @@
             },
             { persist: true },
         );
+        SpruceX.store("nested-roots-demo", {
+            items: ["Shell", "Canvas"],
+        });
     </script> <section
     class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
 >
@@ -255,6 +234,130 @@
                     sx-text="broken.value"
                     sx-error-fallback="'Fallback: broken.value is unavailable'"
                 ></p>
+            </div>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
+                        title: 'Outer workspace',
+                        list: $store('nested-roots-demo'),
+                        draft: '',
+                        addSection() {
+                            if (!this.draft.trim()) return;
+                            this.list.items.push(this.draft.trim());
+                            this.draft = '';
+                        },
+                        removeLastSection() {
+                            if (this.list.items.length === 0) return;
+                            this.list.items.pop();
+                        },
+                        removeSection(index) {
+                            this.list.items.splice(index, 1);
+                        }
+                    }"
+            >
+                <div class="space-y-2">
+                    <p class="font-semibold">Nested <code>sx-data</code> roots</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        The outer root mutates the list. The nested root owns
+                        the visibility toggle for the rendered list below.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-300 p-4 space-y-4 dark:border-slate-700">
+                    <div class="space-y-3">
+                        <p class="text-sm">
+                            Outer title:
+                            <strong sx-text="title"></strong>
+                        </p>
+
+                        <div class="flex flex-col gap-3 sm:flex-row">
+                            <input
+                                sx-model.trim="draft"
+                                class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                placeholder="Add outer section"
+                            />
+                            <div class="flex gap-2">
+                                <button
+                                    sx-on:click="addSection()"
+                                    class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                                >
+                                    Add Section
+                                </button>
+                                <button
+                                    sx-on:click="removeLastSection()"
+                                    class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                                >
+                                    Remove Last
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            The buttons above mutate the list owned by the outer
+                            example state.
+                        </p>
+                    </div>
+
+                    <div
+                        class="rounded-xl border border-dashed border-slate-300 p-4 space-y-3 dark:border-slate-700"
+                        sx-data="{ label: 'Nested panel', visible: true, list: $store('nested-roots-demo') }"
+                    >
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm">
+                                Middle label:
+                                <strong sx-text="label"></strong>
+                            </p>
+                            <button
+                                sx-toggle="visible"
+                                class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                            >
+                                Toggle List
+                            </button>
+                        </div>
+
+                        <p class="text-sm text-slate-600 dark:text-slate-300">
+                            Nested state says the shared list is
+                            <strong
+                                sx-text="visible ? 'visible' : 'hidden'"
+                            ></strong>.
+                        </p>
+
+                        <div sx-show="visible" class="rounded-lg bg-slate-100 p-4 dark:bg-slate-800/80">
+                            <ul class="space-y-2">
+                                <template sx-for="item in list.items">
+                                    <li
+                                        class="flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                    >
+                                        <span sx-text="item"></span>
+                                        <button
+                                            sx-on:click="list.items.splice($index, 1)"
+                                            class="text-sm text-rose-600"
+                                        >
+                                            Remove
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <div
+                            class="rounded-lg bg-slate-100 p-4 dark:bg-slate-800/80"
+                            sx-data="{ items: ['Alpha', 'Beta'], note: 'Innermost list still owns this state.' }"
+                        >
+                            <div class="space-y-2">
+                                <p class="text-sm text-slate-600 dark:text-slate-300" sx-text="note"></p>
+                                <ul class="space-y-2">
+                                    <template sx-for="item in items">
+                                        <li
+                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                                            sx-text="item"
+                                        ></li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
