@@ -1,82 +1,173 @@
 SpruceX LLM.txt
-Version: 0.4.0
+Version: 1.0.0
+Status: Active development, not complete yet.
 
-Plugin Authoring Guide
+Overview
+
+SpruceX is a lightweight reactive HTML framework that combines Alpine-style
+declarative state with HTMX-style network actions. It uses `sx-*` attributes on
+plain HTML and auto-initializes on `DOMContentLoaded`.
+
+Install / Entry Points
+
+- Browser bundle: `/dist/sprucex.js` or `/dist/sprucex.min.js`
+- Package entry points: `lib/sprucex.mjs`, `lib/sprucex.cjs`, `lib/sprucex.d.ts`
+
+Quick Start
+
+<script src="/dist/sprucex.js"></script>
+
+<div sx-data="{ count: 0 }">
+  <button sx-on:click="count++">+1</button>
+  <span sx-text="count"></span>
+</div>
+
+Core Directives
+
+- `sx-data`: component root state, object/function/factory-like expression
+- `sx-text`: write `textContent`
+- `sx-html`: write `innerHTML`
+- `sx-show`: toggle display based on truthiness
+- `sx-bind:<attr>`: bind arbitrary attributes
+- `sx-class`: conditional classes while preserving original classes
+- `sx-toggle`: toggle a boolean state key on click
+- `sx-model`: two-way binding for inputs/selects/textareas
+- `sx-model` modifiers: `.trim`, `.number`, `.lazy`, plus `sx-model.debounce-ms="N"`
+- `sx-ref`: register elements on `$refs`
+- `sx-for`: loop on `<template>`
+- `sx-memo`: cache `sx-text` / `sx-html` based on dependency keys
+- `sx-local`: persist component state in `localStorage`
+- `sx-lazy`: defer component init until visible
+- `sx-error-fallback`: fallback expression if a binding throws
+- `script[sx-init-data]`: embed JSON for identifier-style `sx-data` roots
+
+Expressions / Helpers
+
+- `$event`: current DOM event in handlers
+- `$refs`: object of `sx-ref` elements
+- `$store(name)`: access global stores
+- `$emit(name, detail)`: emit component-scoped custom events
+- `$index`: default loop index inside `sx-for`
+
+Lifecycle / State Notes
+
+- State is deeply reactive, including nested objects and common array mutators.
+- Component hooks supported in `sx-data`: `init()`, `mounted()`, `destroyed()`
+- A `watch` object may be defined in component state to react to property changes.
+- Global shared state is created with `SpruceX.store(name, value, { persist })`.
+- Named data factories can be registered with `SpruceX.data(name, factory)`.
+
+Event Handling
+
+- `sx-on:<event>` attaches handlers
+- Supported modifiers: `.prevent`, `.stop`, `.self`, `.window`, `.document`
+- Keyboard modifiers use key names such as `.enter` and `.escape`
+
+Network Directives
+
+- Request methods: `sx-get`, `sx-post`, `sx-put`, `sx-delete`
+- Triggering: `sx-trigger`, `sx-trigger-debounce`
+- Targeting and swaps: `sx-target`, `sx-swap`
+- URL/body/header helpers: `sx-vars`, `sx-body`, `sx-body-type`, `sx-headers`, `sx-include`
+- Request state targets: `sx-json-into`, `sx-loading-into`, `sx-error-into`
+- UX helpers: `sx-disable-while-request`, `sx-text-while-request`, `sx-confirm`
+- Request flow: `sx-optimistic`, `sx-revert-on-error`, `sx-poll`, `sx-poll-while`
+- Cancellation: `sx-cancel-previous`
+
+Request Notes
+
+- Default trigger is `click`, or `submit` on forms.
+- `sx-trigger` also supports inline debounce syntax such as `input.debounce.300`.
+- Supported swap modes: `innerHTML`, `outerHTML`, `before`, `after`, `prepend`, `append`, `morph`
+- `sx-cancel-previous` aborts only the previous in-flight request for the same binding.
+- Aborted cancelable requests do not emit error events, do not write `sx-error-into`,
+  and do not run `sx-revert-on-error`.
+- Cancelable requests are also aborted during component refresh and destroy.
+
+Navigation / Morphing
+
+- `sx-page`: mark the SPA navigation container
+- `sx-boost`: prefetch links on hover/focus
+- `sx-boost-on`: customize boost events
+- `sx-key`: preserve identity during list diffs and morphs
+- `sx-preserve`: skip morphing for a specific element
+- `SpruceX.navigate(url)`: navigate via SPA page swapping
+- `SpruceX.prefetch(url)`: prefetch a page into cache
+- `SpruceX.clearCache()`: clear the page cache
+- `SpruceX.morph(target, source)`: morph DOM content in place
+
+Built-In Integrations
+
+- `sx-animate`: auto-animate list/container children
+- `sx-chart`, `sx-chart-type`, `sx-chart-options`: Chart.js integration
+- `sx-gridstack`, `sx-gridstack-options`, `sx-gridstack-option:<name>`: GridStack integration
+- `sx-gridstack-on-change`, `sx-gridstack-on-added`, `sx-gridstack-on-removed`,
+  `sx-gridstack-on-dragstop`, `sx-gridstack-on-resizestop`: write GridStack events into state
+
+Animation / Boot Notes
+
+- `sx-animate` requires the Auto Animate library to be loaded separately unless
+  you wire it through `SpruceX.setAutoAnimate(...)`.
+- `window.SpruceXBoot.initTheme()` runs once before component auto-init.
+- `SpruceX.animate(el, options)` manually enables auto-animate on a DOM element.
+
+JavaScript API
+
+- `SpruceX.init()`
+- `SpruceX.store(name, value, { persist })`
+- `SpruceX.data(name, factory)`
+- `SpruceX.inspect()`
+- `SpruceX.navigate(url)`
+- `SpruceX.prefetch(url)`
+- `SpruceX.clearCache()`
+- `SpruceX.morph(target, source)`
+- `SpruceX.animate(el, options)`
+- `SpruceX.setAutoAnimate(autoAnimate)`
+- `SpruceX.integration(name, integration)`
+
+Plugin Authoring
 
 SpruceX plugins are integrations registered with:
-SpruceX.integration(name, integration)
+`SpruceX.integration(name, integration)`
 
-Use plugins when you want to support custom directives that are not built into SpruceX.
+Hooks
 
-Integration Hooks
+1) `setup(component)` optional one-time setup per component instance
+2) `scan(component, el)` optional element scan hook used to collect bindings
+3) `update(component)` optional render/update hook
+4) `teardown(component)` optional cleanup hook
 
-1) setup(component)  (optional)
-- Called once per component instance before scanning starts.
-- Use this to initialize plugin-owned state on the component.
+Useful component helpers
 
-2) scan(component, el)  (optional)
-- Called for each scanned element in a component.
-- Read your custom attributes and collect bindings.
-- Do not perform expensive DOM work here.
+- `component.evaluateExpressionOrLiteral(raw)`
+- `component.assignStateValue(targetExpr, value)`
+- `component.state`
+- `component.root`
 
-3) update(component)  (optional)
-- Called after initial render and on reactive updates.
-- Apply DOM updates based on current state/expression values.
-
-4) teardown(component)  (optional)
-- Called when a component refreshes or is destroyed.
-- Remove plugin event listeners/timers and clear plugin-owned data.
-
-Useful Component Helpers for Plugins
-
-- component.evaluateExpressionOrLiteral(raw)
-  Evaluates an expression in component scope. If expression resolves to undefined,
-  returns the raw string as a literal.
-
-- component.assignStateValue(targetExpr, value)
-  Writes a value into component state at the provided expression path.
-
-- component.state
-  Reactive state object for the current component instance.
-
-- component.root
-  The component root element.
-
-Minimal Example: sx-uppercase
+Minimal plugin example
 
 <script>
   SpruceX.integration("uppercase", {
     setup(component) {
       component._uppercaseBindings = [];
     },
-
     scan(component, el) {
       const expr = el.getAttribute("sx-uppercase");
       if (!expr) return;
       component._uppercaseBindings.push({ el, expr });
     },
-
     update(component) {
       (component._uppercaseBindings || []).forEach(({ el, expr }) => {
         const value = component.evaluateExpressionOrLiteral(expr);
         el.textContent = String(value ?? "").toUpperCase();
       });
     },
-
     teardown(component) {
       component._uppercaseBindings = [];
     },
   });
 </script>
 
-Usage:
 <div sx-data="{ name: 'sprucex' }">
   <span sx-uppercase="name"></span>
 </div>
-
-Tips
-
-- Namespace plugin internals on the component (example: component._myPluginBindings).
-- Keep scan() cheap; do work in update().
-- Always clean up in teardown() if you add listeners, timers, observers, or instances.
-- Handle missing/invalid expressions defensively.

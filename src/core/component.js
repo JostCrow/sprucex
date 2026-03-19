@@ -35,6 +35,7 @@ import {
   ATTR_DISABLE_WHILE_REQUEST,
   ATTR_TEXT_WHILE_REQUEST,
   ATTR_CONFIRM,
+  ATTR_CANCEL_PREVIOUS,
   ATTR_GRIDSTACK_OPTION_PREFIX,
   ATTR_LAZY,
   ATTR_LOCAL,
@@ -80,12 +81,14 @@ export class Component {
     this.chartSnapshots = new WeakMap();
     this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
+    this.requestControllers = new WeakMap();
     this.warnedMissingChart = false;
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
     this.debug = false;
     this.locals = {};
     this.updatePending = false;
+    this.isDestroyed = false;
     this.originalClasses = new WeakMap(); // Track original classes for sx-class
     this.animatedElements = new Map(); // Track auto-animated elements
 
@@ -572,6 +575,7 @@ export class Component {
           );
           const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
           const confirmExpr = el.getAttribute(ATTR_CONFIRM);
+          const cancelPrevious = el.hasAttribute(ATTR_CANCEL_PREVIOUS);
 
           const binding = {
             el,
@@ -596,6 +600,7 @@ export class Component {
             disableWhileRequest,
             textWhileRequest,
             confirmExpr,
+            cancelPrevious,
           };
 
           self.netBindings.push(binding);
@@ -1302,6 +1307,7 @@ export class Component {
     const headers = this.buildHeaders(nb, bodyKind, body != null);
     this.addCsrfHeader(headers, method);
     const endUiState = this.beginRequestUiState(nb);
+    const controller = this.beginCancelableRequest(nb);
 
     this.assignStateValue(loadingInto, true);
     this.assignStateValue(errorInto, null);
@@ -1315,6 +1321,9 @@ export class Component {
       if (body != null) fetchOptions.body = body;
       if (Array.from(headers.keys()).length > 0) {
         fetchOptions.headers = headers;
+      }
+      if (controller) {
+        fetchOptions.signal = controller.signal;
       }
 
       const res = await fetch(url, fetchOptions);
@@ -1335,6 +1344,10 @@ export class Component {
         }
       }
 
+      if (this.shouldIgnoreRequestResult(nb, controller)) {
+        return;
+      }
+
       if (jsonInto && json != null) {
         execInScope(`${jsonInto} = value`, this, { value: json });
       } else {
@@ -1347,6 +1360,10 @@ export class Component {
         new CustomEvent("sprucex:success", { detail, bubbles: true }),
       );
     } catch (error) {
+      if (this.isExpectedAbort(error, controller)) {
+        return;
+      }
+
       if (revertOnError) {
         execInScope(revertOnError, this);
       }
@@ -1357,9 +1374,56 @@ export class Component {
         new CustomEvent("sprucex:error", { detail, bubbles: true }),
       );
     } finally {
-      this.assignStateValue(loadingInto, false);
+      const ownsController = this.requestOwnsController(nb, controller);
+      if (controller && ownsController) {
+        this.requestControllers.delete(nb);
+      }
+
       endUiState();
+      if (!this.isDestroyed && ownsController) {
+        this.assignStateValue(loadingInto, false);
+      }
     }
+  }
+
+  beginCancelableRequest(nb) {
+    if (!nb.cancelPrevious) return null;
+
+    const previous = this.requestControllers.get(nb) || null;
+    const controller = new AbortController();
+    this.requestControllers.set(nb, controller);
+
+    if (previous) {
+      previous.abort();
+    }
+
+    return controller;
+  }
+
+  requestOwnsController(nb, controller) {
+    if (!controller) return true;
+    return this.requestControllers.get(nb) === controller;
+  }
+
+  shouldIgnoreRequestResult(nb, controller) {
+    if (!controller) return false;
+    return controller.signal.aborted || !this.requestOwnsController(nb, controller);
+  }
+
+  isExpectedAbort(error, controller) {
+    if (!controller) return false;
+    if (controller.signal.aborted) return true;
+    return error?.name === "AbortError";
+  }
+
+  abortCancelableRequests() {
+    this.netBindings.forEach((binding) => {
+      if (!binding.cancelPrevious) return;
+      const controller = this.requestControllers.get(binding);
+      if (controller) {
+        controller.abort();
+      }
+    });
   }
 
   getChartConstructor() {
@@ -2440,6 +2504,7 @@ export class Component {
   }
 
   refresh() {
+    this.abortCancelableRequests();
     this.teardownIntegrations();
     this.clearDebounceTimers();
     this.clearEmitterHandlers();
@@ -2480,7 +2545,9 @@ export class Component {
   }
 
   destroy() {
+    this.isDestroyed = true;
     this.callHook("destroyed");
+    this.abortCancelableRequests();
 
     // Clean up store subscriptions
     Object.keys(storeSubscribers).forEach((name) => {

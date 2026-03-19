@@ -16,7 +16,7 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.Ceik4xFR.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.Clk79y_z.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
                         <img
                             src="/logo.svg"
                             alt="SpruceX logo"
@@ -66,7 +66,12 @@ SpruceX is a lightweight HTML extension library that brings
                     reactivity, state management, and modern features like SPA
                     navigation and DOM morphing directly to your markup. It sits
                     nicely between vanilla JS and heavier frameworks.
-</p> <div class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800"> <p class="font-mono text-sm text-slate-300 overflow-x-auto"> <code>&lt;script
+</p> <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6"> <p class="text-sm text-amber-900 dark:text-amber-200">
+These docs track the <code>1.0.0</code> release line.
+                        SpruceX is still in active development and is not
+                        complete yet, so examples and APIs may continue to
+                        evolve.
+</p> </div> <div class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800"> <p class="font-mono text-sm text-slate-300 overflow-x-auto"> <code>&lt;script
                             src="/dist/sprucex.js"&gt;&lt;/script&gt;
                             &lt;div sx-data="{ count: 0 }"&gt; &lt;button
                             sx-on:click="count++"&gt;Increment&lt;/button&gt;
@@ -141,6 +146,11 @@ sx-toggle
 </td> <td class="py-2">
 Toggles a boolean property in the state
                                         on click.
+</td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
+sx-init-data
+</td> <td class="py-2">
+Embedded JSON script for identifier-based
+<code>sx-data</code> roots.
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-local
 </td> <td class="py-2">
@@ -273,6 +283,12 @@ sx-confirm
 </td> <td class="py-2">
 Confirmation message before request,
                                         including native form submit.
+</td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
+sx-cancel-previous
+</td> <td class="py-2">
+Aborts the previous in-flight request for
+                                        the same binding before starting a new
+                                        one.
 </td> </tr> <tr class="border-b border-slate-100 dark:border-slate-800"> <td class="py-2 font-mono text-brand-600">
 sx-json-into
 </td> <td class="py-2">
@@ -562,88 +578,180 @@ LLM.txt
 </h3> <div class="prose dark:prose-invert max-w-none space-y-6"> <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800 not-prose"> <div class="flex flex-wrap items-center justify-between gap-3 mb-3"> <h4 class="font-bold text-slate-900 dark:text-white">
 LLM.txt
 </h4> <a href="/LLM.txt" download class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold">Download LLM.txt</a> </div> <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
-Machine-readable plugin authoring
-                                            guide exposed at <code>/LLM.txt</code>.
+Machine-readable runtime and plugin
+                                            reference exposed at
+<code>/LLM.txt</code>.
 </p> <pre class="font-mono text-xs text-slate-200 bg-slate-900 rounded-lg p-4 max-h-80 overflow-auto border border-slate-800"><code>SpruceX LLM.txt
-Version: 0.4.0
+Version: 1.0.0
+Status: Active development, not complete yet.
 
-Plugin Authoring Guide
+Overview
+
+SpruceX is a lightweight reactive HTML framework that combines Alpine-style
+declarative state with HTMX-style network actions. It uses `sx-*` attributes on
+plain HTML and auto-initializes on `DOMContentLoaded`.
+
+Install / Entry Points
+
+- Browser bundle: `/dist/sprucex.js` or `/dist/sprucex.min.js`
+- Package entry points: `lib/sprucex.mjs`, `lib/sprucex.cjs`, `lib/sprucex.d.ts`
+
+Quick Start
+
+&lt;script src=&quot;/dist/sprucex.js&quot;&gt;&lt;/script&gt;
+
+&lt;div sx-data=&quot;{ count: 0 }&quot;&gt;
+  &lt;button sx-on:click=&quot;count++&quot;&gt;+1&lt;/button&gt;
+  &lt;span sx-text=&quot;count&quot;&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+Core Directives
+
+- `sx-data`: component root state, object/function/factory-like expression
+- `sx-text`: write `textContent`
+- `sx-html`: write `innerHTML`
+- `sx-show`: toggle display based on truthiness
+- `sx-bind:&lt;attr&gt;`: bind arbitrary attributes
+- `sx-class`: conditional classes while preserving original classes
+- `sx-toggle`: toggle a boolean state key on click
+- `sx-model`: two-way binding for inputs/selects/textareas
+- `sx-model` modifiers: `.trim`, `.number`, `.lazy`, plus `sx-model.debounce-ms=&quot;N&quot;`
+- `sx-ref`: register elements on `$refs`
+- `sx-for`: loop on `&lt;template&gt;`
+- `sx-memo`: cache `sx-text` / `sx-html` based on dependency keys
+- `sx-local`: persist component state in `localStorage`
+- `sx-lazy`: defer component init until visible
+- `sx-error-fallback`: fallback expression if a binding throws
+- `script[sx-init-data]`: embed JSON for identifier-style `sx-data` roots
+
+Expressions / Helpers
+
+- `$event`: current DOM event in handlers
+- `$refs`: object of `sx-ref` elements
+- `$store(name)`: access global stores
+- `$emit(name, detail)`: emit component-scoped custom events
+- `$index`: default loop index inside `sx-for`
+
+Lifecycle / State Notes
+
+- State is deeply reactive, including nested objects and common array mutators.
+- Component hooks supported in `sx-data`: `init()`, `mounted()`, `destroyed()`
+- A `watch` object may be defined in component state to react to property changes.
+- Global shared state is created with `SpruceX.store(name, value, { persist })`.
+- Named data factories can be registered with `SpruceX.data(name, factory)`.
+
+Event Handling
+
+- `sx-on:&lt;event&gt;` attaches handlers
+- Supported modifiers: `.prevent`, `.stop`, `.self`, `.window`, `.document`
+- Keyboard modifiers use key names such as `.enter` and `.escape`
+
+Network Directives
+
+- Request methods: `sx-get`, `sx-post`, `sx-put`, `sx-delete`
+- Triggering: `sx-trigger`, `sx-trigger-debounce`
+- Targeting and swaps: `sx-target`, `sx-swap`
+- URL/body/header helpers: `sx-vars`, `sx-body`, `sx-body-type`, `sx-headers`, `sx-include`
+- Request state targets: `sx-json-into`, `sx-loading-into`, `sx-error-into`
+- UX helpers: `sx-disable-while-request`, `sx-text-while-request`, `sx-confirm`
+- Request flow: `sx-optimistic`, `sx-revert-on-error`, `sx-poll`, `sx-poll-while`
+- Cancellation: `sx-cancel-previous`
+
+Request Notes
+
+- Default trigger is `click`, or `submit` on forms.
+- `sx-trigger` also supports inline debounce syntax such as `input.debounce.300`.
+- Supported swap modes: `innerHTML`, `outerHTML`, `before`, `after`, `prepend`, `append`, `morph`
+- `sx-cancel-previous` aborts only the previous in-flight request for the same binding.
+- Aborted cancelable requests do not emit error events, do not write `sx-error-into`,
+  and do not run `sx-revert-on-error`.
+- Cancelable requests are also aborted during component refresh and destroy.
+
+Navigation / Morphing
+
+- `sx-page`: mark the SPA navigation container
+- `sx-boost`: prefetch links on hover/focus
+- `sx-boost-on`: customize boost events
+- `sx-key`: preserve identity during list diffs and morphs
+- `sx-preserve`: skip morphing for a specific element
+- `SpruceX.navigate(url)`: navigate via SPA page swapping
+- `SpruceX.prefetch(url)`: prefetch a page into cache
+- `SpruceX.clearCache()`: clear the page cache
+- `SpruceX.morph(target, source)`: morph DOM content in place
+
+Built-In Integrations
+
+- `sx-animate`: auto-animate list/container children
+- `sx-chart`, `sx-chart-type`, `sx-chart-options`: Chart.js integration
+- `sx-gridstack`, `sx-gridstack-options`, `sx-gridstack-option:&lt;name&gt;`: GridStack integration
+- `sx-gridstack-on-change`, `sx-gridstack-on-added`, `sx-gridstack-on-removed`,
+  `sx-gridstack-on-dragstop`, `sx-gridstack-on-resizestop`: write GridStack events into state
+
+Animation / Boot Notes
+
+- `sx-animate` requires the Auto Animate library to be loaded separately unless
+  you wire it through `SpruceX.setAutoAnimate(...)`.
+- `window.SpruceXBoot.initTheme()` runs once before component auto-init.
+- `SpruceX.animate(el, options)` manually enables auto-animate on a DOM element.
+
+JavaScript API
+
+- `SpruceX.init()`
+- `SpruceX.store(name, value, { persist })`
+- `SpruceX.data(name, factory)`
+- `SpruceX.inspect()`
+- `SpruceX.navigate(url)`
+- `SpruceX.prefetch(url)`
+- `SpruceX.clearCache()`
+- `SpruceX.morph(target, source)`
+- `SpruceX.animate(el, options)`
+- `SpruceX.setAutoAnimate(autoAnimate)`
+- `SpruceX.integration(name, integration)`
+
+Plugin Authoring
 
 SpruceX plugins are integrations registered with:
-SpruceX.integration(name, integration)
+`SpruceX.integration(name, integration)`
 
-Use plugins when you want to support custom directives that are not built into SpruceX.
+Hooks
 
-Integration Hooks
+1) `setup(component)` optional one-time setup per component instance
+2) `scan(component, el)` optional element scan hook used to collect bindings
+3) `update(component)` optional render/update hook
+4) `teardown(component)` optional cleanup hook
 
-1) setup(component)  (optional)
-- Called once per component instance before scanning starts.
-- Use this to initialize plugin-owned state on the component.
+Useful component helpers
 
-2) scan(component, el)  (optional)
-- Called for each scanned element in a component.
-- Read your custom attributes and collect bindings.
-- Do not perform expensive DOM work here.
+- `component.evaluateExpressionOrLiteral(raw)`
+- `component.assignStateValue(targetExpr, value)`
+- `component.state`
+- `component.root`
 
-3) update(component)  (optional)
-- Called after initial render and on reactive updates.
-- Apply DOM updates based on current state/expression values.
-
-4) teardown(component)  (optional)
-- Called when a component refreshes or is destroyed.
-- Remove plugin event listeners/timers and clear plugin-owned data.
-
-Useful Component Helpers for Plugins
-
-- component.evaluateExpressionOrLiteral(raw)
-  Evaluates an expression in component scope. If expression resolves to undefined,
-  returns the raw string as a literal.
-
-- component.assignStateValue(targetExpr, value)
-  Writes a value into component state at the provided expression path.
-
-- component.state
-  Reactive state object for the current component instance.
-
-- component.root
-  The component root element.
-
-Minimal Example: sx-uppercase
+Minimal plugin example
 
 &lt;script&gt;
   SpruceX.integration(&quot;uppercase&quot;, {
     setup(component) {
       component._uppercaseBindings = [];
     },
-
     scan(component, el) {
       const expr = el.getAttribute(&quot;sx-uppercase&quot;);
       if (!expr) return;
       component._uppercaseBindings.push({ el, expr });
     },
-
     update(component) {
       (component._uppercaseBindings || []).forEach(({ el, expr }) =&gt; {
         const value = component.evaluateExpressionOrLiteral(expr);
         el.textContent = String(value ?? &quot;&quot;).toUpperCase();
       });
     },
-
     teardown(component) {
       component._uppercaseBindings = [];
     },
   });
 &lt;/script&gt;
 
-Usage:
 &lt;div sx-data=&quot;{ name: &#39;sprucex&#39; }&quot;&gt;
   &lt;span sx-uppercase=&quot;name&quot;&gt;&lt;/span&gt;
 &lt;/div&gt;
-
-Tips
-
-- Namespace plugin internals on the component (example: component._myPluginBindings).
-- Keep scan() cheap; do work in update().
-- Always clean up in teardown() if you add listeners, timers, observers, or instances.
-- Handle missing/invalid expressions defensively.
 </code></pre> </div> </div> </div> </div> </div> </div> </div> </div> </section>  </main> <footer class="site-footer"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-footer-shell"> <div class="footer-brand"> <span class="brand-wordmark">SpruceX</span> <p class="footer-note">Blueprint-grade reactive markup tooling.</p> </div> <div class="footer-links"> <a href="/" class="footer-link">Docs</a> <a href="/examples" class="footer-link">Examples</a> <a href="/dist/sprucex.js" download class="footer-link">Download</a> </div> <p class="footer-copy">© 2024 SpruceX. MIT License.</p> </div> </div> </footer> <script src="/prism.js"></script> </body> </html>

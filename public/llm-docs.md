@@ -1,4 +1,6 @@
-# SpruceX v0.4 - LLM Documentation
+# SpruceX v1.0.0 - LLM Documentation
+
+> Status: active development, not complete yet.
 
 ## Overview
 
@@ -491,7 +493,7 @@ If the library is not loaded, SpruceX will show a console warning.
 
 ```javascript
 // Manually enable auto-animate on an element
-SpruceX.autoAnimate(document.querySelector('#my-list'), { duration: 300 });
+SpruceX.animate(document.querySelector('#my-list'), { duration: 300 });
 ```
 
 ---
@@ -525,6 +527,7 @@ Make HTTP requests declaratively.
 | `sx-disable-while-request` | Disable submit controls while request is running | off |
 | `sx-text-while-request` | Temporary button text while request is running | - |
 | `sx-confirm` | Confirm prompt before request | off |
+| `sx-cancel-previous` | Abort the previous in-flight request for this binding | off |
 
 **Swap modes:**
 
@@ -653,6 +656,23 @@ Include additional form data:
   Save
 </button>
 ```
+
+### Request Cancellation
+
+### `sx-cancel-previous`
+
+Abort the previous in-flight request for the same binding before starting a new one:
+
+```html
+<input
+  sx-get="/api/search?q=${query}"
+  sx-vars="{ query }"
+  sx-trigger="input.debounce.250"
+  sx-cancel-previous
+  sx-json-into="results">
+```
+
+Cancellation is scoped to the binding, not the URL. Aborted requests do not emit `error` / `sprucex:error`, do not update `sx-error-into`, and do not run `sx-revert-on-error`. Cancelable requests are also aborted automatically when a component refreshes or is destroyed.
 
 ### Optimistic Updates
 
@@ -850,8 +870,8 @@ const component = el.__sprucex;
 component.state.count++;  // Trigger reactivity
 component.destroy();       // Clean up component
 
-// Configuration
-SpruceX.config({ strict: true });
+// Reserved configuration hook (currently a no-op)
+SpruceX.config();
 ```
 
 ---

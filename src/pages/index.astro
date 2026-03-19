@@ -98,6 +98,16 @@ const llmTxt = readFileSync(
                     nicely between vanilla JS and heavier frameworks.
                 </p>
                 <div
+                    class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6"
+                >
+                    <p class="text-sm text-amber-900 dark:text-amber-200">
+                        These docs track the <code>1.0.0</code> release line.
+                        SpruceX is still in active development and is not
+                        complete yet, so examples and APIs may continue to
+                        evolve.
+                    </p>
+                </div>
+                <div
                     class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800"
                 >
                     <p class="font-mono text-sm text-slate-300 overflow-x-auto">
@@ -286,6 +296,17 @@ const llmTxt = readFileSync(
                                     <td class="py-2">
                                         Toggles a boolean property in the state
                                         on click.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-init-data
+                                    </td>
+                                    <td class="py-2">
+                                        Embedded JSON script for identifier-based
+                                        <code>sx-data</code> roots.
                                     </td>
                                 </tr>
                                 <tr
@@ -615,6 +636,18 @@ const llmTxt = readFileSync(
                                     <td class="py-2">
                                         Confirmation message before request,
                                         including native form submit.
+                                    </td>
+                                </tr>
+                                <tr
+                                    class="border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <td class="py-2 font-mono text-brand-600">
+                                        sx-cancel-previous
+                                    </td>
+                                    <td class="py-2">
+                                        Aborts the previous in-flight request for
+                                        the same binding before starting a new
+                                        one.
                                     </td>
                                 </tr>
                                 <tr
@@ -1481,8 +1514,9 @@ const llmTxt = readFileSync(
                                         <p
                                             class="text-sm text-slate-600 dark:text-slate-400 mb-3"
                                         >
-                                            Machine-readable plugin authoring
-                                            guide exposed at <code>/LLM.txt</code>.
+                                            Machine-readable runtime and plugin
+                                            reference exposed at
+                                            <code>/LLM.txt</code>.
                                         </p>
                                         <pre
                                             class="font-mono text-xs text-slate-200 bg-slate-900 rounded-lg p-4 max-h-80 overflow-auto border border-slate-800"
