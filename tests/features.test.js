@@ -180,6 +180,24 @@ describe("model, loops, and memo", () => {
     ]);
     expect(document.querySelector("#memo").textContent).toBe("6");
   });
+
+  test("sx-model can write to a state property named value", async () => {
+    const { component } = mount(`
+      <div sx-data="{ value: 'before' }">
+        <input id="plain-value" sx-model="value" />
+      </div>
+    `);
+
+    const input = document.querySelector("#plain-value");
+    expect(input.value).toBe("before");
+
+    input.value = "after";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await waitForUpdates();
+
+    expect(component.state.value).toBe("after");
+    expect(input.value).toBe("after");
+  });
 });
 
 describe("state and persistence", () => {
@@ -300,5 +318,64 @@ describe("network actions", () => {
       message: "HTTP 500: Server Error",
       status: undefined,
     });
+  });
+
+  test("sx-json-into can assign to a state property named value", async () => {
+    const { component } = mount(`
+      <div sx-data="{ value: null }">
+        <button id="request" sx-get="/value" sx-json-into="value">Load</button>
+      </div>
+    `);
+
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    document.querySelector("#request").click();
+    await waitForUpdates(30);
+
+    expect(component.state.value).toEqual({ ok: true });
+  });
+
+  test("older network responses do not overwrite newer state", async () => {
+    const { component } = mount(`
+      <div sx-data="{ result: null }">
+        <button id="request" sx-get="/items" sx-json-into="result">Load</button>
+      </div>
+    `);
+
+    const resolvers = [];
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = () =>
+      new Promise((resolve) => {
+        resolvers.push(resolve);
+      });
+
+    const button = document.querySelector("#request");
+    button.click();
+    button.click();
+    await waitForUpdates(5);
+
+    resolvers[1]({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => JSON.stringify({ order: "new" }),
+    });
+    await waitForUpdates(30);
+
+    resolvers[0]({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => JSON.stringify({ order: "old" }),
+    });
+    await waitForUpdates(30);
+
+    expect(component.state.result).toEqual({ order: "new" });
   });
 });

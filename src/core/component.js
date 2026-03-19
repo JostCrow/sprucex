@@ -80,6 +80,7 @@ export class Component {
     this.chartSnapshots = new WeakMap();
     this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
+    this.netRequestMeta = new WeakMap();
     this.warnedMissingChart = false;
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
@@ -718,7 +719,7 @@ export class Component {
           v = el.value;
         }
         v = applyModifiers(v);
-        execInScope(`${keyExpr} = value`, this, { value: v });
+        execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
       } finally {
         this.locals = prev;
       }
@@ -1241,6 +1242,46 @@ export class Component {
     this.emitterHandlers = [];
   }
 
+  beginNetworkRequest(nb) {
+    let meta = this.netRequestMeta.get(nb);
+    if (!meta) {
+      meta = { seq: 0, controller: null };
+      this.netRequestMeta.set(nb, meta);
+    }
+
+    meta.seq += 1;
+    if (meta.controller && typeof meta.controller.abort === "function") {
+      try {
+        meta.controller.abort();
+      } catch {
+        // Ignore abort errors from stale controllers.
+      }
+    }
+
+    meta.controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+
+    return { seq: meta.seq, controller: meta.controller };
+  }
+
+  isCurrentNetworkRequest(nb, seq) {
+    const meta = this.netRequestMeta.get(nb);
+    return !!meta && meta.seq === seq;
+  }
+
+  finishNetworkRequest(nb, seq, controller) {
+    const meta = this.netRequestMeta.get(nb);
+    if (!meta || meta.seq !== seq) return false;
+    if (meta.controller === controller) {
+      meta.controller = null;
+    }
+    return true;
+  }
+
+  isAbortError(error) {
+    return !!error && (error.name === "AbortError" || error.code === 20);
+  }
+
   initIntegrationBindings() {
     listIntegrations().forEach((integration) => {
       if (typeof integration.setup !== "function") return;
@@ -1300,6 +1341,7 @@ export class Component {
       errorInto,
     } = nb;
     const headers = this.buildHeaders(nb, bodyKind, body != null);
+    const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
     this.addCsrfHeader(headers, method);
     const endUiState = this.beginRequestUiState(nb);
 
@@ -1316,8 +1358,12 @@ export class Component {
       if (Array.from(headers.keys()).length > 0) {
         fetchOptions.headers = headers;
       }
+      if (controller) {
+        fetchOptions.signal = controller.signal;
+      }
 
       const res = await fetch(url, fetchOptions);
+      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
 
       // Check for HTTP errors
       if (!res.ok) {
@@ -1325,6 +1371,7 @@ export class Component {
       }
 
       const text = await res.text();
+      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
       let json = null;
 
       if (jsonInto && text.trim().length) {
@@ -1336,7 +1383,7 @@ export class Component {
       }
 
       if (jsonInto && json != null) {
-        execInScope(`${jsonInto} = value`, this, { value: json });
+        execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
       } else {
         this.applySwap(target || el, text, swap);
       }
@@ -1347,6 +1394,9 @@ export class Component {
         new CustomEvent("sprucex:success", { detail, bubbles: true }),
       );
     } catch (error) {
+      if (this.isAbortError(error) || !this.isCurrentNetworkRequest(nb, requestSeq)) {
+        return;
+      }
       if (revertOnError) {
         execInScope(revertOnError, this);
       }
@@ -1357,7 +1407,9 @@ export class Component {
         new CustomEvent("sprucex:error", { detail, bubbles: true }),
       );
     } finally {
-      this.assignStateValue(loadingInto, false);
+      if (this.finishNetworkRequest(nb, requestSeq, controller)) {
+        this.assignStateValue(loadingInto, false);
+      }
       endUiState();
     }
   }
@@ -2245,7 +2297,7 @@ export class Component {
           v = el.value;
         }
         v = applyModifiers(v);
-        execInScope(`${keyExpr} = value`, this, { value: v });
+        execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
       } finally {
         this.locals = prev;
       }
