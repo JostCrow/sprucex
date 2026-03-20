@@ -636,7 +636,7 @@
       this.chartSnapshots = new WeakMap;
       this.gridInstances = new Map;
       this.requestUiState = new WeakMap;
-      this.requestControllers = new WeakMap;
+      this.netRequestMeta = new WeakMap;
       this.warnedMissingChart = false;
       this.warnedMissingGridStack = false;
       this.lastEvent = null;
@@ -1181,7 +1181,7 @@
             v = el.value;
           }
           v = applyModifiers(v);
-          execInScope(`${keyExpr} = value`, this, { value: v });
+          execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
         } finally {
           this.locals = prev;
         }
@@ -1629,6 +1629,37 @@
       });
       this.emitterHandlers = [];
     }
+    beginNetworkRequest(nb) {
+      let meta = this.netRequestMeta.get(nb);
+      if (!meta) {
+        meta = { seq: 0, controller: null };
+        this.netRequestMeta.set(nb, meta);
+      }
+      meta.seq += 1;
+      if (meta.controller && typeof meta.controller.abort === "function") {
+        try {
+          meta.controller.abort();
+        } catch {}
+      }
+      meta.controller = typeof AbortController !== "undefined" ? new AbortController : null;
+      return { seq: meta.seq, controller: meta.controller };
+    }
+    isCurrentNetworkRequest(nb, seq) {
+      const meta = this.netRequestMeta.get(nb);
+      return !!meta && meta.seq === seq;
+    }
+    finishNetworkRequest(nb, seq, controller) {
+      const meta = this.netRequestMeta.get(nb);
+      if (!meta || meta.seq !== seq)
+        return false;
+      if (meta.controller === controller) {
+        meta.controller = null;
+      }
+      return true;
+    }
+    isAbortError(error) {
+      return !!error && (error.name === "AbortError" || error.code === 20);
+    }
     initIntegrationBindings() {
       listIntegrations().forEach((integration) => {
         if (typeof integration.setup !== "function")
@@ -1688,9 +1719,9 @@
         errorInto
       } = nb;
       const headers = this.buildHeaders(nb, bodyKind, body != null);
+      const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
       this.addCsrfHeader(headers, method);
       const endUiState = this.beginRequestUiState(nb);
-      const controller = this.beginCancelableRequest(nb);
       this.assignStateValue(loadingInto, true);
       this.assignStateValue(errorInto, null);
       if (optimistic) {
@@ -1707,10 +1738,14 @@
           fetchOptions.signal = controller.signal;
         }
         const res = await fetch(url, fetchOptions);
+        if (!this.isCurrentNetworkRequest(nb, requestSeq))
+          return;
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         const text = await res.text();
+        if (!this.isCurrentNetworkRequest(nb, requestSeq))
+          return;
         let json = null;
         if (jsonInto && text.trim().length) {
           try {
@@ -1723,7 +1758,7 @@
           return;
         }
         if (jsonInto && json != null) {
-          execInScope(`${jsonInto} = value`, this, { value: json });
+          execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
         } else {
           this.applySwap(target || el, text, swap);
         }
@@ -1731,7 +1766,7 @@
         el.dispatchEvent(new CustomEvent("success", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:success", { detail, bubbles: true }));
       } catch (error) {
-        if (this.isExpectedAbort(error, controller)) {
+        if (this.isAbortError(error) || !this.isCurrentNetworkRequest(nb, requestSeq)) {
           return;
         }
         if (revertOnError) {
@@ -1742,51 +1777,18 @@
         el.dispatchEvent(new CustomEvent("error", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:error", { detail, bubbles: true }));
       } finally {
-        const ownsController = this.requestOwnsController(nb, controller);
-        if (controller && ownsController) {
-          this.requestControllers.delete(nb);
-        }
+        const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
         endUiState();
-        if (!this.isDestroyed && ownsController) {
+        if (!this.isDestroyed && isFinished) {
           this.assignStateValue(loadingInto, false);
         }
       }
     }
-    beginCancelableRequest(nb) {
-      if (!nb.cancelPrevious)
-        return null;
-      const previous = this.requestControllers.get(nb) || null;
-      const controller = new AbortController;
-      this.requestControllers.set(nb, controller);
-      if (previous) {
-        previous.abort();
-      }
-      return controller;
-    }
-    requestOwnsController(nb, controller) {
-      if (!controller)
-        return true;
-      return this.requestControllers.get(nb) === controller;
-    }
-    shouldIgnoreRequestResult(nb, controller) {
-      if (!controller)
-        return false;
-      return controller.signal.aborted || !this.requestOwnsController(nb, controller);
-    }
-    isExpectedAbort(error, controller) {
-      if (!controller)
-        return false;
-      if (controller.signal.aborted)
-        return true;
-      return error?.name === "AbortError";
-    }
     abortCancelableRequests() {
       this.netBindings.forEach((binding) => {
-        if (!binding.cancelPrevious)
-          return;
-        const controller = this.requestControllers.get(binding);
-        if (controller) {
-          controller.abort();
+        const meta = this.netRequestMeta.get(binding);
+        if (meta && meta.controller && typeof meta.controller.abort === "function") {
+          meta.controller.abort();
         }
       });
     }
@@ -2537,7 +2539,7 @@
             v = el.value;
           }
           v = applyModifiers(v);
-          execInScope(`${keyExpr} = value`, this, { value: v });
+          execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
         } finally {
           this.locals = prev;
         }
@@ -2828,10 +2830,13 @@
   var pendingFetches = new Map;
   var PAGE_CACHE_TTL = 30000;
   var pendingRoots = new Set;
+  var pendingRootMeta = new WeakMap;
+  var PENDING_ROOT_MAX_WAIT = 5000;
   var pendingRootFlushQueued = false;
   var pendingRootPollTimer = null;
   var pendingRootPollCount = 0;
   var MAX_PENDING_ROOT_POLLS = 100;
+  var latestNavigationId = 0;
   ensureBuiltInIntegrationsRegistered();
   function ensurePendingRootPolling() {
     if (pendingRootPollTimer || pendingRoots.size === 0)
@@ -2852,11 +2857,20 @@
     pendingRoots.forEach((root) => {
       if (!root || !root.isConnected || root.__sprucex) {
         pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
+        return;
+      }
+      const meta = pendingRootMeta.get(root);
+      if (meta && Date.now() - meta.queuedAt > PENDING_ROOT_MAX_WAIT) {
+        console.warn("SpruceX sx-data factory did not become available in time:", root.getAttribute(ATTR_DATA));
+        pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
         return;
       }
       const comp = initSpruceXRoot(root);
       if (comp) {
         pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
       }
     });
     if (pendingRoots.size === 0 && pendingRootPollTimer) {
@@ -2870,6 +2884,9 @@
       return;
     const wasPending = pendingRoots.has(root);
     pendingRoots.add(root);
+    if (!wasPending) {
+      pendingRootMeta.set(root, { queuedAt: Date.now() });
+    }
     ensurePendingRootPolling();
     if (wasPending || pendingRootFlushQueued)
       return;
@@ -2914,7 +2931,7 @@
       const pageRoot = document.querySelector(`[${ATTR_PAGE}]`);
       const targetSelector = pageRoot?.getAttribute(ATTR_PAGE);
       const container = targetSelector ? document.querySelector(targetSelector) : document.body;
-      return navigateTo(url, container);
+      return navigateTo(new URL(url, window.location.href).href, container);
     },
     prefetch(url) {
       return prefetchLink(url);
@@ -3063,13 +3080,16 @@
       return;
     isGlobalNavInitialized = true;
     document.addEventListener("click", async (e) => {
-      const link = e.target.closest("a[href]");
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      const link = e.target?.closest?.("a[href]");
       if (!link)
         return;
       const href = link.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("javascript:"))
         return;
-      if (link.hasAttribute("download") || link.getAttribute("target") === "_blank")
+      if (link.hasAttribute("download") || link.getAttribute("target") && link.getAttribute("target") !== "_self")
         return;
       try {
         const url = new URL(href, window.location.origin);
@@ -3120,21 +3140,26 @@
     });
   }
   async function navigateTo(url, container, pushState = true) {
+    const targetUrl = new URL(url, window.location.href);
+    const href = targetUrl.href;
+    const navigationId = ++latestNavigationId;
     const startTime = performance.now();
     const beforeEvent = new CustomEvent("sprucex:page-before", {
-      detail: { url },
+      detail: { url: href },
       bubbles: true,
       cancelable: true
     });
     if (!document.dispatchEvent(beforeEvent))
       return;
     try {
-      let html = getCachedPage(url);
+      let html = getCachedPage(href);
       if (!html) {
         if (container)
           container.style.opacity = container.style.opacity || "1";
-        html = await fetchPage(url);
+        html = await fetchPage(href);
       }
+      if (navigationId !== latestNavigationId)
+        return;
       if (!html)
         throw new Error("Empty response");
       const parser = new DOMParser;
@@ -3161,7 +3186,7 @@
         });
       }
       if (pushState) {
-        history.pushState({ url }, "", url);
+        history.pushState({ url: href }, "", href);
       }
       initSpruceX();
       let ancestor = container.parentElement;
@@ -3172,7 +3197,9 @@
         ancestor = ancestor.parentElement;
       }
       initBoostingGlobal();
-      const hash = new URL(url).hash;
+      if (navigationId !== latestNavigationId)
+        return;
+      const hash = targetUrl.hash;
       if (hash) {
         const target = document.querySelector(hash);
         if (target)
@@ -3181,16 +3208,18 @@
         window.scrollTo(0, 0);
       }
       document.dispatchEvent(new CustomEvent("sprucex:page-after", {
-        detail: { url, duration: performance.now() - startTime },
+        detail: { url: href, duration: performance.now() - startTime },
         bubbles: true
       }));
     } catch (error) {
+      if (navigationId !== latestNavigationId)
+        return;
       console.error("SpruceX page navigation error:", error);
       document.dispatchEvent(new CustomEvent("sprucex:page-error", {
-        detail: { url, error },
+        detail: { url: href, error },
         bubbles: true
       }));
-      window.location.href = url;
+      window.location.href = href;
     }
   }
   function reinitializeComponents(container) {

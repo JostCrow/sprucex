@@ -28,10 +28,13 @@ const pageCache = new Map();
 const pendingFetches = new Map();
 const PAGE_CACHE_TTL = 30000; // 30 seconds
 const pendingRoots = new Set();
+const pendingRootMeta = new WeakMap();
+const PENDING_ROOT_MAX_WAIT = 5000;
 let pendingRootFlushQueued = false;
 let pendingRootPollTimer = null;
 let pendingRootPollCount = 0;
 const MAX_PENDING_ROOT_POLLS = 100; // 10 seconds total at 100ms
+let latestNavigationId = 0;
 
 ensureBuiltInIntegrationsRegistered();
 
@@ -54,11 +57,25 @@ function flushPendingRoots() {
   pendingRoots.forEach((root) => {
     if (!root || !root.isConnected || root.__sprucex) {
       pendingRoots.delete(root);
+      pendingRootMeta.delete(root);
       return;
     }
+
+    const meta = pendingRootMeta.get(root);
+    if (meta && Date.now() - meta.queuedAt > PENDING_ROOT_MAX_WAIT) {
+      console.warn(
+        "SpruceX sx-data factory did not become available in time:",
+        root.getAttribute(ATTR_DATA),
+      );
+      pendingRoots.delete(root);
+      pendingRootMeta.delete(root);
+      return;
+    }
+
     const comp = initSpruceXRoot(root);
     if (comp) {
       pendingRoots.delete(root);
+      pendingRootMeta.delete(root);
     }
   });
 
@@ -73,6 +90,9 @@ function queuePendingRoot(root) {
   if (!root || root.__sprucex) return;
   const wasPending = pendingRoots.has(root);
   pendingRoots.add(root);
+  if (!wasPending) {
+    pendingRootMeta.set(root, { queuedAt: Date.now() });
+  }
   ensurePendingRootPolling();
 
   if (wasPending || pendingRootFlushQueued) return;
@@ -122,7 +142,7 @@ export const SpruceX = {
     const container = targetSelector
       ? document.querySelector(targetSelector)
       : document.body;
-    return navigateTo(url, container);
+    return navigateTo(new URL(url, window.location.href).href, container);
   },
   prefetch(url) {
     return prefetchLink(url);
@@ -294,14 +314,25 @@ function initPageSwapping(root) {
 
   // Intercept link clicks
   document.addEventListener("click", async (e) => {
-    const link = e.target.closest("a[href]");
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      e.altKey
+    ) {
+      return;
+    }
+
+    const link = e.target?.closest?.("a[href]");
     if (!link) return;
 
     const href = link.getAttribute("href");
     if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
     if (
       link.hasAttribute("download") ||
-      link.getAttribute("target") === "_blank"
+      (link.getAttribute("target") && link.getAttribute("target") !== "_self")
     )
       return;
 
@@ -370,11 +401,14 @@ function initBoostingGlobal() {
 }
 
 async function navigateTo(url, container, pushState = true) {
+  const targetUrl = new URL(url, window.location.href);
+  const href = targetUrl.href;
+  const navigationId = ++latestNavigationId;
   const startTime = performance.now();
 
   // Dispatch before event
   const beforeEvent = new CustomEvent("sprucex:page-before", {
-    detail: { url },
+    detail: { url: href },
     bubbles: true,
     cancelable: true,
   });
@@ -382,13 +416,14 @@ async function navigateTo(url, container, pushState = true) {
 
   try {
     // Check cache first
-    let html = getCachedPage(url);
+    let html = getCachedPage(href);
 
     if (!html) {
       // Show loading state without flickering
       if (container) container.style.opacity = container.style.opacity || "1";
-      html = await fetchPage(url);
+      html = await fetchPage(href);
     }
+    if (navigationId !== latestNavigationId) return;
 
     if (!html) throw new Error("Empty response");
 
@@ -429,7 +464,7 @@ async function navigateTo(url, container, pushState = true) {
 
     // Update URL
     if (pushState) {
-      history.pushState({ url }, "", url);
+      history.pushState({ url: href }, "", href);
     }
 
     // Reinitialize components in container after DOM is ready
@@ -447,7 +482,8 @@ async function navigateTo(url, container, pushState = true) {
     initBoostingGlobal();
 
     // Scroll to top or to hash
-    const hash = new URL(url).hash;
+    if (navigationId !== latestNavigationId) return;
+    const hash = targetUrl.hash;
     if (hash) {
       const target = document.querySelector(hash);
       if (target) target.scrollIntoView();
@@ -458,20 +494,21 @@ async function navigateTo(url, container, pushState = true) {
     // Dispatch after event
     document.dispatchEvent(
       new CustomEvent("sprucex:page-after", {
-        detail: { url, duration: performance.now() - startTime },
+        detail: { url: href, duration: performance.now() - startTime },
         bubbles: true,
       }),
     );
   } catch (error) {
+    if (navigationId !== latestNavigationId) return;
     console.error("SpruceX page navigation error:", error);
     document.dispatchEvent(
       new CustomEvent("sprucex:page-error", {
-        detail: { url, error },
+        detail: { url: href, error },
         bubbles: true,
       }),
     );
     // Fallback to regular navigation
-    window.location.href = url;
+    window.location.href = href;
   }
 }
 

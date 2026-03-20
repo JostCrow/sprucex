@@ -82,7 +82,7 @@ export class Component {
     this.chartSnapshots = new WeakMap();
     this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
-    this.requestControllers = new WeakMap();
+    this.netRequestMeta = new WeakMap();
     this.warnedMissingChart = false;
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
@@ -724,7 +724,7 @@ export class Component {
           v = el.value;
         }
         v = applyModifiers(v);
-        execInScope(`${keyExpr} = value`, this, { value: v });
+        execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
       } finally {
         this.locals = prev;
       }
@@ -1253,6 +1253,46 @@ export class Component {
     this.emitterHandlers = [];
   }
 
+  beginNetworkRequest(nb) {
+    let meta = this.netRequestMeta.get(nb);
+    if (!meta) {
+      meta = { seq: 0, controller: null };
+      this.netRequestMeta.set(nb, meta);
+    }
+
+    meta.seq += 1;
+    if (meta.controller && typeof meta.controller.abort === "function") {
+      try {
+        meta.controller.abort();
+      } catch {
+        // Ignore abort errors from stale controllers.
+      }
+    }
+
+    meta.controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+
+    return { seq: meta.seq, controller: meta.controller };
+  }
+
+  isCurrentNetworkRequest(nb, seq) {
+    const meta = this.netRequestMeta.get(nb);
+    return !!meta && meta.seq === seq;
+  }
+
+  finishNetworkRequest(nb, seq, controller) {
+    const meta = this.netRequestMeta.get(nb);
+    if (!meta || meta.seq !== seq) return false;
+    if (meta.controller === controller) {
+      meta.controller = null;
+    }
+    return true;
+  }
+
+  isAbortError(error) {
+    return !!error && (error.name === "AbortError" || error.code === 20);
+  }
+
   initIntegrationBindings() {
     listIntegrations().forEach((integration) => {
       if (typeof integration.setup !== "function") return;
@@ -1312,9 +1352,9 @@ export class Component {
       errorInto,
     } = nb;
     const headers = this.buildHeaders(nb, bodyKind, body != null);
+    const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
     this.addCsrfHeader(headers, method);
     const endUiState = this.beginRequestUiState(nb);
-    const controller = this.beginCancelableRequest(nb);
 
     this.assignStateValue(loadingInto, true);
     this.assignStateValue(errorInto, null);
@@ -1334,6 +1374,7 @@ export class Component {
       }
 
       const res = await fetch(url, fetchOptions);
+      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
 
       // Check for HTTP errors
       if (!res.ok) {
@@ -1341,6 +1382,7 @@ export class Component {
       }
 
       const text = await res.text();
+      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
       let json = null;
 
       if (jsonInto && text.trim().length) {
@@ -1351,12 +1393,8 @@ export class Component {
         }
       }
 
-      if (this.shouldIgnoreRequestResult(nb, controller)) {
-        return;
-      }
-
       if (jsonInto && json != null) {
-        execInScope(`${jsonInto} = value`, this, { value: json });
+        execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
       } else {
         this.applySwap(target || el, text, swap);
       }
@@ -1367,10 +1405,9 @@ export class Component {
         new CustomEvent("sprucex:success", { detail, bubbles: true }),
       );
     } catch (error) {
-      if (this.isExpectedAbort(error, controller)) {
+      if (this.isAbortError(error) || !this.isCurrentNetworkRequest(nb, requestSeq)) {
         return;
       }
-
       if (revertOnError) {
         execInScope(revertOnError, this);
       }
@@ -1381,54 +1418,19 @@ export class Component {
         new CustomEvent("sprucex:error", { detail, bubbles: true }),
       );
     } finally {
-      const ownsController = this.requestOwnsController(nb, controller);
-      if (controller && ownsController) {
-        this.requestControllers.delete(nb);
-      }
-
+      const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
       endUiState();
-      if (!this.isDestroyed && ownsController) {
+      if (!this.isDestroyed && isFinished) {
         this.assignStateValue(loadingInto, false);
       }
     }
   }
 
-  beginCancelableRequest(nb) {
-    if (!nb.cancelPrevious) return null;
-
-    const previous = this.requestControllers.get(nb) || null;
-    const controller = new AbortController();
-    this.requestControllers.set(nb, controller);
-
-    if (previous) {
-      previous.abort();
-    }
-
-    return controller;
-  }
-
-  requestOwnsController(nb, controller) {
-    if (!controller) return true;
-    return this.requestControllers.get(nb) === controller;
-  }
-
-  shouldIgnoreRequestResult(nb, controller) {
-    if (!controller) return false;
-    return controller.signal.aborted || !this.requestOwnsController(nb, controller);
-  }
-
-  isExpectedAbort(error, controller) {
-    if (!controller) return false;
-    if (controller.signal.aborted) return true;
-    return error?.name === "AbortError";
-  }
-
   abortCancelableRequests() {
     this.netBindings.forEach((binding) => {
-      if (!binding.cancelPrevious) return;
-      const controller = this.requestControllers.get(binding);
-      if (controller) {
-        controller.abort();
+      const meta = this.netRequestMeta.get(binding);
+      if (meta && meta.controller && typeof meta.controller.abort === "function") {
+        meta.controller.abort();
       }
     });
   }
@@ -2316,7 +2318,7 @@ export class Component {
           v = el.value;
         }
         v = applyModifiers(v);
-        execInScope(`${keyExpr} = value`, this, { value: v });
+        execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
       } finally {
         this.locals = prev;
       }
