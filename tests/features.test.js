@@ -320,6 +320,140 @@ describe("network actions", () => {
     });
   });
 
+
+  test("sx-cancel-previous aborts overlapping requests on the same binding", async () => {
+    const successEvents = [];
+    const errorEvents = [];
+    const { component } = mount(`
+      <div sx-data="{ query: 'first', result: '', loading: false, error: null }">
+        <button
+          id="request"
+          sx-get="/api/search?q=\${query}"
+          sx-vars="{ query }"
+          sx-json-into="result"
+          sx-loading-into="loading"
+          sx-error-into="error"
+          sx-cancel-previous
+        >
+          Search
+        </button>
+      </div>
+    `);
+
+    const pending = [];
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = (_url, options = {}) =>
+      new Promise((resolve, reject) => {
+        const signal = options.signal;
+        const entry = {
+          resolve(payload) {
+            resolve({
+              ok: true,
+              status: 200,
+              statusText: "OK",
+              text: async () => JSON.stringify(payload),
+            });
+          },
+        };
+
+        if (signal) {
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        }
+
+        pending.push(entry);
+      });
+
+    const button = document.querySelector("#request");
+    button.addEventListener("sprucex:success", (event) => {
+      successEvents.push(event.detail.json);
+    });
+    button.addEventListener("sprucex:error", (event) => {
+      errorEvents.push(event.detail.error);
+    });
+
+    button.click();
+    await waitForUpdates(5);
+    expect(component.state.loading).toBe(true);
+    expect(pending.length).toBe(1);
+
+    component.state.query = "second";
+    await waitForUpdates();
+    button.click();
+    await waitForUpdates(5);
+    expect(component.state.loading).toBe(true);
+    expect(pending.length).toBe(2);
+
+    pending[0].resolve({ query: "first" });
+    await waitForUpdates(30);
+    expect(component.state.result).toBe("");
+    expect(component.state.error).toBe(null);
+    expect(errorEvents).toEqual([]);
+    expect(component.state.loading).toBe(true);
+
+    pending[1].resolve({ query: "second" });
+    await waitForUpdates(30);
+
+    expect(component.state.result).toEqual({ query: "second" });
+    expect(component.state.error).toBe(null);
+    expect(component.state.loading).toBe(false);
+    expect(successEvents).toEqual([{ query: "second" }]);
+    expect(errorEvents).toEqual([]);
+  });
+
+  test("sx-cancel-previous aborts in-flight requests during refresh and destroy", async () => {
+    const { root, component } = mount(`
+      <div sx-data="{ loading: false, error: null }">
+        <button
+          id="request"
+          sx-get="/api/items"
+          sx-loading-into="loading"
+          sx-error-into="error"
+          sx-cancel-previous
+        >
+          Load
+        </button>
+      </div>
+    `);
+
+    let abortCount = 0;
+    previousFetch = globalThis.fetch;
+    globalThis.fetch = (_url, options = {}) =>
+      new Promise((_resolve, reject) => {
+        const signal = options.signal;
+        signal?.addEventListener(
+          "abort",
+          () => {
+            abortCount += 1;
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          },
+          { once: true },
+        );
+      });
+
+    document.querySelector("#request").click();
+    await waitForUpdates(5);
+    expect(component.state.loading).toBe(true);
+
+    component.refresh();
+    await waitForUpdates(30);
+    expect(abortCount).toBe(1);
+    expect(component.state.loading).toBe(false);
+    expect(component.state.error).toBe(null);
+
+    document.querySelector("#request").click();
+    await waitForUpdates(5);
+    expect(component.state.loading).toBe(true);
+
+    root.__sprucex.destroy();
+    await waitForUpdates(30);
+    expect(abortCount).toBe(2);
+    expect(root.__sprucex).toBeUndefined();
+  });
+
   test("sx-json-into can assign to a state property named value", async () => {
     const { component } = mount(`
       <div sx-data="{ value: null }">
@@ -377,5 +511,6 @@ describe("network actions", () => {
     await waitForUpdates(30);
 
     expect(component.state.result).toEqual({ order: "new" });
+
   });
 });

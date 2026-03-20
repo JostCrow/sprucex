@@ -1,9 +1,23 @@
 
 import { getStore } from "../store/index.js";
 
-// Function cache for compiled expressions
+// Function cache for compiled expressions (bounded to prevent memory leaks)
+const MAX_CACHE_SIZE = 500;
 const evalFnCache = new Map();
 const execFnCache = new Map();
+
+function boundedCacheSet(cache, key, value) {
+  if (cache.size >= MAX_CACHE_SIZE) {
+    // Evict oldest 25% of entries
+    const evictCount = Math.ceil(MAX_CACHE_SIZE / 4);
+    const iter = cache.keys();
+    for (let i = 0; i < evictCount; i++) {
+      const oldest = iter.next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+  }
+  cache.set(key, value);
+}
 
 export function evalInScope(expr, scope, extra = {}) {
   const locals = scope.locals || {};
@@ -24,7 +38,7 @@ export function evalInScope(expr, scope, extra = {}) {
         ...extraKeys,
         `with($state){ with($locals){ return (${expr}); } }`
       );
-      evalFnCache.set(cacheKey, fn);
+      boundedCacheSet(evalFnCache, cacheKey, fn);
     } catch (e) {
       if (scope.debug) {
         console.error("SpruceX expression compile error:", expr, e);
@@ -89,7 +103,7 @@ export function execInScope(stmt, scope, extra = {}) {
         ...extraKeys,
         `with($state){ with($locals){ ${stmt} } }`
       );
-      execFnCache.set(cacheKey, fn);
+      boundedCacheSet(execFnCache, cacheKey, fn);
     } catch (e) {
       console.error("SpruceX statement compile error:", stmt, e);
       return;

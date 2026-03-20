@@ -36,6 +36,7 @@ export const ATTR_ERROR_INTO = "sx-error-into";
 export const ATTR_DISABLE_WHILE_REQUEST = "sx-disable-while-request";
 export const ATTR_TEXT_WHILE_REQUEST = "sx-text-while-request";
 export const ATTR_CONFIRM = "sx-confirm";
+export const ATTR_CANCEL_PREVIOUS = "sx-cancel-previous";
 
 export const ATTR_CHART = "sx-chart";
 export const ATTR_CHART_TYPE = "sx-chart-type";
@@ -53,6 +54,8 @@ export const ATTR_GRIDSTACK_ON_RESIZESTOP = "sx-gridstack-on-resizestop";
 export const ATTR_LAZY = "sx-lazy";
 export const ATTR_LOCAL = "sx-local";
 export const ATTR_ANIMATE = "sx-animate";
+
+export const DEFAULT_CSRF_COOKIE_NAME = "csrftoken";
 
 export const DELEGATED_EVENTS = new Set([
   "click", "dblclick", "mousedown", "mouseup",

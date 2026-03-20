@@ -41,12 +41,15 @@ export function isFactoryLikeDataExpression(rawExpr) {
   return !!getDataExpressionReference(rawExpr);
 }
 
+const BLOCKED_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+
 export function resolveGlobalDataReference(reference) {
   if (!reference || typeof reference !== "string") return undefined;
   const root = typeof window !== "undefined" ? window : globalThis;
   let cur = root;
   for (const segment of reference.split(".")) {
     if (cur == null) return undefined;
+    if (BLOCKED_SEGMENTS.has(segment)) return undefined;
     cur = cur[segment];
   }
   return cur;

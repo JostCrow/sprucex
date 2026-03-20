@@ -35,11 +35,13 @@ import {
   ATTR_DISABLE_WHILE_REQUEST,
   ATTR_TEXT_WHILE_REQUEST,
   ATTR_CONFIRM,
+  ATTR_CANCEL_PREVIOUS,
   ATTR_GRIDSTACK_OPTION_PREFIX,
   ATTR_LAZY,
   ATTR_LOCAL,
   ATTR_ANIMATE,
   DELEGATED_EVENTS,
+  DEFAULT_CSRF_COOKIE_NAME,
 } from "../constants.js";
 import { walk, parseForExpression, cloneChildren } from "../utils/helpers.js";
 import {
@@ -87,6 +89,7 @@ export class Component {
     this.debug = false;
     this.locals = {};
     this.updatePending = false;
+    this.isDestroyed = false;
     this.originalClasses = new WeakMap(); // Track original classes for sx-class
     this.animatedElements = new Map(); // Track auto-animated elements
 
@@ -573,6 +576,7 @@ export class Component {
           );
           const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
           const confirmExpr = el.getAttribute(ATTR_CONFIRM);
+          const cancelPrevious = el.hasAttribute(ATTR_CANCEL_PREVIOUS);
 
           const binding = {
             el,
@@ -597,6 +601,7 @@ export class Component {
             disableWhileRequest,
             textWhileRequest,
             confirmExpr,
+            cancelPrevious,
           };
 
           self.netBindings.push(binding);
@@ -870,10 +875,11 @@ export class Component {
     // Parse options from attribute if string
     if (typeof options === "string" && options.trim()) {
       try {
-        options = new Function(`return (${options})`)();
-      } catch (e) {
-        console.error("SpruceX sx-animate options parse error:", e);
-        options = {};
+        options = JSON.parse(options);
+      } catch (_jsonErr) {
+        // Fallback: try evaluating as expression in component scope
+        const evaluated = safeEval(options, this);
+        options = evaluated && typeof evaluated === "object" ? evaluated : {};
       }
     }
 
@@ -908,13 +914,16 @@ export class Component {
     const { urlTpl, varsExpr } = nb;
     if (!varsExpr) return urlTpl;
     const vars = safeEval(varsExpr, this) || {};
-    try {
-      const fn = new Function("vars", "with(vars){ return `" + urlTpl + "`; }");
-      return fn(vars);
-    } catch (e) {
-      console.error("SpruceX url template error:", urlTpl, e);
-      return urlTpl;
-    }
+    // Safe interpolation: only replace ${identifier} tokens, no arbitrary code execution
+    return urlTpl.replace(/\$\{([A-Za-z_$][A-Za-z0-9_$.]*)\}/g, (_match, key) => {
+      const segments = key.split(".");
+      let value = vars;
+      for (const seg of segments) {
+        if (value == null) return "";
+        value = value[seg];
+      }
+      return value ?? "";
+    });
   }
 
   buildBody(nb) {
@@ -1110,11 +1119,13 @@ export class Component {
 
   getCsrfToken() {
     if (typeof document === "undefined") return null;
+    const cookieName = Component.csrfCookieName || DEFAULT_CSRF_COOKIE_NAME;
+    const prefix = cookieName + "=";
     const cookies = document.cookie ? document.cookie.split(";") : [];
     for (const entry of cookies) {
       const cookie = entry.trim();
-      if (cookie.startsWith("csrftoken=")) {
-        return decodeURIComponent(cookie.slice("csrftoken=".length));
+      if (cookie.startsWith(prefix)) {
+        return decodeURIComponent(cookie.slice(prefix.length));
       }
     }
     return null;
@@ -1407,11 +1418,21 @@ export class Component {
         new CustomEvent("sprucex:error", { detail, bubbles: true }),
       );
     } finally {
-      if (this.finishNetworkRequest(nb, requestSeq, controller)) {
+      const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
+      endUiState();
+      if (!this.isDestroyed && isFinished) {
         this.assignStateValue(loadingInto, false);
       }
-      endUiState();
     }
+  }
+
+  abortCancelableRequests() {
+    this.netBindings.forEach((binding) => {
+      const meta = this.netRequestMeta.get(binding);
+      if (meta && meta.controller && typeof meta.controller.abort === "function") {
+        meta.controller.abort();
+      }
+    });
   }
 
   getChartConstructor() {
@@ -2327,32 +2348,32 @@ export class Component {
   cleanupInstanceBindings(instanceBindings) {
     if (!instanceBindings) return;
 
-    // Remove bindings from main arrays
-    (instanceBindings.bindings || []).forEach((b) => {
-      const idx = this.bindings.indexOf(b);
-      if (idx !== -1) this.bindings.splice(idx, 1);
-    });
+    // Use Sets for O(1) lookup instead of O(n) indexOf per item
+    const bindingsToRemove = new Set(instanceBindings.bindings || []);
+    const memosToRemove = new Set(instanceBindings.memoBindings || []);
+    const modelsToRemove = new Set(instanceBindings.modelBindings || []);
 
-    (instanceBindings.memoBindings || []).forEach((b) => {
-      const idx = this.memoBindings.indexOf(b);
-      if (idx !== -1) this.memoBindings.splice(idx, 1);
-    });
-
-    (instanceBindings.modelBindings || []).forEach((b) => {
-      const idx = this.modelBindings.indexOf(b);
-      if (idx !== -1) this.modelBindings.splice(idx, 1);
-    });
+    if (bindingsToRemove.size > 0) {
+      this.bindings = this.bindings.filter((b) => !bindingsToRemove.has(b));
+    }
+    if (memosToRemove.size > 0) {
+      this.memoBindings = this.memoBindings.filter((b) => !memosToRemove.has(b));
+    }
+    if (modelsToRemove.size > 0) {
+      this.modelBindings = this.modelBindings.filter((b) => !modelsToRemove.has(b));
+    }
 
     // Remove event handlers
+    const handlersToRemove = new Set();
     (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
-      // For delegated events, we don't track them in instanceBindings.eventHandlers usually
-      // But if we did (non-delegated), remove them
       el.removeEventListener(event, handler);
-      const idx = this.eventHandlers.findIndex(
-        (h) => h.el === el && h.event === event && h.handler === handler,
-      );
-      if (idx !== -1) this.eventHandlers.splice(idx, 1);
+      handlersToRemove.add(handler);
     });
+    if (handlersToRemove.size > 0) {
+      this.eventHandlers = this.eventHandlers.filter(
+        (h) => !handlersToRemove.has(h.handler),
+      );
+    }
 
     // Recursively remove nested sx-for blocks created for this instance.
     // If these remain in forBlocks, they keep stale locals and continue rendering.
@@ -2492,6 +2513,7 @@ export class Component {
   }
 
   refresh() {
+    this.abortCancelableRequests();
     this.teardownIntegrations();
     this.clearDebounceTimers();
     this.clearEmitterHandlers();
@@ -2532,7 +2554,9 @@ export class Component {
   }
 
   destroy() {
+    this.isDestroyed = true;
     this.callHook("destroyed");
+    this.abortCancelableRequests();
 
     // Clean up store subscriptions
     Object.keys(storeSubscribers).forEach((name) => {

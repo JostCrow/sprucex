@@ -4,6 +4,8 @@ import { ATTR_DATA } from "../constants.js";
 // ========== Feature 3 & 4: Morphing & ID Mapping ==========
 export function morphNodes(target, source) {
   // First, handle ID mapping (Feature 4)
+  // Use a Set to track morphed IDs instead of mutating source nodes
+  const morphedIds = new Set();
   const sourceIds = new Map();
   source.querySelectorAll("[id]").forEach(el => {
     sourceIds.set(el.id, el);
@@ -15,13 +17,12 @@ export function morphNodes(target, source) {
     const targetEl = target.querySelector(`#${CSS.escape(id)}`);
     if (targetEl) {
       morphElement(targetEl, sourceEl);
-      // Mark as processed
-      sourceEl.__morphed = true;
+      morphedIds.add(id);
     }
   });
 
   // For the rest, do a smart merge (Feature 3)
-  morphChildren(target, source);
+  morphChildren(target, source, morphedIds);
 }
 
 export function morphElement(target, source) {
@@ -55,7 +56,7 @@ export function morphElement(target, source) {
 
   if (target.tagName === "SELECT") {
     // Morph options then set value
-    morphChildren(target, source);
+    morphChildren(target, source, new Set());
     if (target.value !== source.value) {
       target.value = source.value;
     }
@@ -63,10 +64,10 @@ export function morphElement(target, source) {
   }
 
   // Morph children
-  morphChildren(target, source);
+  morphChildren(target, source, new Set());
 }
 
-export function morphChildren(target, source) {
+export function morphChildren(target, source, morphedIds) {
   const targetChildren = Array.from(target.childNodes);
   const sourceChildren = Array.from(source.childNodes);
 
@@ -110,15 +111,14 @@ export function morphChildren(target, source) {
 
     // Element nodes
     if (sourceChild.nodeType === 1) {
-      // Skip if already morphed via ID mapping
-      if (sourceChild.__morphed) {
-        delete sourceChild.__morphed;
+      // Skip if already morphed via ID mapping (check the Set, not a flag on the node)
+      const sourceId = sourceChild.id;
+      if (sourceId && morphedIds.has(sourceId)) {
         targetIndex++;
         continue;
       }
 
       const sourceKey = sourceChild.getAttribute?.("sx-key") || sourceChild.getAttribute?.("key");
-      const sourceId = sourceChild.id;
 
       let matchedTarget = null;
 
@@ -171,9 +171,10 @@ export function morphChildren(target, source) {
     }
   }
 
-  // Remove extra target children
-  while (target.childNodes.length > sourceChildren.length) {
-    const extra = target.childNodes[sourceChildren.length];
+  // Remove extra target children — use a snapshot of current children to avoid index drift
+  const finalChildren = Array.from(target.childNodes);
+  for (let i = finalChildren.length - 1; i >= sourceChildren.length; i--) {
+    const extra = finalChildren[i];
     if (extra) {
       // Destroy any SpruceX components
       if (extra.__sprucex) extra.__sprucex.destroy();

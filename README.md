@@ -9,6 +9,10 @@ SpruceX is a lightweight JavaScript micro-framework that blends:
 
 If you like shipping features straight from markup, this is your playground.
 
+> SpruceX is not complete yet and remains in active development. The `1.0.0`
+> release line is being prepared now, so APIs, docs, and examples may continue
+> to evolve.
+
 ## Why SpruceX?
 
 Because sometimes you want:
@@ -91,36 +95,6 @@ Plugin hooks:
 - `update(component)` run on initial render and reactive updates
 - `teardown(component)` cleanup on refresh/destroy
 
-## Feature Tour
-
-Core UI:
-- `sx-data`, `sx-text`, `sx-html`, `sx-show`
-- `sx-bind:*`, `sx-class`, `sx-toggle`, `sx-error-fallback`
-- `sx-on:*` with modifiers (`.prevent`, `.stop`, `.self`, key modifiers)
-- `sx-model` with modifiers (`.trim`, `.number`, `.lazy`, `.debounce-ms`)
-- `sx-for`, `sx-memo`, `sx-ref`
-
-Network layer:
-- `sx-get`, `sx-post`, `sx-put`, `sx-delete`
-- `sx-target`, `sx-swap`, `sx-vars`, `sx-json-into`
-- `sx-body`, `sx-body-type`, `sx-headers`
-- `sx-loading-into`, `sx-error-into`
-- `sx-disable-while-request`, `sx-text-while-request`, `sx-confirm`
-- `sx-optimistic`, `sx-revert-on-error`
-- `sx-poll`, `sx-poll-while`, `sx-include`
-
-State + lifecycle:
-- Global stores via `SpruceX.store(...)`
-- Local component persistence via `sx-local`
-- Lazy component init via `sx-lazy`
-- Boot hook via `window.SpruceXBoot.initTheme`
-
-Power directives:
-- `sx-page`, `sx-boost`, `sx-boost-on` (navigation + progressive enhancement)
-- `sx-animate` (with `@formkit/auto-animate`)
-- `sx-chart` (Chart.js integration)
-- `sx-gridstack` (GridStack integration)
-
 ## Development
 
 ### Requirements
@@ -164,6 +138,7 @@ public/
 
 - Interactive docs/examples live in the Astro site (`bun run dev`)
 - Extended reference: `public/llm-docs.md`
+- Machine-readable reference: `public/LLM.txt`
 - Release notes: `CHANGELOG.md`
 
 ## Contributing
@@ -180,11 +155,13 @@ If you open a PR, please include:
 - why it changed
 - how you tested it
 
-## Version
+## Status
 
-Current version in `package.json`: `0.4.0`
+Current release target in `package.json`: `1.0.0`
 
-Recent improvements include deep reactivity, batched updates, memo/function caching, and memory leak fixes.
+SpruceX is still in active development and is not complete yet. Use the docs
+site, `public/LLM.txt`, and `CHANGELOG.md` as the current source of truth for
+what is implemented.
 
 ## License
 
