@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import { morphNodes } from "../src/utils/morph.js";
 import { Component } from "../src/core/component.js";
+import { initStore, removeStore } from "../src/store/index.js";
 import { installDom, waitForUpdates } from "./helpers/dom.js";
 
 let restoreDom = null;
@@ -10,6 +11,8 @@ let previousWarn;
 let previousNow;
 
 afterEach(() => {
+  removeStore("nested-roots-demo-test");
+
   if (restoreDom) {
     restoreDom();
     restoreDom = null;
@@ -185,6 +188,56 @@ describe("initialization", () => {
     expect(
       Array.from(document.querySelectorAll(".inner-item")).map((el) => el.textContent),
     ).toEqual(["One", "Two", "Three"]);
+  });
+
+  test("nested roots can mutate and render a shared store list", async () => {
+    const env = installDom(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <section
+              id="outer"
+              sx-data="{ draft: '', addSection() { const list = this.$store('nested-roots-demo-test'); if (!list || !this.draft.trim()) return; list.items.push(this.draft.trim()); this.draft = ''; } }"
+            >
+              <input id="draft" sx-model.trim="draft" />
+              <button id="add" type="button" sx-on:click="addSection()">Add</button>
+            </section>
+
+            <section id="middle" sx-data="{ visible: true }">
+              <div sx-show="visible">
+                <ul>
+                  <template sx-for="item in $store('nested-roots-demo-test').items">
+                    <li class="shared-item" sx-text="item"></li>
+                  </template>
+                </ul>
+              </div>
+            </section>
+          </body>
+        </html>
+      `,
+    );
+    restoreDom = env.cleanup;
+
+    initStore("nested-roots-demo-test", { items: ["Shell", "Canvas"] });
+
+    const outer = document.querySelector("#outer");
+    const middle = document.querySelector("#middle");
+    outer.__sprucex = new Component(outer);
+    middle.__sprucex = new Component(middle);
+
+    const input = document.querySelector("#draft");
+    input.value = "Gamma";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    document
+      .querySelector("#add")
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitForUpdates();
+
+    expect(
+      Array.from(document.querySelectorAll(".shared-item")).map((el) => el.textContent),
+    ).toEqual(["Shell", "Canvas", "Gamma"]);
+    expect(input.value).toBe("");
   });
 });
 

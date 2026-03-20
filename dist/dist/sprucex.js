@@ -86,6 +86,7 @@
   var ATTR_LAZY = "sx-lazy";
   var ATTR_LOCAL = "sx-local";
   var ATTR_ANIMATE = "sx-animate";
+  var DEFAULT_CSRF_COOKIE_NAME = "csrftoken";
   var DELEGATED_EVENTS = new Set([
     "click",
     "dblclick",
@@ -139,6 +140,15 @@
   }
 
   // src/reactivity/index.js
+  var ARRAY_MUTATING_METHODS = new Set([
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "sort",
+    "reverse"
+  ]);
   function createDeepReactiveProxy(obj, onChange, visited = new WeakSet) {
     if (obj === null || typeof obj !== "object")
       return obj;
@@ -146,25 +156,6 @@
       return obj;
     visited.add(obj);
     if (Array.isArray(obj)) {
-      const methods = [
-        "push",
-        "pop",
-        "shift",
-        "unshift",
-        "splice",
-        "sort",
-        "reverse"
-      ];
-      methods.forEach((method) => {
-        const original = obj[method];
-        if (typeof original === "function") {
-          obj[method] = function(...args) {
-            const result = original.apply(this, args);
-            onChange();
-            return result;
-          };
-        }
-      });
       obj.forEach((item, i) => {
         if (item && typeof item === "object") {
           obj[i] = createDeepReactiveProxy(item, onChange, visited);
@@ -180,6 +171,19 @@
     const handler = {
       get(target, key, receiver) {
         const value = Reflect.get(target, key, receiver);
+        if (Array.isArray(target) && ARRAY_MUTATING_METHODS.has(key) && typeof value === "function") {
+          return function(...args) {
+            const reactiveArgs = args.map((arg) => {
+              if (arg && typeof arg === "object") {
+                return createDeepReactiveProxy(arg, onChange, new WeakSet);
+              }
+              return arg;
+            });
+            const result = value.apply(target, reactiveArgs);
+            onChange();
+            return result;
+          };
+        }
         if (typeof value === "function" && !isClass(value)) {
           return value.bind(receiver);
         }
@@ -258,6 +262,19 @@
     }
     return globalStores[name];
   }
+  function removeStore(name) {
+    if (!globalStores[name])
+      return;
+    const subscribers = storeSubscribers[name];
+    if (subscribers) {
+      subscribers.forEach((comp) => {
+        if (!comp.isDestroyed)
+          comp.scheduleUpdate();
+      });
+    }
+    delete globalStores[name];
+    delete storeSubscribers[name];
+  }
 
   // src/utils/animations.js
   var autoAnimate = null;
@@ -279,8 +296,21 @@
   }
 
   // src/utils/eval.js
+  var MAX_CACHE_SIZE = 500;
   var evalFnCache = new Map;
   var execFnCache = new Map;
+  function boundedCacheSet(cache, key, value) {
+    if (cache.size >= MAX_CACHE_SIZE) {
+      const evictCount = Math.ceil(MAX_CACHE_SIZE / 4);
+      const iter = cache.keys();
+      for (let i = 0;i < evictCount; i++) {
+        const oldest = iter.next().value;
+        if (oldest !== undefined)
+          cache.delete(oldest);
+      }
+    }
+    cache.set(key, value);
+  }
   function evalInScope(expr, scope, extra = {}) {
     const locals = scope.locals || {};
     const extraKeys = Object.keys(extra);
@@ -290,7 +320,7 @@
     if (!fn) {
       try {
         fn = new Function("$state", "$event", "$refs", "$emit", "$store", "$locals", ...extraKeys, `with($state){ with($locals){ return (${expr}); } }`);
-        evalFnCache.set(cacheKey, fn);
+        boundedCacheSet(evalFnCache, cacheKey, fn);
       } catch (e) {
         if (scope.debug) {
           console.error("SpruceX expression compile error:", expr, e);
@@ -330,7 +360,7 @@
     if (!fn) {
       try {
         fn = new Function("$state", "$event", "$refs", "$emit", "$store", "$locals", ...extraKeys, `with($state){ with($locals){ ${stmt} } }`);
-        execFnCache.set(cacheKey, fn);
+        boundedCacheSet(execFnCache, cacheKey, fn);
       } catch (e) {
         console.error("SpruceX statement compile error:", stmt, e);
         return;
@@ -345,6 +375,7 @@
 
   // src/utils/morph.js
   function morphNodes(target, source) {
+    const morphedIds = new Set;
     const sourceIds = new Map;
     source.querySelectorAll("[id]").forEach((el) => {
       sourceIds.set(el.id, el);
@@ -353,10 +384,10 @@
       const targetEl = target.querySelector(`#${CSS.escape(id)}`);
       if (targetEl) {
         morphElement(targetEl, sourceEl);
-        sourceEl.__morphed = true;
+        morphedIds.add(id);
       }
     });
-    morphChildren(target, source);
+    morphChildren(target, source, morphedIds);
   }
   function morphElement(target, source) {
     if (target === source)
@@ -380,15 +411,15 @@
       return;
     }
     if (target.tagName === "SELECT") {
-      morphChildren(target, source);
+      morphChildren(target, source, new Set);
       if (target.value !== source.value) {
         target.value = source.value;
       }
       return;
     }
-    morphChildren(target, source);
+    morphChildren(target, source, new Set);
   }
-  function morphChildren(target, source) {
+  function morphChildren(target, source, morphedIds) {
     const targetChildren = Array.from(target.childNodes);
     const sourceChildren = Array.from(source.childNodes);
     const targetKeyedMap = new Map;
@@ -424,13 +455,12 @@
         continue;
       }
       if (sourceChild.nodeType === 1) {
-        if (sourceChild.__morphed) {
-          delete sourceChild.__morphed;
+        const sourceId = sourceChild.id;
+        if (sourceId && morphedIds.has(sourceId)) {
           targetIndex++;
           continue;
         }
         const sourceKey = sourceChild.getAttribute?.("sx-key") || sourceChild.getAttribute?.("key");
-        const sourceId = sourceChild.id;
         let matchedTarget = null;
         if (sourceKey && targetKeyedMap.has(sourceKey)) {
           matchedTarget = targetKeyedMap.get(sourceKey).el;
@@ -469,8 +499,9 @@
         }
       }
     }
-    while (target.childNodes.length > sourceChildren.length) {
-      const extra = target.childNodes[sourceChildren.length];
+    const finalChildren = Array.from(target.childNodes);
+    for (let i = finalChildren.length - 1;i >= sourceChildren.length; i--) {
+      const extra = finalChildren[i];
       if (extra) {
         if (extra.__sprucex)
           extra.__sprucex.destroy();
@@ -536,6 +567,7 @@
   function isFactoryLikeDataExpression(rawExpr) {
     return !!getDataExpressionReference(rawExpr);
   }
+  var BLOCKED_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
   function resolveGlobalDataReference(reference) {
     if (!reference || typeof reference !== "string")
       return;
@@ -543,6 +575,8 @@
     let cur = root;
     for (const segment of reference.split(".")) {
       if (cur == null)
+        return;
+      if (BLOCKED_SEGMENTS.has(segment))
         return;
       cur = cur[segment];
     }
@@ -602,7 +636,7 @@
       this.chartSnapshots = new WeakMap;
       this.gridInstances = new Map;
       this.requestUiState = new WeakMap;
-      this.requestControllers = new WeakMap;
+      this.netRequestMeta = new WeakMap;
       this.warnedMissingChart = false;
       this.warnedMissingGridStack = false;
       this.lastEvent = null;
@@ -1147,7 +1181,7 @@
             v = el.value;
           }
           v = applyModifiers(v);
-          execInScope(`${keyExpr} = value`, this, { value: v });
+          execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
         } finally {
           this.locals = prev;
         }
@@ -1270,10 +1304,10 @@
         return null;
       if (typeof options === "string" && options.trim()) {
         try {
-          options = new Function(`return (${options})`)();
-        } catch (e) {
-          console.error("SpruceX sx-animate options parse error:", e);
-          options = {};
+          options = JSON.parse(options);
+        } catch (_jsonErr) {
+          const evaluated = safeEval(options, this);
+          options = evaluated && typeof evaluated === "object" ? evaluated : {};
         }
       }
       const defaultOptions = {
@@ -1302,13 +1336,16 @@
       if (!varsExpr)
         return urlTpl;
       const vars = safeEval(varsExpr, this) || {};
-      try {
-        const fn = new Function("vars", "with(vars){ return `" + urlTpl + "`; }");
-        return fn(vars);
-      } catch (e) {
-        console.error("SpruceX url template error:", urlTpl, e);
-        return urlTpl;
-      }
+      return urlTpl.replace(/\$\{([A-Za-z_$][A-Za-z0-9_$.]*)\}/g, (_match, key) => {
+        const segments = key.split(".");
+        let value = vars;
+        for (const seg of segments) {
+          if (value == null)
+            return "";
+          value = value[seg];
+        }
+        return value ?? "";
+      });
     }
     buildBody(nb) {
       const { el, method, includeSelector, bodyExpr, bodyType } = nb;
@@ -1472,11 +1509,13 @@
     getCsrfToken() {
       if (typeof document === "undefined")
         return null;
+      const cookieName = Component.csrfCookieName || DEFAULT_CSRF_COOKIE_NAME;
+      const prefix = cookieName + "=";
       const cookies = document.cookie ? document.cookie.split(";") : [];
       for (const entry of cookies) {
         const cookie = entry.trim();
-        if (cookie.startsWith("csrftoken=")) {
-          return decodeURIComponent(cookie.slice("csrftoken=".length));
+        if (cookie.startsWith(prefix)) {
+          return decodeURIComponent(cookie.slice(prefix.length));
         }
       }
       return null;
@@ -1590,6 +1629,37 @@
       });
       this.emitterHandlers = [];
     }
+    beginNetworkRequest(nb) {
+      let meta = this.netRequestMeta.get(nb);
+      if (!meta) {
+        meta = { seq: 0, controller: null };
+        this.netRequestMeta.set(nb, meta);
+      }
+      meta.seq += 1;
+      if (meta.controller && typeof meta.controller.abort === "function") {
+        try {
+          meta.controller.abort();
+        } catch {}
+      }
+      meta.controller = typeof AbortController !== "undefined" ? new AbortController : null;
+      return { seq: meta.seq, controller: meta.controller };
+    }
+    isCurrentNetworkRequest(nb, seq) {
+      const meta = this.netRequestMeta.get(nb);
+      return !!meta && meta.seq === seq;
+    }
+    finishNetworkRequest(nb, seq, controller) {
+      const meta = this.netRequestMeta.get(nb);
+      if (!meta || meta.seq !== seq)
+        return false;
+      if (meta.controller === controller) {
+        meta.controller = null;
+      }
+      return true;
+    }
+    isAbortError(error) {
+      return !!error && (error.name === "AbortError" || error.code === 20);
+    }
     initIntegrationBindings() {
       listIntegrations().forEach((integration) => {
         if (typeof integration.setup !== "function")
@@ -1649,9 +1719,9 @@
         errorInto
       } = nb;
       const headers = this.buildHeaders(nb, bodyKind, body != null);
+      const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
       this.addCsrfHeader(headers, method);
       const endUiState = this.beginRequestUiState(nb);
-      const controller = this.beginCancelableRequest(nb);
       this.assignStateValue(loadingInto, true);
       this.assignStateValue(errorInto, null);
       if (optimistic) {
@@ -1668,10 +1738,14 @@
           fetchOptions.signal = controller.signal;
         }
         const res = await fetch(url, fetchOptions);
+        if (!this.isCurrentNetworkRequest(nb, requestSeq))
+          return;
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         const text = await res.text();
+        if (!this.isCurrentNetworkRequest(nb, requestSeq))
+          return;
         let json = null;
         if (jsonInto && text.trim().length) {
           try {
@@ -1680,11 +1754,8 @@
             console.error("SpruceX JSON parse error:", e);
           }
         }
-        if (this.shouldIgnoreRequestResult(nb, controller)) {
-          return;
-        }
         if (jsonInto && json != null) {
-          execInScope(`${jsonInto} = value`, this, { value: json });
+          execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
         } else {
           this.applySwap(target || el, text, swap);
         }
@@ -1692,7 +1763,7 @@
         el.dispatchEvent(new CustomEvent("success", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:success", { detail, bubbles: true }));
       } catch (error) {
-        if (this.isExpectedAbort(error, controller)) {
+        if (this.isAbortError(error) || !this.isCurrentNetworkRequest(nb, requestSeq)) {
           return;
         }
         if (revertOnError) {
@@ -1703,51 +1774,18 @@
         el.dispatchEvent(new CustomEvent("error", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:error", { detail, bubbles: true }));
       } finally {
-        const ownsController = this.requestOwnsController(nb, controller);
-        if (controller && ownsController) {
-          this.requestControllers.delete(nb);
-        }
+        const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
         endUiState();
-        if (!this.isDestroyed && ownsController) {
+        if (!this.isDestroyed && isFinished) {
           this.assignStateValue(loadingInto, false);
         }
       }
     }
-    beginCancelableRequest(nb) {
-      if (!nb.cancelPrevious)
-        return null;
-      const previous = this.requestControllers.get(nb) || null;
-      const controller = new AbortController;
-      this.requestControllers.set(nb, controller);
-      if (previous) {
-        previous.abort();
-      }
-      return controller;
-    }
-    requestOwnsController(nb, controller) {
-      if (!controller)
-        return true;
-      return this.requestControllers.get(nb) === controller;
-    }
-    shouldIgnoreRequestResult(nb, controller) {
-      if (!controller)
-        return false;
-      return controller.signal.aborted || !this.requestOwnsController(nb, controller);
-    }
-    isExpectedAbort(error, controller) {
-      if (!controller)
-        return false;
-      if (controller.signal.aborted)
-        return true;
-      return error?.name === "AbortError";
-    }
     abortCancelableRequests() {
       this.netBindings.forEach((binding) => {
-        if (!binding.cancelPrevious)
-          return;
-        const controller = this.requestControllers.get(binding);
-        if (controller) {
-          controller.abort();
+        const meta = this.netRequestMeta.get(binding);
+        if (meta && meta.controller && typeof meta.controller.abort === "function") {
+          meta.controller.abort();
         }
       });
     }
@@ -2498,7 +2536,7 @@
             v = el.value;
           }
           v = applyModifiers(v);
-          execInScope(`${keyExpr} = value`, this, { value: v });
+          execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
         } finally {
           this.locals = prev;
         }
@@ -2523,27 +2561,26 @@
     cleanupInstanceBindings(instanceBindings) {
       if (!instanceBindings)
         return;
-      (instanceBindings.bindings || []).forEach((b) => {
-        const idx = this.bindings.indexOf(b);
-        if (idx !== -1)
-          this.bindings.splice(idx, 1);
-      });
-      (instanceBindings.memoBindings || []).forEach((b) => {
-        const idx = this.memoBindings.indexOf(b);
-        if (idx !== -1)
-          this.memoBindings.splice(idx, 1);
-      });
-      (instanceBindings.modelBindings || []).forEach((b) => {
-        const idx = this.modelBindings.indexOf(b);
-        if (idx !== -1)
-          this.modelBindings.splice(idx, 1);
-      });
+      const bindingsToRemove = new Set(instanceBindings.bindings || []);
+      const memosToRemove = new Set(instanceBindings.memoBindings || []);
+      const modelsToRemove = new Set(instanceBindings.modelBindings || []);
+      if (bindingsToRemove.size > 0) {
+        this.bindings = this.bindings.filter((b) => !bindingsToRemove.has(b));
+      }
+      if (memosToRemove.size > 0) {
+        this.memoBindings = this.memoBindings.filter((b) => !memosToRemove.has(b));
+      }
+      if (modelsToRemove.size > 0) {
+        this.modelBindings = this.modelBindings.filter((b) => !modelsToRemove.has(b));
+      }
+      const handlersToRemove = new Set;
       (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
         el.removeEventListener(event, handler);
-        const idx = this.eventHandlers.findIndex((h) => h.el === el && h.event === event && h.handler === handler);
-        if (idx !== -1)
-          this.eventHandlers.splice(idx, 1);
+        handlersToRemove.add(handler);
       });
+      if (handlersToRemove.size > 0) {
+        this.eventHandlers = this.eventHandlers.filter((h) => !handlersToRemove.has(h.handler));
+      }
       instanceBindings.nestedForBlocks?.forEach((block) => {
         this.teardownForBlock(block);
       });
@@ -2785,17 +2822,31 @@
   }
 
   // src/index.js
+  var MAX_PAGE_CACHE_SIZE = 20;
   var pageCache = new Map;
   var pendingFetches = new Map;
   var PAGE_CACHE_TTL = 30000;
   var pendingRoots = new Set;
+  var pendingRootMeta = new WeakMap;
+  var PENDING_ROOT_MAX_WAIT = 5000;
   var pendingRootFlushQueued = false;
   var pendingRootPollTimer = null;
+  var pendingRootPollCount = 0;
+  var MAX_PENDING_ROOT_POLLS = 100;
+  var latestNavigationId = 0;
   ensureBuiltInIntegrationsRegistered();
   function ensurePendingRootPolling() {
     if (pendingRootPollTimer || pendingRoots.size === 0)
       return;
+    pendingRootPollCount = 0;
     pendingRootPollTimer = setInterval(() => {
+      pendingRootPollCount++;
+      if (pendingRootPollCount >= MAX_PENDING_ROOT_POLLS) {
+        clearInterval(pendingRootPollTimer);
+        pendingRootPollTimer = null;
+        console.warn(`SpruceX: Stopped polling for pending roots after ${MAX_PENDING_ROOT_POLLS} attempts. Make sure data factories are registered.`);
+        return;
+      }
       flushPendingRoots();
     }, 100);
   }
@@ -2803,16 +2854,26 @@
     pendingRoots.forEach((root) => {
       if (!root || !root.isConnected || root.__sprucex) {
         pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
+        return;
+      }
+      const meta = pendingRootMeta.get(root);
+      if (meta && Date.now() - meta.queuedAt > PENDING_ROOT_MAX_WAIT) {
+        console.warn("SpruceX sx-data factory did not become available in time:", root.getAttribute(ATTR_DATA));
+        pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
         return;
       }
       const comp = initSpruceXRoot(root);
       if (comp) {
         pendingRoots.delete(root);
+        pendingRootMeta.delete(root);
       }
     });
     if (pendingRoots.size === 0 && pendingRootPollTimer) {
       clearInterval(pendingRootPollTimer);
       pendingRootPollTimer = null;
+      pendingRootPollCount = 0;
     }
   }
   function queuePendingRoot(root) {
@@ -2820,6 +2881,9 @@
       return;
     const wasPending = pendingRoots.has(root);
     pendingRoots.add(root);
+    if (!wasPending) {
+      pendingRootMeta.set(root, { queuedAt: Date.now() });
+    }
     ensurePendingRootPolling();
     if (wasPending || pendingRootFlushQueued)
       return;
@@ -2841,6 +2905,7 @@
   var SpruceX = {
     init: initSpruceX,
     store: initStore,
+    removeStore,
     data(name, factory) {
       if (arguments.length === 1 && typeof name === "string") {
         return getDataFactory(name);
@@ -2856,12 +2921,14 @@
         state: r.__sprucex?.state || null
       }));
     },
-    config(newCfg) {},
+    config(newCfg) {
+      Object.assign(Component, newCfg || {});
+    },
     navigate(url) {
       const pageRoot = document.querySelector(`[${ATTR_PAGE}]`);
       const targetSelector = pageRoot?.getAttribute(ATTR_PAGE);
       const container = targetSelector ? document.querySelector(targetSelector) : document.body;
-      return navigateTo(url, container);
+      return navigateTo(new URL(url, window.location.href).href, container);
     },
     prefetch(url) {
       return prefetchLink(url);
@@ -3010,13 +3077,16 @@
       return;
     isGlobalNavInitialized = true;
     document.addEventListener("click", async (e) => {
-      const link = e.target.closest("a[href]");
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      const link = e.target?.closest?.("a[href]");
       if (!link)
         return;
       const href = link.getAttribute("href");
       if (!href || href.startsWith("#") || href.startsWith("javascript:"))
         return;
-      if (link.hasAttribute("download") || link.getAttribute("target") === "_blank")
+      if (link.hasAttribute("download") || link.getAttribute("target") && link.getAttribute("target") !== "_self")
         return;
       try {
         const url = new URL(href, window.location.origin);
@@ -3067,21 +3137,26 @@
     });
   }
   async function navigateTo(url, container, pushState = true) {
+    const targetUrl = new URL(url, window.location.href);
+    const href = targetUrl.href;
+    const navigationId = ++latestNavigationId;
     const startTime = performance.now();
     const beforeEvent = new CustomEvent("sprucex:page-before", {
-      detail: { url },
+      detail: { url: href },
       bubbles: true,
       cancelable: true
     });
     if (!document.dispatchEvent(beforeEvent))
       return;
     try {
-      let html = getCachedPage(url);
+      let html = getCachedPage(href);
       if (!html) {
         if (container)
           container.style.opacity = container.style.opacity || "1";
-        html = await fetchPage(url);
+        html = await fetchPage(href);
       }
+      if (navigationId !== latestNavigationId)
+        return;
       if (!html)
         throw new Error("Empty response");
       const parser = new DOMParser;
@@ -3108,9 +3183,8 @@
         });
       }
       if (pushState) {
-        history.pushState({ url }, "", url);
+        history.pushState({ url: href }, "", href);
       }
-      reinitializeComponents(container);
       initSpruceX();
       let ancestor = container.parentElement;
       while (ancestor) {
@@ -3120,7 +3194,9 @@
         ancestor = ancestor.parentElement;
       }
       initBoostingGlobal();
-      const hash = new URL(url).hash;
+      if (navigationId !== latestNavigationId)
+        return;
+      const hash = targetUrl.hash;
       if (hash) {
         const target = document.querySelector(hash);
         if (target)
@@ -3129,16 +3205,18 @@
         window.scrollTo(0, 0);
       }
       document.dispatchEvent(new CustomEvent("sprucex:page-after", {
-        detail: { url, duration: performance.now() - startTime },
+        detail: { url: href, duration: performance.now() - startTime },
         bubbles: true
       }));
     } catch (error) {
+      if (navigationId !== latestNavigationId)
+        return;
       console.error("SpruceX page navigation error:", error);
       document.dispatchEvent(new CustomEvent("sprucex:page-error", {
-        detail: { url, error },
+        detail: { url: href, error },
         bubbles: true
       }));
-      window.location.href = url;
+      window.location.href = href;
     }
   }
   function reinitializeComponents(container) {
@@ -3180,6 +3258,10 @@
         if (!res.ok)
           throw new Error(`HTTP ${res.status}`);
         const html = await res.text();
+        if (pageCache.size >= MAX_PAGE_CACHE_SIZE) {
+          const oldestKey = pageCache.keys().next().value;
+          pageCache.delete(oldestKey);
+        }
         pageCache.set(url, {
           html,
           timestamp: Date.now()

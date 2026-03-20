@@ -16,7 +16,7 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.Clk79y_z.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.BtCsWQ0-.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
                         <img
                             src="/logo.svg"
                             alt="SpruceX logo"
@@ -239,19 +239,23 @@
                 class="glass rounded-2xl p-6 shadow-xl space-y-4"
                 sx-data="{
                         title: 'Outer workspace',
-                        list: $store('nested-roots-demo'),
                         draft: '',
                         addSection() {
+                            const list = this.$store('nested-roots-demo');
+                            if (!list) return;
                             if (!this.draft.trim()) return;
-                            this.list.items.push(this.draft.trim());
+                            list.items.push(this.draft.trim());
                             this.draft = '';
                         },
                         removeLastSection() {
-                            if (this.list.items.length === 0) return;
-                            this.list.items.pop();
+                            const list = this.$store('nested-roots-demo');
+                            if (!list || list.items.length === 0) return;
+                            list.items.pop();
                         },
                         removeSection(index) {
-                            this.list.items.splice(index, 1);
+                            const list = this.$store('nested-roots-demo');
+                            if (!list) return;
+                            list.items.splice(index, 1);
                         }
                     }"
             >
@@ -278,12 +282,14 @@
                             />
                             <div class="flex gap-2">
                                 <button
+                                    type="button"
                                     sx-on:click="addSection()"
                                     class="px-3 py-2 rounded-lg bg-brand-600 text-white"
                                 >
                                     Add Section
                                 </button>
                                 <button
+                                    type="button"
                                     sx-on:click="removeLastSection()"
                                     class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                                 >
@@ -300,7 +306,7 @@
 
                     <div
                         class="rounded-xl border border-dashed border-slate-300 p-4 space-y-3 dark:border-slate-700"
-                        sx-data="{ label: 'Nested panel', visible: true, list: $store('nested-roots-demo') }"
+                        sx-data="{ label: 'Nested panel', visible: true }"
                     >
                         <div class="flex items-center justify-between gap-3">
                             <p class="text-sm">
@@ -324,13 +330,14 @@
 
                         <div sx-show="visible" class="rounded-lg bg-slate-100 p-4 dark:bg-slate-800/80">
                             <ul class="space-y-2">
-                                <template sx-for="item in list.items">
+                                <template sx-for="item in $store('nested-roots-demo').items">
                                     <li
                                         class="flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
                                     >
                                         <span sx-text="item"></span>
                                         <button
-                                            sx-on:click="list.items.splice($index, 1)"
+                                            type="button"
+                                            sx-on:click="$store('nested-roots-demo').items.splice($index, 1)"
                                             class="text-sm text-rose-600"
                                         >
                                             Remove
@@ -415,6 +422,7 @@
                         Click this box or the inner button:
                     </p>
                     <button
+                        type="button"
                         class="px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900"
                         sx-on:click.stop="log.unshift('stop modifier blocked parent')"
                     >
@@ -465,12 +473,14 @@
                         placeholder="New item"
                     />
                     <button
+                        type="button"
                         sx-on:click="add()"
                         class="px-3 py-2 rounded-lg bg-brand-600 text-white"
                     >
                         Add
                     </button>
                     <button
+                        type="button"
                         sx-on:click="$refs.draftInput.focus()"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                     >
@@ -488,6 +498,7 @@
                                 <span sx-text="item"></span
                             ></span>
                             <button
+                                type="button"
                                 sx-on:click="remove($index)"
                                 class="text-rose-600"
                             >
@@ -839,7 +850,7 @@
                     class="flex flex-wrap gap-2"
                 >
                     <a
-                        href="/docs"
+                        href="/"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                         >Boosted Docs Link</a
                     >
@@ -1044,7 +1055,7 @@
                             const label = 'Widget ' + this.widgetCount;
                             const tone = this.palette[this.widgetCount % this.palette.length];
                             grid.addWidget({
-                                w: 4,
+                                w: 2,
                                 h: 1,
                                 content: `<div class='grid-stack-item-content rounded-lg ${tone} flex items-center justify-center'>${label}</div>`
                             });
@@ -1073,6 +1084,15 @@
                             this.removed = [];
                             this.dragStop = [];
                             this.resizeStop = [];
+                        },
+                        get eventLog() {
+                            return {
+                                change: this.changes,
+                                added: this.added,
+                                removed: this.removed,
+                                dragstop: this.dragStop,
+                                resizestop: this.resizeStop
+                            };
                         }
                     }"
             >
@@ -1081,24 +1101,28 @@
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <button
+                        type="button"
                         sx-on:click="addWidget()"
                         class="px-3 py-2 rounded-lg bg-brand-600 text-white"
                     >
                         Add Widget
                     </button>
                     <button
+                        type="button"
                         sx-on:click="removeLastWidget()"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                     >
                         Remove Last
                     </button>
                     <button
+                        type="button"
                         sx-on:click="saveLayout()"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                     >
                         Save Layout
                     </button>
                     <button
+                        type="button"
                         sx-on:click="restoreLayout()"
                         sx-bind:disabled="!savedLayout"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1106,6 +1130,7 @@
                         Restore Layout
                     </button>
                     <button
+                        type="button"
                         sx-on:click="clearEventLog()"
                         class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
                     >
@@ -1118,7 +1143,7 @@
                     id="example-grid"
                     style="min-height: 220px"
                     sx-gridstack="{ float: true }"
-                    sx-gridstack-options="{ column: 6 }"
+                    sx-gridstack-options="{ column: 3 }"
                     sx-gridstack-option:cell-height="70"
                     sx-gridstack-option:margin="8"
                     sx-gridstack-on-change="changes"
@@ -1142,8 +1167,8 @@
                     </div>
                     <div
                         class="grid-stack-item"
-                        gs-x="3"
-                        gs-y="0"
+                        gs-x="0"
+                        gs-y="1"
                         gs-w="3"
                         gs-h="1"
                     >
@@ -1156,8 +1181,8 @@
                     <div
                         class="grid-stack-item"
                         gs-x="0"
-                        gs-y="1"
-                        gs-w="6"
+                        gs-y="2"
+                        gs-w="3"
                         gs-h="1"
                     >
                         <div
@@ -1181,7 +1206,7 @@
                 </p>
                 <pre
                     class="p-3 text-xs rounded-lg bg-slate-900 text-cyan-300 overflow-auto"
-                    sx-text="JSON.stringify(changes, null, 2)"
+                    sx-text="JSON.stringify(eventLog, null, 2)"
                 ></pre>
             </div>
         </section>

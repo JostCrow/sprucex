@@ -1754,9 +1754,6 @@
             console.error("SpruceX JSON parse error:", e);
           }
         }
-        if (this.shouldIgnoreRequestResult(nb, controller)) {
-          return;
-        }
         if (jsonInto && json != null) {
           execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
         } else {
