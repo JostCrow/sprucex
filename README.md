@@ -61,6 +61,13 @@ Handy expression globals:
 - `$emit(name, detail)`
 - `$index` (inside `sx-for`)
 
+## `sx-for` recommendations
+
+- Use `sx-key` on `template[sx-for]` when list items can reorder.
+- Avoid index-based keys for sortable/reorderable lists.
+- Nested `sx-data` roots inside `sx-for` rows are supported for row-local UI state.
+- Duplicate keys in a loop are invalid and can cause unstable row reuse.
+
 ## Integration Plugins
 
 SpruceX supports integration plugins through `SpruceX.integration(...)`.

@@ -190,6 +190,150 @@ describe("initialization", () => {
     ).toEqual(["One", "Two", "Three"]);
   });
 
+  test("sx-for rows can mount nested sx-data scopes with independent state", async () => {
+    const env = installDom(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <section id="root" sx-data="{ items: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }] }">
+              <ul>
+                <template sx-for="item in items" sx-key="item.id">
+                  <li class="row">
+                    <div class="inner" sx-data="{ open: false, label: item.name }">
+                      <button type="button" class="toggle" sx-on:click="open = !open">toggle</button>
+                      <span class="state" sx-text="label + ':' + (open ? 'open' : 'closed')"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </section>
+          </body>
+        </html>
+      `,
+    );
+    restoreDom = env.cleanup;
+
+    const root = document.querySelector("#root");
+    root.__sprucex = new Component(root);
+    await waitForUpdates();
+
+    const inners = Array.from(document.querySelectorAll(".inner"));
+    expect(inners).toHaveLength(2);
+    expect(inners[0].__sprucex).toBeTruthy();
+    expect(inners[1].__sprucex).toBeTruthy();
+
+    const statesBefore = Array.from(document.querySelectorAll(".state")).map(
+      (el) => el.textContent,
+    );
+    expect(statesBefore).toEqual(["Alpha:closed", "Beta:closed"]);
+
+    document
+      .querySelectorAll(".toggle")[0]
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitForUpdates();
+
+    const statesAfter = Array.from(document.querySelectorAll(".state")).map(
+      (el) => el.textContent,
+    );
+    expect(statesAfter).toEqual(["Alpha:open", "Beta:closed"]);
+  });
+
+  test("keyed sx-for reorders preserve row DOM identity", async () => {
+    const env = installDom(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <section id="root" sx-data="{ items: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }, { id: 'c', name: 'Gamma' }] }">
+              <ul>
+                <template sx-for="item in items" sx-key="item.id">
+                  <li class="row">
+                    <input class="editor" sx-bind:data-id="item.id" sx-bind:value="item.name" />
+                  </li>
+                </template>
+              </ul>
+            </section>
+          </body>
+        </html>
+      `,
+    );
+    restoreDom = env.cleanup;
+
+    const root = document.querySelector("#root");
+    root.__sprucex = new Component(root);
+    await waitForUpdates();
+
+    const before = new Map(
+      Array.from(document.querySelectorAll(".editor")).map((el) => [
+        el.getAttribute("data-id"),
+        el,
+      ]),
+    );
+
+    root.__sprucex.state.items = [
+      { id: "c", name: "Gamma" },
+      { id: "a", name: "Alpha" },
+      { id: "b", name: "Beta" },
+    ];
+    await waitForUpdates();
+
+    const idsAfter = Array.from(document.querySelectorAll(".editor")).map((el) =>
+      el.getAttribute("data-id"),
+    );
+    expect(idsAfter).toEqual(["c", "a", "b"]);
+
+    const after = new Map(
+      Array.from(document.querySelectorAll(".editor")).map((el) => [
+        el.getAttribute("data-id"),
+        el,
+      ]),
+    );
+
+    expect(after.get("a")).toBe(before.get("a"));
+    expect(after.get("b")).toBe(before.get("b"));
+    expect(after.get("c")).toBe(before.get("c"));
+  });
+
+  test("removed sx-for rows tear down nested sx-data components", async () => {
+    const env = installDom(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <section id="root" sx-data="{ items: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }] }">
+              <ul>
+                <template sx-for="item in items" sx-key="item.id">
+                  <li>
+                    <div class="inner" sx-data="{ name: item.name }">
+                      <span sx-text="name"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </section>
+          </body>
+        </html>
+      `,
+    );
+    restoreDom = env.cleanup;
+
+    const root = document.querySelector("#root");
+    root.__sprucex = new Component(root);
+    await waitForUpdates();
+
+    const removedInner = document.querySelectorAll(".inner")[0];
+    const removedComponent = removedInner.__sprucex;
+    expect(removedComponent).toBeTruthy();
+
+    root.__sprucex.state.items = [{ id: "b", name: "Beta" }];
+    await waitForUpdates();
+
+    expect(removedInner.isConnected).toBe(false);
+    expect(removedComponent.isDestroyed).toBe(true);
+    expect(removedInner.__sprucex).toBeUndefined();
+  });
+
   test("nested roots can mutate and render a shared store list", async () => {
     const env = installDom(
       `

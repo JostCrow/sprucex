@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Support for nested `sx-data` roots rendered inside `sx-for` rows, including row-local scope access and lifecycle management.
+- Runtime tests covering nested row scopes, keyed reorder DOM identity retention, and teardown of removed nested row components.
+
+### Changed
+
+- `sx-for` now supports explicit keyed reconciliation via `sx-key` on loop templates to preserve row DOM identity during reorder operations.
+
+### Fixed
+
+- `sx-for` row disposal now tears down nested `sx-data` components before removing row nodes to prevent stale effects/bindings.
+
 ## [1.0.0] - 2026-03-19
 
 ### Added

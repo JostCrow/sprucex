@@ -401,13 +401,22 @@
             <div
                 class="glass rounded-2xl p-6 shadow-xl space-y-4"
                 sx-data="{
-                        items: ['Alpha', 'Beta'],
+                        nextId: 3,
+                        items: [{ id: 1, label: 'Alpha' }, { id: 2, label: 'Beta' }],
                         draft: '',
                         a: 2,
                         b: 4,
                         c: 10,
-                        add() { if (this.draft) { this.items.push(this.draft); this.draft = ''; } },
+                        add() {
+                            if (!this.draft) return;
+                            this.items.push({ id: this.nextId++, label: this.draft });
+                            this.draft = '';
+                        },
                         remove(i) { this.items.splice(i, 1); },
+                        moveTopToBottom() {
+                            if (this.items.length < 2) return;
+                            this.items = [...this.items.slice(1), this.items[0]];
+                        },
                         expensive(x, y) { return x * y + this.c; }
                     }"
             >
@@ -432,17 +441,47 @@
                     >
                         Focus Ref
                     </button>
+                    <button
+                        type="button"
+                        sx-on:click="moveTopToBottom()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Reorder
+                    </button>
                 </div>
 
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Tip: use <code>sx-key</code> for reorderable lists, avoid index
+                    keys, and never reuse duplicate keys.
+                </p>
+
                 <ul class="space-y-2" sx-animate>
-                    <template sx-for="item in items">
+                    <template sx-for="item in items" sx-key="item.id">
                         <li
                             class="flex items-center justify-between rounded-lg px-3 py-2 bg-white dark:bg-slate-800"
                         >
-                            <span
-                                ><strong sx-text="$index + 1"></strong>.
-                                <span sx-text="item"></span
-                            ></span>
+                            <div
+                                class="flex items-center gap-2"
+                                sx-data="{ open: false }"
+                            >
+                                <button
+                                    type="button"
+                                    class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-xs"
+                                    sx-on:click="open = !open"
+                                >
+                                    Toggle row
+                                </button>
+                                <span
+                                    ><strong sx-text="$index + 1"></strong>.
+                                    <span sx-text="item.label"></span>
+                                    <em
+                                        class="text-xs text-slate-500"
+                                        sx-show="open"
+                                    >
+                                        (row-local state)
+                                    </em>
+                                </span>
+                            </div>
                             <button
                                 type="button"
                                 sx-on:click="remove($index)"

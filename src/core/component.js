@@ -65,8 +65,13 @@ import { listIntegrations } from "../integrations/index.js";
 // But for now, I'll write the class as is, importing dependencies.
 
 export class Component {
-  constructor(root) {
+  constructor(root, options = {}) {
     this.root = root;
+    this.parentComponent = options.parentComponent || null;
+    this.locals =
+      options.locals && typeof options.locals === "object"
+        ? { ...options.locals }
+        : {};
     this.bindings = [];
     this.memoBindings = [];
     this.eventHandlers = [];
@@ -87,7 +92,6 @@ export class Component {
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
     this.debug = false;
-    this.locals = {};
     this.updatePending = false;
     this.isDestroyed = false;
     this.originalClasses = new WeakMap(); // Track original classes for sx-class
@@ -172,6 +176,9 @@ export class Component {
     this.storeAccessor = storeAccessor;
 
     let raw;
+    const inheritedLocals = this.locals && typeof this.locals === "object"
+      ? this.locals
+      : {};
     const jsonScript = this.root.querySelector("script[sx-init-data]");
     const looksLikeIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(rawExpr);
 
@@ -217,13 +224,19 @@ export class Component {
             const fn = new Function(
               "$store",
               "$data",
-              `return (${rawExpr});`,
+              "$locals",
+              `with($locals){ return (${rawExpr}); }`,
             );
-            raw = fn(storeAccessor, getDataFactory);
+            raw = fn(storeAccessor, getDataFactory, inheritedLocals);
           }
         } else {
-          const fn = new Function("$store", "$data", `return (${rawExpr});`);
-          raw = fn(storeAccessor, getDataFactory);
+          const fn = new Function(
+            "$store",
+            "$data",
+            "$locals",
+            `with($locals){ return (${rawExpr}); }`,
+          );
+          raw = fn(storeAccessor, getDataFactory, inheritedLocals);
         }
       } catch (e) {
         const missingReference =
@@ -373,6 +386,7 @@ export class Component {
           expr,
           def: forDef,
           instances: [],
+          keyExpr: el.getAttribute("sx-key") || null,
           autoAnimate: parent.hasAttribute(ATTR_ANIMATE),
         });
 
@@ -1820,12 +1834,7 @@ export class Component {
 
     const instances = Array.isArray(block.instances) ? [...block.instances] : [];
     instances.forEach((inst) => {
-      if (inst.elements) {
-        inst.elements.forEach((el) => el.remove());
-      } else if (inst.fragmentRoot) {
-        inst.fragmentRoot.remove();
-      }
-      this.cleanupInstanceBindings(inst.bindings);
+      this.disposeForInstance(inst);
     });
 
     if (block.instances) block.instances.length = 0;
@@ -1864,7 +1873,8 @@ export class Component {
         continue;
       }
 
-      const { def, template, parent, marker, instances, parentLocals } = block;
+      const { def, template, parent, marker, instances, parentLocals, keyExpr } =
+        block;
 
       const skipFocusedBlock =
         focusedEl &&
@@ -1901,18 +1911,37 @@ export class Component {
 
       const newInstances = [];
       const reusedInstances = new Set();
+      const seenKeys = new Set();
 
       // Pass 1: Prepare instances (match existing or create new)
       for (let i = 0; i < arr.length; i++) {
         const item = arr[i];
         const idxName = def.index || "$index";
 
-        // Use the item itself as the key (works for primitives and objects)
-        let key = item;
-        // For objects, try to use a stable identity
-        if (typeof item === "object" && item !== null) {
-          key = item;
+        const localsForKey = parentLocals ? { ...parentLocals } : {};
+        localsForKey[def.item] = item;
+        localsForKey[idxName] = i;
+
+        // Default to index-based keys for deterministic behavior when no key is
+        // provided (this matches positional patching semantics).
+        let key = i;
+        if (keyExpr) {
+          const prevLocalsForKey = this.locals;
+          this.locals = localsForKey;
+          try {
+            key = safeEval(keyExpr, this);
+          } finally {
+            this.locals = prevLocalsForKey;
+          }
+          if (key === undefined || key === null) key = i;
         }
+        if (seenKeys.has(key)) {
+          console.warn(
+            "SpruceX sx-for detected a duplicate key. This can cause unstable row reuse.",
+            key,
+          );
+        }
+        seenKeys.add(key);
 
         const bucket = instanceBuckets.get(key);
         const inst = bucket && bucket.length > 0 ? bucket.shift() : null;
@@ -1973,6 +2002,7 @@ export class Component {
             elements,
             bindings: instanceBindings,
             itemKey: key,
+            mounted: false,
           };
 
           newInstances.push(newInst);
@@ -1982,12 +2012,7 @@ export class Component {
       // Pass 2: Remove unused instances from DOM immediately
       instances.forEach((inst) => {
         if (!reusedInstances.has(inst)) {
-          if (inst.elements) {
-            inst.elements.forEach((el) => el.remove());
-          } else if (inst.fragmentRoot) {
-            inst.fragmentRoot.remove();
-          }
-          this.cleanupInstanceBindings(inst.bindings);
+          this.disposeForInstance(inst);
         }
       });
 
@@ -2002,6 +2027,11 @@ export class Component {
 
         if (inst.elements.length > 0) {
           anchor = inst.elements[0];
+        }
+
+        if (!inst.mounted) {
+          this.mountForInstance(inst);
+          inst.mounted = true;
         }
       }
 
@@ -2050,6 +2080,7 @@ export class Component {
           def: forDef,
           instances: [],
           parentLocals: locals,
+          keyExpr: el.getAttribute("sx-key") || null,
           autoAnimate: parent.hasAttribute(ATTR_ANIMATE),
         };
 
@@ -2380,6 +2411,45 @@ export class Component {
     instanceBindings.nestedForBlocks?.forEach((block) => {
       this.teardownForBlock(block);
     });
+
+    (instanceBindings.nestedDataComponents || []).forEach((component) => {
+      if (component && typeof component.destroy === "function") {
+        component.destroy();
+      }
+    });
+  }
+
+  mountForInstance(inst) {
+    if (!inst?.elements || !inst.bindings) return;
+    inst.bindings.nestedDataComponents = inst.bindings.nestedDataComponents || [];
+
+    const nestedRoots = [];
+    inst.elements.forEach((node) => {
+      if (!node || node.nodeType !== 1) return;
+      if (node.hasAttribute(ATTR_DATA)) nestedRoots.push(node);
+      node.querySelectorAll?.(`[${ATTR_DATA}]`).forEach((el) => nestedRoots.push(el));
+    });
+
+    nestedRoots.forEach((root) => {
+      if (root.__sprucex) return;
+      const nested = new Component(root, {
+        parentComponent: this,
+        locals: inst.scopeLocals,
+      });
+      root.__sprucex = nested;
+      inst.bindings.nestedDataComponents.push(nested);
+    });
+  }
+
+  disposeForInstance(inst) {
+    if (!inst) return;
+    this.cleanupInstanceBindings(inst.bindings);
+    if (inst.elements) {
+      inst.elements.forEach((el) => el.remove());
+    } else if (inst.fragmentRoot) {
+      inst.fragmentRoot.remove();
+    }
+    inst.mounted = false;
   }
 
   applyInitialRender() {
