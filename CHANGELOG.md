@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `sx-for` row disposal now tears down nested `sx-data` components before removing row nodes to prevent stale effects/bindings.
 
+### Removed
+
+- Built-in Chart.js integration registration (`sx-chart`, `sx-chart-type`, `sx-chart-options`). Chart behavior should now be provided through custom plugins via `SpruceX.integration(...)`.
+
 ## [1.0.0] - 2026-03-19
 
 ### Added

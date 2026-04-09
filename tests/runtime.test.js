@@ -3,6 +3,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { morphNodes } from "../src/utils/morph.js";
 import { Component } from "../src/core/component.js";
 import { initStore, removeStore } from "../src/store/index.js";
+import { ensureBuiltInIntegrationsRegistered } from "../src/integrations/builtins.js";
+import { getIntegration } from "../src/integrations/index.js";
 import { installDom, waitForUpdates } from "./helpers/dom.js";
 
 let restoreDom = null;
@@ -386,6 +388,11 @@ describe("initialization", () => {
 });
 
 describe("integrations", () => {
+  test("chart integration is not registered as a built-in", () => {
+    ensureBuiltInIntegrationsRegistered();
+    expect(getIntegration("chart")).toBeUndefined();
+  });
+
   test("refresh reruns the full integration lifecycle for mounted components", async () => {
     const env = installDom(
       `

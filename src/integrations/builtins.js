@@ -1,7 +1,4 @@
 import {
-  ATTR_CHART,
-  ATTR_CHART_TYPE,
-  ATTR_CHART_OPTIONS,
   ATTR_GRIDSTACK,
   ATTR_GRIDSTACK_OPTIONS,
   ATTR_GRIDSTACK_ON_CHANGE,
@@ -13,28 +10,6 @@ import {
 import { getIntegration, registerIntegration } from "./index.js";
 
 export function ensureBuiltInIntegrationsRegistered() {
-  if (!getIntegration("chart")) {
-    registerIntegration("chart", {
-      scan(component, el) {
-        const chartExpr = el.getAttribute(ATTR_CHART);
-        if (!chartExpr) return;
-
-        component.chartBindings.push({
-          el,
-          chartExpr,
-          chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
-          chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS),
-        });
-      },
-      update(component) {
-        component.updateChartBindings();
-      },
-      teardown(component) {
-        component.teardownChartBindings();
-      },
-    });
-  }
-
   if (!getIntegration("gridstack")) {
     registerIntegration("gridstack", {
       scan(component, el) {

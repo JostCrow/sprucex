@@ -78,17 +78,13 @@ export class Component {
     this.emitterHandlers = [];
     this.netBindings = [];
     this.modelBindings = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
     this.pollTimers = [];
     this.debounceTimers = new Set();
-    this.chartInstances = new Map();
-    this.chartSnapshots = new WeakMap();
     this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
     this.netRequestMeta = new WeakMap();
-    this.warnedMissingChart = false;
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
     this.debug = false;
@@ -1449,206 +1445,6 @@ export class Component {
     });
   }
 
-  getChartConstructor() {
-    if (typeof window === "undefined") return null;
-    const maybe = window.Chart;
-    return maybe && typeof maybe === "object" ? maybe.Chart || maybe : maybe;
-  }
-
-  updateChartBindings() {
-    this.chartBindings.forEach((binding) => this.syncChartBinding(binding));
-  }
-
-  syncChartBinding(binding) {
-    const { el, chartExpr, chartTypeExpr, chartOptionsExpr } = binding;
-
-    if (!el.isConnected) {
-      this.destroyChartInstance(el);
-      return;
-    }
-
-    const payload = safeEval(chartExpr, this);
-    if (payload == null) {
-      this.destroyChartInstance(el);
-      return;
-    }
-
-    const ChartCtor = this.getChartConstructor();
-    if (!ChartCtor) {
-      if (!this.warnedMissingChart) {
-        this.warnedMissingChart = true;
-        console.warn(
-          "SpruceX: sx-chart requires Chart.js to be loaded on window.Chart.",
-        );
-      }
-      return;
-    }
-
-    const canvas = this.getChartCanvas(el);
-    const ctx = canvas?.getContext?.("2d");
-    if (!ctx) return;
-
-    const explicitType =
-      chartTypeExpr != null ? this.evaluateExpressionOrLiteral(chartTypeExpr) : null;
-    const explicitOptions =
-      chartOptionsExpr != null
-        ? this.evaluateExpressionOrLiteral(chartOptionsExpr)
-        : null;
-
-    const data =
-      payload && typeof payload === "object" && "data" in payload
-        ? payload.data
-        : payload;
-    const type =
-      (typeof explicitType === "string" && explicitType.trim()) ||
-      (payload && typeof payload === "object" ? payload.type : null) ||
-      "line";
-    const options =
-      explicitOptions && typeof explicitOptions === "object"
-        ? explicitOptions
-        : payload &&
-            typeof payload === "object" &&
-            payload.options &&
-            typeof payload.options === "object"
-          ? payload.options
-          : {};
-    const safeData = this.cloneChartConfigValue(data);
-    const safeOptions = this.cloneChartConfigValue(options);
-
-    let chart = this.chartInstances.get(el);
-    if (chart && chart.config?.type !== type) {
-      chart.destroy();
-      this.chartInstances.delete(el);
-      chart = null;
-    }
-
-    if (!chart) {
-      chart = new ChartCtor(ctx, {
-        type,
-        data: safeData,
-        options: safeOptions,
-      });
-      this.chartInstances.set(el, chart);
-      this.chartSnapshots.set(el, {
-        type,
-        data: safeData,
-        options: safeOptions,
-      });
-      return;
-    }
-
-    const previousSnapshot = this.chartSnapshots.get(el);
-    const nextSnapshot = { type, data: safeData, options: safeOptions };
-    if (
-      previousSnapshot &&
-      this.areChartValuesEqual(previousSnapshot, nextSnapshot)
-    ) {
-      return;
-    }
-
-    chart.data = safeData;
-    chart.options = safeOptions;
-    chart.update();
-    this.chartSnapshots.set(el, nextSnapshot);
-  }
-
-  cloneChartConfigValue(value, seen = new WeakMap()) {
-    if (value == null || typeof value !== "object") return value;
-    if (seen.has(value)) return seen.get(value);
-
-    if (Array.isArray(value)) {
-      const out = [];
-      seen.set(value, out);
-      value.forEach((item) => out.push(this.cloneChartConfigValue(item, seen)));
-      return out;
-    }
-
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== Object.prototype && proto !== null) {
-      return value;
-    }
-
-    const out = {};
-    seen.set(value, out);
-    Object.keys(value).forEach((key) => {
-      out[key] = this.cloneChartConfigValue(value[key], seen);
-    });
-    return out;
-  }
-
-  areChartValuesEqual(a, b, seen = new WeakMap()) {
-    if (Object.is(a, b)) return true;
-    if (typeof a !== typeof b) return false;
-
-    if (a == null || b == null) return false;
-    if (typeof a !== "object") return false;
-
-    const pairSet = seen.get(a);
-    if (pairSet && pairSet.has(b)) return true;
-    if (pairSet) {
-      pairSet.add(b);
-    } else {
-      seen.set(a, new WeakSet([b]));
-    }
-
-    if (Array.isArray(a)) {
-      if (!Array.isArray(b) || a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i += 1) {
-        if (!this.areChartValuesEqual(a[i], b[i], seen)) return false;
-      }
-      return true;
-    }
-
-    if (Array.isArray(b)) return false;
-
-    const protoA = Object.getPrototypeOf(a);
-    const protoB = Object.getPrototypeOf(b);
-    if (protoA !== protoB) return false;
-
-    if (protoA !== Object.prototype && protoA !== null) {
-      return false;
-    }
-
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-
-    for (let i = 0; i < keysA.length; i += 1) {
-      const key = keysA[i];
-      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-      if (!this.areChartValuesEqual(a[key], b[key], seen)) return false;
-    }
-
-    return true;
-  }
-
-  getChartCanvas(el) {
-    if (el.tagName === "CANVAS") return el;
-    const existing = el.querySelector("canvas");
-    if (existing) return existing;
-
-    const created = document.createElement("canvas");
-    el.appendChild(created);
-    return created;
-  }
-
-  destroyChartInstance(el) {
-    const chart = this.chartInstances.get(el);
-    if (!chart) return;
-    try {
-      chart.destroy();
-    } catch (e) {
-      console.error("SpruceX sx-chart destroy error:", e);
-    }
-    this.chartInstances.delete(el);
-    this.chartSnapshots.delete(el);
-  }
-
-  teardownChartBindings() {
-    this.chartInstances.forEach((_, el) => this.destroyChartInstance(el));
-    this.chartInstances.clear();
-  }
-
   initGridBindings() {
     this.gridBindings.forEach((binding) => {
       const { el } = binding;
@@ -2593,7 +2389,6 @@ export class Component {
     this.memoBindings = [];
     this.modelBindings = [];
     this.netBindings = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
 
@@ -2662,7 +2457,6 @@ export class Component {
     this.memoBindings = [];
     this.modelBindings = [];
     this.eventHandlers = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.netBindings = [];
     this.forBlocks = [];

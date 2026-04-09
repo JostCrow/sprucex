@@ -72,9 +72,6 @@
   var ATTR_TEXT_WHILE_REQUEST = "sx-text-while-request";
   var ATTR_CONFIRM = "sx-confirm";
   var ATTR_CANCEL_PREVIOUS = "sx-cancel-previous";
-  var ATTR_CHART = "sx-chart";
-  var ATTR_CHART_TYPE = "sx-chart-type";
-  var ATTR_CHART_OPTIONS = "sx-chart-options";
   var ATTR_GRIDSTACK = "sx-gridstack";
   var ATTR_GRIDSTACK_OPTIONS = "sx-gridstack-options";
   var ATTR_GRIDSTACK_OPTION_PREFIX = "sx-gridstack-option:";
@@ -2828,27 +2825,6 @@
 
   // src/integrations/builtins.js
   function ensureBuiltInIntegrationsRegistered() {
-    if (!getIntegration("chart")) {
-      registerIntegration("chart", {
-        scan(component, el) {
-          const chartExpr = el.getAttribute(ATTR_CHART);
-          if (!chartExpr)
-            return;
-          component.chartBindings.push({
-            el,
-            chartExpr,
-            chartTypeExpr: el.getAttribute(ATTR_CHART_TYPE),
-            chartOptionsExpr: el.getAttribute(ATTR_CHART_OPTIONS)
-          });
-        },
-        update(component) {
-          component.updateChartBindings();
-        },
-        teardown(component) {
-          component.teardownChartBindings();
-        }
-      });
-    }
     if (!getIntegration("gridstack")) {
       registerIntegration("gridstack", {
         scan(component, el) {

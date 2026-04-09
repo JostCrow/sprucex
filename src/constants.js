@@ -38,10 +38,6 @@ export const ATTR_TEXT_WHILE_REQUEST = "sx-text-while-request";
 export const ATTR_CONFIRM = "sx-confirm";
 export const ATTR_CANCEL_PREVIOUS = "sx-cancel-previous";
 
-export const ATTR_CHART = "sx-chart";
-export const ATTR_CHART_TYPE = "sx-chart-type";
-export const ATTR_CHART_OPTIONS = "sx-chart-options";
-
 export const ATTR_GRIDSTACK = "sx-gridstack";
 export const ATTR_GRIDSTACK_OPTIONS = "sx-gridstack-options";
 export const ATTR_GRIDSTACK_OPTION_PREFIX = "sx-gridstack-option:";
