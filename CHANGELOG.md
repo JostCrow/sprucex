@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-04-08
+
 ### Added
 
 - Support for nested `sx-data` roots rendered inside `sx-for` rows, including row-local scope access and lifecycle management.
