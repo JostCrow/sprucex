@@ -9,8 +9,8 @@ SpruceX is a lightweight JavaScript micro-framework that blends:
 
 If you like shipping features straight from markup, this is your playground.
 
-> SpruceX is not complete yet and remains in active development. The `1.0.0`
-> release line is being prepared now, so APIs, docs, and examples may continue
+> SpruceX is not complete yet and remains in active development. The `1.0.1`
+> release line is current, so APIs, docs, and examples may continue
 > to evolve.
 
 ## Why SpruceX?
@@ -60,6 +60,13 @@ Handy expression globals:
 - `$store(name)`
 - `$emit(name, detail)`
 - `$index` (inside `sx-for`)
+
+## `sx-for` recommendations
+
+- Use `sx-key` on `template[sx-for]` when list items can reorder.
+- Avoid index-based keys for sortable/reorderable lists.
+- Nested `sx-data` roots inside `sx-for` rows are supported for row-local UI state.
+- Duplicate keys in a loop are invalid and can cause unstable row reuse.
 
 ## Integration Plugins
 
@@ -157,7 +164,7 @@ If you open a PR, please include:
 
 ## Status
 
-Current release target in `package.json`: `1.0.0`
+Current release target in `package.json`: `1.0.1`
 
 SpruceX is still in active development and is not complete yet. Use the docs
 site, `public/LLM.txt`, and `CHANGELOG.md` as the current source of truth for

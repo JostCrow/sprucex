@@ -51,19 +51,14 @@
                 >8. State + Lazy + Init Data</a
             >
             <a
-                href="#chart"
-                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                >9. Chart Directive</a
-            >
-            <a
                 href="#grid"
                 class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                >10. GridStack Directive</a
+                >9. GridStack Directive</a
             >
             <a
                 href="#boot"
                 class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                >11. Boot Hook</a
+                >10. Boot Hook</a
             >
         </nav>
     </aside>
@@ -401,13 +396,22 @@
             <div
                 class="glass rounded-2xl p-6 shadow-xl space-y-4"
                 sx-data="{
-                        items: ['Alpha', 'Beta'],
+                        nextId: 3,
+                        items: [{ id: 1, label: 'Alpha' }, { id: 2, label: 'Beta' }],
                         draft: '',
                         a: 2,
                         b: 4,
                         c: 10,
-                        add() { if (this.draft) { this.items.push(this.draft); this.draft = ''; } },
+                        add() {
+                            if (!this.draft) return;
+                            this.items.push({ id: this.nextId++, label: this.draft });
+                            this.draft = '';
+                        },
                         remove(i) { this.items.splice(i, 1); },
+                        moveTopToBottom() {
+                            if (this.items.length < 2) return;
+                            this.items = [...this.items.slice(1), this.items[0]];
+                        },
                         expensive(x, y) { return x * y + this.c; }
                     }"
             >
@@ -432,17 +436,47 @@
                     >
                         Focus Ref
                     </button>
+                    <button
+                        type="button"
+                        sx-on:click="moveTopToBottom()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Reorder
+                    </button>
                 </div>
 
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Tip: use <code>sx-key</code> for reorderable lists, avoid index
+                    keys, and never reuse duplicate keys.
+                </p>
+
                 <ul class="space-y-2" sx-animate>
-                    <template sx-for="item in items">
+                    <template sx-for="item in items" sx-key="item.id">
                         <li
                             class="flex items-center justify-between rounded-lg px-3 py-2 bg-white dark:bg-slate-800"
                         >
-                            <span
-                                ><strong sx-text="$index + 1"></strong>.
-                                <span sx-text="item"></span
-                            ></span>
+                            <div
+                                class="flex items-center gap-2"
+                                sx-data="{ open: false }"
+                            >
+                                <button
+                                    type="button"
+                                    class="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-xs"
+                                    sx-on:click="open = !open"
+                                >
+                                    Toggle row
+                                </button>
+                                <span
+                                    ><strong sx-text="$index + 1"></strong>.
+                                    <span sx-text="item.label"></span>
+                                    <em
+                                        class="text-xs text-slate-500"
+                                        sx-show="open"
+                                    >
+                                        (row-local state)
+                                    </em>
+                                </span>
+                            </div>
                             <button
                                 type="button"
                                 sx-on:click="remove($index)"
@@ -910,63 +944,8 @@
             </div>
         </section>
 
-        <section id="chart" class="scroll-mt-24 space-y-4">
-            <h2 class="text-2xl font-bold">9. Chart Directive</h2>
-            <p class="text-slate-600 dark:text-slate-400">
-                <code>sx-chart</code>, <code>sx-chart-type</code>, and
-                <code>sx-chart-options</code> with managed init/update/destroy.
-            </p>
-            <div
-                class="glass rounded-2xl p-6 shadow-xl space-y-4"
-                sx-data="{
-                        chartType: 'bar',
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-                        values: [12, 19, 7, 14, 10],
-                        get payload() {
-                            return {
-                                data: {
-                                    labels: this.labels,
-                                    datasets: [{
-                                        label: 'Visits',
-                                        data: this.values,
-                                        backgroundColor: ['#14b8a6', '#0ea5e9', '#6366f1', '#22c55e', '#f59e0b']
-                                    }]
-                                }
-                            };
-                        },
-                        randomize() {
-                            this.values = this.values.map(() => Math.floor(Math.random() * 25) + 1);
-                        },
-                        toggleType() {
-                            this.chartType = this.chartType === 'bar' ? 'line' : 'bar';
-                        }
-                    }"
-            >
-                <div class="flex gap-2 flex-wrap">
-                    <button
-                        sx-on:click="randomize()"
-                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
-                    >
-                        Randomize Data
-                    </button>
-                    <button
-                        sx-on:click="toggleType()"
-                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
-                    >
-                        Toggle Type
-                    </button>
-                </div>
-                <canvas
-                    sx-chart="payload"
-                    sx-chart-type="chartType"
-                    sx-chart-options="{ responsive: true, plugins: { legend: { display: false } } }"
-                    class="w-full h-64"
-                ></canvas>
-            </div>
-        </section>
-
         <section id="grid" class="scroll-mt-24 space-y-4">
-            <h2 class="text-2xl font-bold">10. GridStack Directive</h2>
+            <h2 class="text-2xl font-bold">9. GridStack Directive</h2>
             <p class="text-slate-600 dark:text-slate-400">
                 <code>sx-gridstack</code>, <code>sx-gridstack-options</code>,
                 <code>sx-gridstack-option:&lt;name&gt;</code>, and grid events
@@ -1158,7 +1137,7 @@
         </section>
 
         <section id="boot" class="scroll-mt-24 space-y-4">
-            <h2 class="text-2xl font-bold">11. Early Bootstrap Hook</h2>
+            <h2 class="text-2xl font-bold">10. Early Bootstrap Hook</h2>
             <p class="text-slate-600 dark:text-slate-400">
                 <code>window.SpruceXBoot.initTheme()</code> is configured before
                 SpruceX initialization.

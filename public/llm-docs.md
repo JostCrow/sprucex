@@ -1,4 +1,4 @@
-# SpruceX v1.0.0 - LLM Documentation
+# SpruceX v1.0.1 - LLM Documentation
 
 > Status: active development, not complete yet.
 
@@ -740,29 +740,6 @@ Event detail properties:
 
 ---
 
-## Chart Directive
-
-### `sx-chart`
-
-Declarative Chart.js lifecycle (`init` / `update` / `destroy`) managed by SpruceX.
-
-```html
-<div sx-data="{ payload: salesChart }">
-  <canvas
-    sx-chart="payload"
-    sx-chart-type="'bar'"
-    sx-chart-options="{ responsive: true, maintainAspectRatio: false }"></canvas>
-</div>
-```
-
-- `sx-chart`: chart data payload expression (`{ data, type?, options? }` or plain `data`)
-- `sx-chart-type`: optional explicit chart type
-- `sx-chart-options`: optional explicit options object
-
-If payload becomes `null`/`undefined`, the chart instance is destroyed.
-
----
-
 ## GridStack Directive
 
 ### `sx-gridstack`
@@ -1000,9 +977,6 @@ SpruceX.config();
 | `sx-poll` | Polling interval (ms) |
 | `sx-poll-while` | Polling condition |
 | `sx-include` | Include other forms |
-| `sx-chart` | Chart.js declarative binding |
-| `sx-chart-type` | Force chart type |
-| `sx-chart-options` | Chart.js options expression |
 | `sx-gridstack` | GridStack initialization |
 | `sx-gridstack-options` | GridStack options expression |
 | `sx-gridstack-option:<name>` | Single GridStack option |

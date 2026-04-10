@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.1] - 2026-04-08
+
+### Added
+
+- Support for nested `sx-data` roots rendered inside `sx-for` rows, including row-local scope access and lifecycle management.
+- Runtime tests covering nested row scopes, keyed reorder DOM identity retention, and teardown of removed nested row components.
+
+### Changed
+
+- `sx-for` now supports explicit keyed reconciliation via `sx-key` on loop templates to preserve row DOM identity during reorder operations.
+
+### Fixed
+
+- `sx-for` row disposal now tears down nested `sx-data` components before removing row nodes to prevent stale effects/bindings.
+
+### Removed
+
+- Built-in Chart.js integration registration (`sx-chart`, `sx-chart-type`, `sx-chart-options`). Chart behavior should now be provided through custom plugins via `SpruceX.integration(...)`.
+
 ## [1.0.0] - 2026-03-19
 
 ### Added

@@ -65,29 +65,29 @@ import { listIntegrations } from "../integrations/index.js";
 // But for now, I'll write the class as is, importing dependencies.
 
 export class Component {
-  constructor(root) {
+  constructor(root, options = {}) {
     this.root = root;
+    this.parentComponent = options.parentComponent || null;
+    this.locals =
+      options.locals && typeof options.locals === "object"
+        ? { ...options.locals }
+        : {};
     this.bindings = [];
     this.memoBindings = [];
     this.eventHandlers = [];
     this.emitterHandlers = [];
     this.netBindings = [];
     this.modelBindings = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
     this.pollTimers = [];
     this.debounceTimers = new Set();
-    this.chartInstances = new Map();
-    this.chartSnapshots = new WeakMap();
     this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
     this.netRequestMeta = new WeakMap();
-    this.warnedMissingChart = false;
     this.warnedMissingGridStack = false;
     this.lastEvent = null;
     this.debug = false;
-    this.locals = {};
     this.updatePending = false;
     this.isDestroyed = false;
     this.originalClasses = new WeakMap(); // Track original classes for sx-class
@@ -172,6 +172,9 @@ export class Component {
     this.storeAccessor = storeAccessor;
 
     let raw;
+    const inheritedLocals = this.locals && typeof this.locals === "object"
+      ? this.locals
+      : {};
     const jsonScript = this.root.querySelector("script[sx-init-data]");
     const looksLikeIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(rawExpr);
 
@@ -217,13 +220,19 @@ export class Component {
             const fn = new Function(
               "$store",
               "$data",
-              `return (${rawExpr});`,
+              "$locals",
+              `with($locals){ return (${rawExpr}); }`,
             );
-            raw = fn(storeAccessor, getDataFactory);
+            raw = fn(storeAccessor, getDataFactory, inheritedLocals);
           }
         } else {
-          const fn = new Function("$store", "$data", `return (${rawExpr});`);
-          raw = fn(storeAccessor, getDataFactory);
+          const fn = new Function(
+            "$store",
+            "$data",
+            "$locals",
+            `with($locals){ return (${rawExpr}); }`,
+          );
+          raw = fn(storeAccessor, getDataFactory, inheritedLocals);
         }
       } catch (e) {
         const missingReference =
@@ -373,6 +382,7 @@ export class Component {
           expr,
           def: forDef,
           instances: [],
+          keyExpr: el.getAttribute("sx-key") || null,
           autoAnimate: parent.hasAttribute(ATTR_ANIMATE),
         });
 
@@ -1435,206 +1445,6 @@ export class Component {
     });
   }
 
-  getChartConstructor() {
-    if (typeof window === "undefined") return null;
-    const maybe = window.Chart;
-    return maybe && typeof maybe === "object" ? maybe.Chart || maybe : maybe;
-  }
-
-  updateChartBindings() {
-    this.chartBindings.forEach((binding) => this.syncChartBinding(binding));
-  }
-
-  syncChartBinding(binding) {
-    const { el, chartExpr, chartTypeExpr, chartOptionsExpr } = binding;
-
-    if (!el.isConnected) {
-      this.destroyChartInstance(el);
-      return;
-    }
-
-    const payload = safeEval(chartExpr, this);
-    if (payload == null) {
-      this.destroyChartInstance(el);
-      return;
-    }
-
-    const ChartCtor = this.getChartConstructor();
-    if (!ChartCtor) {
-      if (!this.warnedMissingChart) {
-        this.warnedMissingChart = true;
-        console.warn(
-          "SpruceX: sx-chart requires Chart.js to be loaded on window.Chart.",
-        );
-      }
-      return;
-    }
-
-    const canvas = this.getChartCanvas(el);
-    const ctx = canvas?.getContext?.("2d");
-    if (!ctx) return;
-
-    const explicitType =
-      chartTypeExpr != null ? this.evaluateExpressionOrLiteral(chartTypeExpr) : null;
-    const explicitOptions =
-      chartOptionsExpr != null
-        ? this.evaluateExpressionOrLiteral(chartOptionsExpr)
-        : null;
-
-    const data =
-      payload && typeof payload === "object" && "data" in payload
-        ? payload.data
-        : payload;
-    const type =
-      (typeof explicitType === "string" && explicitType.trim()) ||
-      (payload && typeof payload === "object" ? payload.type : null) ||
-      "line";
-    const options =
-      explicitOptions && typeof explicitOptions === "object"
-        ? explicitOptions
-        : payload &&
-            typeof payload === "object" &&
-            payload.options &&
-            typeof payload.options === "object"
-          ? payload.options
-          : {};
-    const safeData = this.cloneChartConfigValue(data);
-    const safeOptions = this.cloneChartConfigValue(options);
-
-    let chart = this.chartInstances.get(el);
-    if (chart && chart.config?.type !== type) {
-      chart.destroy();
-      this.chartInstances.delete(el);
-      chart = null;
-    }
-
-    if (!chart) {
-      chart = new ChartCtor(ctx, {
-        type,
-        data: safeData,
-        options: safeOptions,
-      });
-      this.chartInstances.set(el, chart);
-      this.chartSnapshots.set(el, {
-        type,
-        data: safeData,
-        options: safeOptions,
-      });
-      return;
-    }
-
-    const previousSnapshot = this.chartSnapshots.get(el);
-    const nextSnapshot = { type, data: safeData, options: safeOptions };
-    if (
-      previousSnapshot &&
-      this.areChartValuesEqual(previousSnapshot, nextSnapshot)
-    ) {
-      return;
-    }
-
-    chart.data = safeData;
-    chart.options = safeOptions;
-    chart.update();
-    this.chartSnapshots.set(el, nextSnapshot);
-  }
-
-  cloneChartConfigValue(value, seen = new WeakMap()) {
-    if (value == null || typeof value !== "object") return value;
-    if (seen.has(value)) return seen.get(value);
-
-    if (Array.isArray(value)) {
-      const out = [];
-      seen.set(value, out);
-      value.forEach((item) => out.push(this.cloneChartConfigValue(item, seen)));
-      return out;
-    }
-
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== Object.prototype && proto !== null) {
-      return value;
-    }
-
-    const out = {};
-    seen.set(value, out);
-    Object.keys(value).forEach((key) => {
-      out[key] = this.cloneChartConfigValue(value[key], seen);
-    });
-    return out;
-  }
-
-  areChartValuesEqual(a, b, seen = new WeakMap()) {
-    if (Object.is(a, b)) return true;
-    if (typeof a !== typeof b) return false;
-
-    if (a == null || b == null) return false;
-    if (typeof a !== "object") return false;
-
-    const pairSet = seen.get(a);
-    if (pairSet && pairSet.has(b)) return true;
-    if (pairSet) {
-      pairSet.add(b);
-    } else {
-      seen.set(a, new WeakSet([b]));
-    }
-
-    if (Array.isArray(a)) {
-      if (!Array.isArray(b) || a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i += 1) {
-        if (!this.areChartValuesEqual(a[i], b[i], seen)) return false;
-      }
-      return true;
-    }
-
-    if (Array.isArray(b)) return false;
-
-    const protoA = Object.getPrototypeOf(a);
-    const protoB = Object.getPrototypeOf(b);
-    if (protoA !== protoB) return false;
-
-    if (protoA !== Object.prototype && protoA !== null) {
-      return false;
-    }
-
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-
-    for (let i = 0; i < keysA.length; i += 1) {
-      const key = keysA[i];
-      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-      if (!this.areChartValuesEqual(a[key], b[key], seen)) return false;
-    }
-
-    return true;
-  }
-
-  getChartCanvas(el) {
-    if (el.tagName === "CANVAS") return el;
-    const existing = el.querySelector("canvas");
-    if (existing) return existing;
-
-    const created = document.createElement("canvas");
-    el.appendChild(created);
-    return created;
-  }
-
-  destroyChartInstance(el) {
-    const chart = this.chartInstances.get(el);
-    if (!chart) return;
-    try {
-      chart.destroy();
-    } catch (e) {
-      console.error("SpruceX sx-chart destroy error:", e);
-    }
-    this.chartInstances.delete(el);
-    this.chartSnapshots.delete(el);
-  }
-
-  teardownChartBindings() {
-    this.chartInstances.forEach((_, el) => this.destroyChartInstance(el));
-    this.chartInstances.clear();
-  }
-
   initGridBindings() {
     this.gridBindings.forEach((binding) => {
       const { el } = binding;
@@ -1820,12 +1630,7 @@ export class Component {
 
     const instances = Array.isArray(block.instances) ? [...block.instances] : [];
     instances.forEach((inst) => {
-      if (inst.elements) {
-        inst.elements.forEach((el) => el.remove());
-      } else if (inst.fragmentRoot) {
-        inst.fragmentRoot.remove();
-      }
-      this.cleanupInstanceBindings(inst.bindings);
+      this.disposeForInstance(inst);
     });
 
     if (block.instances) block.instances.length = 0;
@@ -1864,7 +1669,8 @@ export class Component {
         continue;
       }
 
-      const { def, template, parent, marker, instances, parentLocals } = block;
+      const { def, template, parent, marker, instances, parentLocals, keyExpr } =
+        block;
 
       const skipFocusedBlock =
         focusedEl &&
@@ -1901,18 +1707,37 @@ export class Component {
 
       const newInstances = [];
       const reusedInstances = new Set();
+      const seenKeys = new Set();
 
       // Pass 1: Prepare instances (match existing or create new)
       for (let i = 0; i < arr.length; i++) {
         const item = arr[i];
         const idxName = def.index || "$index";
 
-        // Use the item itself as the key (works for primitives and objects)
-        let key = item;
-        // For objects, try to use a stable identity
-        if (typeof item === "object" && item !== null) {
-          key = item;
+        const localsForKey = parentLocals ? { ...parentLocals } : {};
+        localsForKey[def.item] = item;
+        localsForKey[idxName] = i;
+
+        // Default to index-based keys for deterministic behavior when no key is
+        // provided (this matches positional patching semantics).
+        let key = i;
+        if (keyExpr) {
+          const prevLocalsForKey = this.locals;
+          this.locals = localsForKey;
+          try {
+            key = safeEval(keyExpr, this);
+          } finally {
+            this.locals = prevLocalsForKey;
+          }
+          if (key === undefined || key === null) key = i;
         }
+        if (seenKeys.has(key)) {
+          console.warn(
+            "SpruceX sx-for detected a duplicate key. This can cause unstable row reuse.",
+            key,
+          );
+        }
+        seenKeys.add(key);
 
         const bucket = instanceBuckets.get(key);
         const inst = bucket && bucket.length > 0 ? bucket.shift() : null;
@@ -1973,6 +1798,7 @@ export class Component {
             elements,
             bindings: instanceBindings,
             itemKey: key,
+            mounted: false,
           };
 
           newInstances.push(newInst);
@@ -1982,12 +1808,7 @@ export class Component {
       // Pass 2: Remove unused instances from DOM immediately
       instances.forEach((inst) => {
         if (!reusedInstances.has(inst)) {
-          if (inst.elements) {
-            inst.elements.forEach((el) => el.remove());
-          } else if (inst.fragmentRoot) {
-            inst.fragmentRoot.remove();
-          }
-          this.cleanupInstanceBindings(inst.bindings);
+          this.disposeForInstance(inst);
         }
       });
 
@@ -2002,6 +1823,11 @@ export class Component {
 
         if (inst.elements.length > 0) {
           anchor = inst.elements[0];
+        }
+
+        if (!inst.mounted) {
+          this.mountForInstance(inst);
+          inst.mounted = true;
         }
       }
 
@@ -2050,6 +1876,7 @@ export class Component {
           def: forDef,
           instances: [],
           parentLocals: locals,
+          keyExpr: el.getAttribute("sx-key") || null,
           autoAnimate: parent.hasAttribute(ATTR_ANIMATE),
         };
 
@@ -2380,6 +2207,45 @@ export class Component {
     instanceBindings.nestedForBlocks?.forEach((block) => {
       this.teardownForBlock(block);
     });
+
+    (instanceBindings.nestedDataComponents || []).forEach((component) => {
+      if (component && typeof component.destroy === "function") {
+        component.destroy();
+      }
+    });
+  }
+
+  mountForInstance(inst) {
+    if (!inst?.elements || !inst.bindings) return;
+    inst.bindings.nestedDataComponents = inst.bindings.nestedDataComponents || [];
+
+    const nestedRoots = [];
+    inst.elements.forEach((node) => {
+      if (!node || node.nodeType !== 1) return;
+      if (node.hasAttribute(ATTR_DATA)) nestedRoots.push(node);
+      node.querySelectorAll?.(`[${ATTR_DATA}]`).forEach((el) => nestedRoots.push(el));
+    });
+
+    nestedRoots.forEach((root) => {
+      if (root.__sprucex) return;
+      const nested = new Component(root, {
+        parentComponent: this,
+        locals: inst.scopeLocals,
+      });
+      root.__sprucex = nested;
+      inst.bindings.nestedDataComponents.push(nested);
+    });
+  }
+
+  disposeForInstance(inst) {
+    if (!inst) return;
+    this.cleanupInstanceBindings(inst.bindings);
+    if (inst.elements) {
+      inst.elements.forEach((el) => el.remove());
+    } else if (inst.fragmentRoot) {
+      inst.fragmentRoot.remove();
+    }
+    inst.mounted = false;
   }
 
   applyInitialRender() {
@@ -2523,7 +2389,6 @@ export class Component {
     this.memoBindings = [];
     this.modelBindings = [];
     this.netBindings = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
 
@@ -2592,7 +2457,6 @@ export class Component {
     this.memoBindings = [];
     this.modelBindings = [];
     this.eventHandlers = [];
-    this.chartBindings = [];
     this.gridBindings = [];
     this.netBindings = [];
     this.forBlocks = [];
