@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-24
+
+### Fixed
+
+- `sx-for` loops now render correctly after component refreshes by restoring loop templates before rescanning the component.
+- Moving keyed rows no longer destroys their nested components or event handlers during automatic cleanup.
+- Reused row components receive updated loop items and indices while retaining their local state.
+- Named data factories inside loop rows can use loop variables as arguments.
+- Overlapping requests only cancel the previous request when `sx-cancel-previous` is enabled; stale responses still cannot overwrite newer state.
+- Page links and prefetch URLs resolve against the document base, including nested paths and `<base>` elements.
+- Package builds provide the default export advertised by the TypeScript declarations, and the declarations include `removeStore`.
+- Component destruction is idempotent, and destroyed components cannot schedule new renders.
+
 ## [1.0.1] - 2026-04-08
 
 ### Added

@@ -184,6 +184,8 @@ export const SpruceX = {
   },
 };
 
+export default SpruceX;
+
 // Expose globally
 if (typeof window !== "undefined") {
   window.SpruceX = SpruceX;
@@ -272,7 +274,9 @@ function initAutoCleanup() {
   cleanupObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       mutation.removedNodes.forEach((node) => {
-        if (node.nodeType !== 1) return; // Elements only
+        // Moving a keyed row also emits a removal record. Only dispose nodes
+        // that are still detached when the observer runs.
+        if (node.nodeType !== 1 || node.isConnected) return;
 
         // Check if the node itself is a component root
         if (node.__sprucex) {
@@ -281,7 +285,7 @@ function initAutoCleanup() {
 
         // Check for nested component roots
         node.querySelectorAll(`[${ATTR_DATA}]`).forEach((el) => {
-          if (el.__sprucex) {
+          if (!el.isConnected && el.__sprucex) {
             el.__sprucex.destroy();
           }
         });
@@ -337,7 +341,7 @@ function initPageSwapping(root) {
       return;
 
     try {
-      const url = new URL(href, window.location.origin);
+      const url = new URL(href, document.baseURI);
       if (url.origin !== window.location.origin) return;
 
       e.preventDefault();
@@ -532,7 +536,7 @@ async function prefetchLink(href) {
   if (!href) return;
 
   try {
-    const url = new URL(href, window.location.origin);
+    const url = new URL(href, document.baseURI);
     if (url.origin !== window.location.origin) return;
     if (url.href === window.location.href) return;
 

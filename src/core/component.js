@@ -116,7 +116,7 @@ export class Component {
 
   // Batched update scheduling
   scheduleUpdate() {
-    if (this.updatePending) return;
+    if (this.isDestroyed || this.updatePending) return;
     this.updatePending = true;
 
     // Use requestAnimationFrame for better rendering performance
@@ -208,8 +208,9 @@ export class Component {
               ? new Function(
                   "$store",
                   "$data",
-                  `return [${argsSource}];`,
-                )(storeAccessor, getDataFactory)
+                  "$locals",
+                  `with($locals){ return [${argsSource}]; }`,
+                )(storeAccessor, getDataFactory, inheritedLocals)
               : [];
             raw = resolvedFactory.apply(this.root, args);
           } else if (rawExpr === dataRef && typeof resolvedFactory === "function") {
@@ -1271,7 +1272,7 @@ export class Component {
     }
 
     meta.seq += 1;
-    if (meta.controller && typeof meta.controller.abort === "function") {
+    if (nb.cancelPrevious && meta.controller && typeof meta.controller.abort === "function") {
       try {
         meta.controller.abort();
       } catch {
@@ -1648,7 +1649,13 @@ export class Component {
   }
 
   teardownAllForBlocks() {
-    this.forBlocks.slice().forEach((block) => this.teardownForBlock(block));
+    this.forBlocks.slice().forEach((block) => {
+      this.teardownForBlock(block);
+      if (block.template && block.marker && block.marker.parentNode) {
+        block.marker.parentNode.insertBefore(block.template, block.marker);
+        block.marker.remove();
+      }
+    });
     this.forBlocks = [];
   }
 
@@ -1751,6 +1758,10 @@ export class Component {
           }
           inst.scopeLocals[def.item] = item;
           inst.scopeLocals[idxName] = i;
+          (inst.bindings.nestedDataComponents || []).forEach((component) => {
+            Object.assign(component.locals, inst.scopeLocals);
+            component.scheduleUpdate();
+          });
           newInstances.push(inst);
           reusedInstances.add(inst);
         } else {
@@ -2419,6 +2430,7 @@ export class Component {
   }
 
   destroy() {
+    if (this.isDestroyed) return;
     this.isDestroyed = true;
     this.callHook("destroyed");
     this.abortCancelableRequests();

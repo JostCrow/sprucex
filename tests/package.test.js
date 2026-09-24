@@ -26,6 +26,7 @@ describe("package metadata", () => {
 
     const imported = await import(pathToFileURL(path.join(rootDir, pkg.module)).href);
     expect(typeof imported.SpruceX).toBe("object");
+    expect(imported.default).toBe(imported.SpruceX);
   });
 
   test("verify-package script succeeds", () => {

@@ -17,6 +17,7 @@ export interface SpruceXApi {
     value: T,
     options?: { persist?: boolean },
   ): T;
+  removeStore(name: string): void;
   data(name: string): unknown;
   data(name: string, factory: (...args: unknown[]) => unknown): unknown;
   inspect(): SpruceXInspectEntry[];

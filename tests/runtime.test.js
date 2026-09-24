@@ -490,6 +490,50 @@ describe("integrations", () => {
     expect(calls.scan).toBe(4);
     expect(calls.update).toBe(2);
   });
+
+  test("manual refresh preserves sx-for templates for subsequent renders", async () => {
+    const env = installDom(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <div id="root" sx-data="{ items: ['Alpha', 'Beta'] }">
+              <template sx-for="item in items">
+                <span class="item" sx-text="item"></span>
+              </template>
+            </div>
+          </body>
+        </html>
+      `,
+    );
+    restoreDom = env.cleanup;
+
+    const root = document.querySelector("#root");
+    const component = new Component(root);
+    root.__sprucex = component;
+
+    expect(Array.from(document.querySelectorAll(".item")).map((el) => el.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+    ]);
+
+    component.refresh();
+    await waitForUpdates();
+
+    expect(Array.from(document.querySelectorAll(".item")).map((el) => el.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+    ]);
+
+    component.state.items.push("Gamma");
+    await waitForUpdates();
+
+    expect(Array.from(document.querySelectorAll(".item")).map((el) => el.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
+  });
 });
 
 describe("navigation", () => {
