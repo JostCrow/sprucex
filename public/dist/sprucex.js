@@ -138,73 +138,43 @@
   }
 
   // src/reactivity/index.js
-  var ARRAY_MUTATING_METHODS = new Set([
-    "push",
-    "pop",
-    "shift",
-    "unshift",
-    "splice",
-    "sort",
-    "reverse"
-  ]);
-  function createDeepReactiveProxy(obj, onChange, visited = new WeakSet) {
+  function createDeepReactiveProxy(obj, onChange, cache = new WeakMap) {
     if (obj === null || typeof obj !== "object")
       return obj;
-    if (visited.has(obj))
-      return obj;
-    visited.add(obj);
-    if (Array.isArray(obj)) {
-      obj.forEach((item, i) => {
-        if (item && typeof item === "object") {
-          obj[i] = createDeepReactiveProxy(item, onChange, visited);
-        }
-      });
-    } else {
-      Object.keys(obj).forEach((key) => {
-        if (obj[key] && typeof obj[key] === "object") {
-          obj[key] = createDeepReactiveProxy(obj[key], onChange, visited);
-        }
-      });
-    }
-    const handler = {
+    if (cache.has(obj))
+      return cache.get(obj);
+    const proxy = new Proxy(obj, {
       get(target, key, receiver) {
         const value = Reflect.get(target, key, receiver);
-        if (Array.isArray(target) && ARRAY_MUTATING_METHODS.has(key) && typeof value === "function") {
-          return function(...args) {
-            const reactiveArgs = args.map((arg) => {
-              if (arg && typeof arg === "object") {
-                return createDeepReactiveProxy(arg, onChange, new WeakSet);
-              }
-              return arg;
-            });
-            const result = value.apply(target, reactiveArgs);
-            onChange();
-            return result;
-          };
+        const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+        if (descriptor && !descriptor.configurable && "value" in descriptor && !descriptor.writable) {
+          return value;
         }
-        if (typeof value === "function" && !isClass(value)) {
+        if (value && typeof value === "object") {
+          return createDeepReactiveProxy(value, onChange, cache);
+        }
+        if (typeof value === "function" && !isClass(value))
           return value.bind(receiver);
-        }
         return value;
       },
       set(target, key, value, receiver) {
-        const old = target[key];
-        if (value && typeof value === "object") {
-          value = createDeepReactiveProxy(value, onChange, new WeakSet);
-        }
+        const old = Reflect.get(target, key, receiver);
         const ok = Reflect.set(target, key, value, receiver);
-        if (old !== value) {
+        if (ok && !Object.is(old, value))
           onChange(key, value, old);
-        }
         return ok;
       },
       deleteProperty(target, key) {
+        const existed = Reflect.has(target, key);
         const ok = Reflect.deleteProperty(target, key);
-        onChange();
+        if (ok && existed)
+          onChange();
         return ok;
       }
-    };
-    return new Proxy(obj, handler);
+    });
+    cache.set(obj, proxy);
+    cache.set(proxy, proxy);
+    return proxy;
   }
   function createReactiveState(raw, onChange) {
     const watchers = raw.watch || {};
@@ -641,6 +611,10 @@
       this.isDestroyed = false;
       this.originalClasses = new WeakMap;
       this.animatedElements = new Map;
+      this.scannedElements = new WeakSet;
+      this.directiveSignatures = new WeakMap;
+      this.elementLocals = new WeakMap;
+      this.integrationScopes = new Map;
       this.refs = {};
       this.emitter = document.createElement("div");
       this.emit = (name, detail) => {
@@ -664,21 +638,8 @@
       this.rafId = requestAnimationFrame(() => {
         this.updatePending = false;
         this.rafId = null;
-        const activeEl = document.activeElement;
-        const isTextInput = activeEl && activeEl.tagName === "INPUT" && ![
-          "checkbox",
-          "radio",
-          "button",
-          "submit",
-          "reset",
-          "file",
-          "color",
-          "range",
-          "hidden"
-        ].includes((activeEl.type || "text").toLowerCase());
-        const isInputFocused = activeEl && (isTextInput || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
-        const focusedForInput = isInputFocused && this.root.contains(activeEl) ? activeEl : null;
-        this.renderForBlocks(focusedForInput);
+        this.renderForBlocks();
+        this.collectRefs();
         this.updateBindings();
         this.modelBindings.forEach((mb) => mb.updateDom());
         this.updateMemoBindings();
@@ -794,11 +755,41 @@
     }
     collectRefs() {
       this.refs = {};
-      this.root.querySelectorAll("[sx-ref]").forEach((el) => {
+      walk(this.root, (el) => {
+        if (el !== this.root && el.hasAttribute(ATTR_DATA))
+          return false;
         const name = el.getAttribute("sx-ref");
         if (name)
           this.refs[name] = el;
       });
+    }
+    getElementLocals(el) {
+      for (let node = el;node && node !== this.root; node = node.parentElement) {
+        if (this.elementLocals.has(node))
+          return this.elementLocals.get(node);
+      }
+      return this.locals;
+    }
+    withLocals(locals, fn) {
+      const previous = this.locals;
+      if (locals)
+        this.locals = locals;
+      try {
+        return fn();
+      } finally {
+        this.locals = previous;
+      }
+    }
+    removeEventHandler(record) {
+      record.handler.cancel?.();
+      if (record.delegated) {
+        const handlers = record.el.__sx_handlers?.[record.event];
+        if (handlers) {
+          record.el.__sx_handlers[record.event] = handlers.filter((entry) => entry.handler !== record.handler);
+        }
+      } else {
+        record.el.removeEventListener(record.event, record.handler);
+      }
     }
     setupDelegation() {
       DELEGATED_EVENTS.forEach((eventName) => {
@@ -834,16 +825,19 @@
         cur = cur.parentNode;
       }
     }
-    scan(root) {
+    scan(root, locals = null, fragment = false) {
       const self = this;
       walk(root, (el) => {
-        if (el !== root && el.hasAttribute(ATTR_DATA))
+        if (el.nodeType !== 1)
+          return false;
+        if ((fragment || el !== root) && el.hasAttribute(ATTR_DATA))
           return false;
         if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_FOR)) {
           const expr = el.getAttribute(ATTR_FOR) || "";
           const parent = el.parentElement;
           if (!parent)
             return;
+          const parentLocals = locals || this.getElementLocals(el);
           const marker = document.createComment("sx-for");
           parent.insertBefore(marker, el);
           el.remove();
@@ -860,6 +854,7 @@
             def: forDef,
             instances: [],
             keyExpr: el.getAttribute("sx-key") || null,
+            parentLocals,
             autoAnimate: parent.hasAttribute(ATTR_ANIMATE)
           });
           if (parent.hasAttribute(ATTR_ANIMATE)) {
@@ -881,15 +876,23 @@
       walk(root, (el) => {
         if (el.nodeType !== 1)
           return;
-        if (el !== root && el.hasAttribute(ATTR_DATA))
+        if ((fragment || el !== root) && el.hasAttribute(ATTR_DATA))
           return false;
         if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_FOR))
           return;
-        this.scanElement(el, null);
+        if (!this.scannedElements.has(el)) {
+          this.scanElement(el, locals || this.getElementLocals(el));
+        }
       });
       this.setupNetworkBindings();
     }
+    directiveSignature(el) {
+      return JSON.stringify(Array.from(el.attributes).filter((attr) => attr.name.startsWith("sx-")).map((attr) => [attr.name, attr.value]).sort(([a], [b]) => a.localeCompare(b)));
+    }
     scanElement(el, locals) {
+      this.scannedElements.add(el);
+      this.directiveSignatures.set(el, this.directiveSignature(el));
+      this.elementLocals.set(el, locals);
       const self = this;
       const hasMemo = el.hasAttribute(ATTR_MEMO);
       const textExpr = el.getAttribute(ATTR_TEXT);
@@ -938,7 +941,7 @@
       const toggleKey = el.getAttribute(ATTR_TOGGLE);
       if (toggleKey) {
         const handler = () => {
-          this.state[toggleKey] = !this.state[toggleKey];
+          this.withLocals(locals, () => execInScope(`${toggleKey} = !(${toggleKey})`, this));
         };
         el.addEventListener("click", handler);
         self.eventHandlers.push({ el, event: "click", handler });
@@ -992,10 +995,6 @@
               ev.stopPropagation();
             if (mods.includes("self") && ev.target !== el)
               return;
-            if (mods.includes("window") && ev.target !== window)
-              return;
-            if (mods.includes("document") && ev.target !== document)
-              return;
             if (ev instanceof KeyboardEvent) {
               const keys = mods.filter((m) => !["prevent", "stop", "self", "window", "document"].includes(m));
               if (keys.length > 0) {
@@ -1011,73 +1010,75 @@
             execInScope(expr, this);
             this.locals = prev;
           };
-          if (DELEGATED_EVENTS.has(eventName)) {
+          const eventTarget = mods.includes("window") ? window : mods.includes("document") ? document : el;
+          if (eventTarget === el && DELEGATED_EVENTS.has(eventName)) {
             if (!el.__sx_handlers)
               el.__sx_handlers = {};
             if (!el.__sx_handlers[eventName])
               el.__sx_handlers[eventName] = [];
             el.__sx_handlers[eventName].push({ handler, component: this });
+            self.eventHandlers.push({ el, event: eventName, handler, delegated: true });
           } else {
-            el.addEventListener(eventName, handler);
-            self.eventHandlers.push({ el, event: eventName, handler });
+            eventTarget.addEventListener(eventName, handler);
+            self.eventHandlers.push({ el: eventTarget, sourceEl: el, event: eventName, handler });
           }
         }
       }
-      if (!locals) {
-        for (const m of NET_METHODS) {
-          const attrName = `sx-${m}`;
-          const urlTpl = el.getAttribute(attrName);
-          if (urlTpl) {
-            const trigger = el.getAttribute(ATTR_TRIGGER) || (el.tagName === "FORM" ? "submit" : "click");
-            const triggerDebounce = el.getAttribute(ATTR_TRIGGER_DEBOUNCE);
-            const target = el.getAttribute(ATTR_TARGET) || null;
-            const swap = el.getAttribute(ATTR_SWAP) || "innerHTML";
-            const varsExpr = el.getAttribute(ATTR_VARS);
-            const jsonInto = el.getAttribute(ATTR_JSON_INTO);
-            const optimistic = el.getAttribute(ATTR_OPTIMISTIC);
-            const revertOnError = el.getAttribute(ATTR_REVERT_ON_ERROR);
-            const poll = el.getAttribute(ATTR_POLL);
-            const pollWhile = el.getAttribute(ATTR_POLL_WHILE);
-            const includeSelector = el.getAttribute(ATTR_INCLUDE);
-            const bodyExpr = el.getAttribute(ATTR_BODY);
-            const bodyType = el.getAttribute(ATTR_BODY_TYPE);
-            const headersExpr = el.getAttribute(ATTR_HEADERS);
-            const loadingInto = el.getAttribute(ATTR_LOADING_INTO);
-            const errorInto = el.getAttribute(ATTR_ERROR_INTO);
-            const disableWhileRequest = el.hasAttribute(ATTR_DISABLE_WHILE_REQUEST);
-            const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
-            const confirmExpr = el.getAttribute(ATTR_CONFIRM);
-            const cancelPrevious = el.hasAttribute(ATTR_CANCEL_PREVIOUS);
-            const binding = {
-              el,
-              method: m.toUpperCase(),
-              urlTpl,
-              trigger,
-              triggerDebounce,
-              target,
-              swap,
-              varsExpr,
-              jsonInto,
-              optimistic,
-              revertOnError,
-              poll: poll ? Number(poll) : null,
-              pollWhile,
-              includeSelector,
-              bodyExpr,
-              bodyType,
-              headersExpr,
-              loadingInto,
-              errorInto,
-              disableWhileRequest,
-              textWhileRequest,
-              confirmExpr,
-              cancelPrevious
-            };
-            self.netBindings.push(binding);
-          }
+      for (const m of NET_METHODS) {
+        const attrName = `sx-${m}`;
+        const urlTpl = el.getAttribute(attrName);
+        if (urlTpl) {
+          const trigger = el.getAttribute(ATTR_TRIGGER) || (el.tagName === "FORM" ? "submit" : "click");
+          const triggerDebounce = el.getAttribute(ATTR_TRIGGER_DEBOUNCE);
+          const target = el.getAttribute(ATTR_TARGET) || null;
+          const swap = el.getAttribute(ATTR_SWAP) || "innerHTML";
+          const varsExpr = el.getAttribute(ATTR_VARS);
+          const jsonInto = el.getAttribute(ATTR_JSON_INTO);
+          const optimistic = el.getAttribute(ATTR_OPTIMISTIC);
+          const revertOnError = el.getAttribute(ATTR_REVERT_ON_ERROR);
+          const poll = el.getAttribute(ATTR_POLL);
+          const pollWhile = el.getAttribute(ATTR_POLL_WHILE);
+          const includeSelector = el.getAttribute(ATTR_INCLUDE);
+          const bodyExpr = el.getAttribute(ATTR_BODY);
+          const bodyType = el.getAttribute(ATTR_BODY_TYPE);
+          const headersExpr = el.getAttribute(ATTR_HEADERS);
+          const loadingInto = el.getAttribute(ATTR_LOADING_INTO);
+          const errorInto = el.getAttribute(ATTR_ERROR_INTO);
+          const disableWhileRequest = el.hasAttribute(ATTR_DISABLE_WHILE_REQUEST);
+          const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
+          const confirmExpr = el.getAttribute(ATTR_CONFIRM);
+          const cancelPrevious = el.hasAttribute(ATTR_CANCEL_PREVIOUS);
+          const binding = {
+            el,
+            locals,
+            scope: Object.assign(Object.create(this), { locals }),
+            method: m.toUpperCase(),
+            urlTpl,
+            trigger,
+            triggerDebounce,
+            target,
+            swap,
+            varsExpr,
+            jsonInto,
+            optimistic,
+            revertOnError,
+            poll: poll ? Number(poll) : null,
+            pollWhile,
+            includeSelector,
+            bodyExpr,
+            bodyType,
+            headersExpr,
+            loadingInto,
+            errorInto,
+            disableWhileRequest,
+            textWhileRequest,
+            confirmExpr,
+            cancelPrevious
+          };
+          self.netBindings.push(binding);
         }
-        this.scanIntegrations(el);
       }
+      this.scanIntegrations(el, locals);
       if (el.hasAttribute(ATTR_ANIMATE)) {
         const optionsStr = el.getAttribute(ATTR_ANIMATE);
         queueMicrotask(() => this.setupAutoAnimate(el, optionsStr || {}));
@@ -1102,104 +1103,12 @@
       });
       return { keyExpr, mods, debounceMs };
     }
-    setupModelBinding(el, locals = null) {
-      const direct = el.getAttribute(ATTR_MODEL);
-      const modifierAttrs = Array.from(el.attributes).filter((a) => a.name.startsWith(ATTR_MODEL_PREFIX));
-      if (!direct && modifierAttrs.length === 0)
-        return;
-      const { keyExpr, mods, debounceMs } = this.parseModelBindingConfig(direct, modifierAttrs);
-      const type = (el.type || "").toLowerCase();
-      const isCheckbox = type === "checkbox";
-      const isRadio = type === "radio";
-      const isSelect = el.tagName === "SELECT";
-      const updateDom = () => {
-        const prev = this.locals;
-        if (locals)
-          this.locals = locals;
-        try {
-          const v = safeEval(keyExpr, this);
-          if (isCheckbox) {
-            if (Array.isArray(v)) {
-              el.checked = v.includes(el.value);
-            } else {
-              el.checked = !!v;
-            }
-          } else if (isRadio) {
-            el.checked = String(v) === String(el.value);
-          } else if (isSelect) {
-            el.value = v ?? "";
-          } else {
-            if (v !== null && v !== undefined && typeof v === "object") {
-              el.value = JSON.stringify(v);
-            } else {
-              el.value = v ?? "";
-            }
-          }
-        } finally {
-          this.locals = prev;
-        }
-      };
-      const applyModifiers = (val) => {
-        if (mods.has("trim") && typeof val === "string")
-          val = val.trim();
-        if (mods.has("number")) {
-          const n = Number(val);
-          if (!Number.isNaN(n))
-            val = n;
-        }
-        return val;
-      };
-      const writeBack = () => {
-        const prev = this.locals;
-        if (locals)
-          this.locals = locals;
-        try {
-          let v;
-          if (isCheckbox) {
-            const current = safeEval(keyExpr, this);
-            if (Array.isArray(current)) {
-              const arr = [...current];
-              const idx = arr.indexOf(el.value);
-              if (el.checked && idx === -1)
-                arr.push(el.value);
-              if (!el.checked && idx !== -1)
-                arr.splice(idx, 1);
-              v = arr;
-            } else {
-              v = el.checked;
-            }
-          } else if (isRadio) {
-            if (!el.checked)
-              return;
-            v = el.value;
-          } else if (isSelect) {
-            v = el.value;
-          } else {
-            v = el.value;
-          }
-          v = applyModifiers(v);
-          execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
-        } finally {
-          this.locals = prev;
-        }
-      };
-      let eventName = "input";
-      if (mods.has("lazy"))
-        eventName = "change";
-      let handler = writeBack;
-      if (debounceMs != null && debounceMs > 0) {
-        let t = null;
-        handler = () => {
-          clearTimeout(t);
-          t = setTimeout(writeBack, debounceMs);
-        };
-      }
-      el.addEventListener(eventName, handler);
-      this.eventHandlers.push({ el, event: eventName, handler });
-      this.modelBindings.push({ updateDom, locals });
-    }
     setupNetworkBindings() {
       for (const nb of this.netBindings) {
+        if (nb.initialized)
+          continue;
+        nb.initialized = true;
+        nb.disposers = [];
         const { el, poll, pollWhile } = nb;
         const triggerDefs = this.parseNetworkTriggers(nb);
         const doReq = (ev = null) => {
@@ -1208,7 +1117,8 @@
             if (ev.type === "submit")
               ev.preventDefault();
           }
-          if (!this.confirmRequest(nb))
+          nb.scope.lastEvent = ev || this.lastEvent;
+          if (nb.disposed || this.isDestroyed || !nb.scope.confirmRequest(nb))
             return;
           this.performRequest(nb);
         };
@@ -1220,20 +1130,30 @@
           const domHandler = this.wrapDebounced(doReq, debounceMs);
           el.addEventListener(eventName, domHandler);
           this.eventHandlers.push({ el, event: eventName, handler: domHandler });
-          const compHandler = this.wrapDebounced(() => this.performRequest(nb), debounceMs);
+          const compHandler = this.wrapDebounced(() => doReq(), debounceMs);
           this.emitter.addEventListener(eventName, compHandler);
-          this.emitterHandlers.push({ event: eventName, handler: compHandler });
+          const emitterRecord = { event: eventName, handler: compHandler };
+          this.emitterHandlers.push(emitterRecord);
+          nb.disposers.push(() => {
+            compHandler.cancel?.();
+            this.emitter.removeEventListener(eventName, compHandler);
+            this.emitterHandlers = this.emitterHandlers.filter((record) => record !== emitterRecord);
+          });
         });
         if (poll && !Number.isNaN(poll) && poll > 0) {
           const timer = setInterval(() => {
             if (pollWhile) {
-              const ok = !!safeEval(pollWhile, this);
+              const ok = !!safeEval(pollWhile, nb.scope);
               if (!ok)
                 return;
             }
             this.performRequest(nb);
           }, poll);
           this.pollTimers.push(timer);
+          nb.disposers.push(() => {
+            clearInterval(timer);
+            this.pollTimers = this.pollTimers.filter((entry) => entry !== timer);
+          });
         }
       }
     }
@@ -1264,7 +1184,7 @@
       if (!debounceMs || debounceMs <= 0)
         return fn;
       let timer = null;
-      return (...args) => {
+      const handler = (...args) => {
         if (timer) {
           clearTimeout(timer);
           this.debounceTimers.delete(timer);
@@ -1272,10 +1192,17 @@
         timer = setTimeout(() => {
           this.debounceTimers.delete(timer);
           timer = null;
-          fn(...args);
+          if (!this.isDestroyed)
+            fn(...args);
         }, debounceMs);
         this.debounceTimers.add(timer);
       };
+      handler.cancel = () => {
+        clearTimeout(timer);
+        this.debounceTimers.delete(timer);
+        timer = null;
+      };
+      return handler;
     }
     confirmRequest(nb) {
       if (nb.confirmExpr == null)
@@ -1643,7 +1570,7 @@
     }
     isCurrentNetworkRequest(nb, seq) {
       const meta = this.netRequestMeta.get(nb);
-      return !!meta && meta.seq === seq;
+      return !this.isDestroyed && !nb.disposed && !!meta && meta.seq === seq;
     }
     finishNetworkRequest(nb, seq, controller) {
       const meta = this.netRequestMeta.get(nb);
@@ -1668,7 +1595,23 @@
         }
       });
     }
-    scanIntegrations(el) {
+    scanIntegrations(el, locals = null) {
+      if (locals && locals !== this.locals) {
+        let scope = this.integrationScopes.get(locals);
+        if (!scope) {
+          scope = Object.assign(Object.create(this), {
+            locals,
+            integrationScopes: new Map,
+            gridBindings: [],
+            gridInstances: new Map,
+            scheduleUpdate: this.scheduleUpdate.bind(this)
+          });
+          scope.initIntegrationBindings();
+          this.integrationScopes.set(locals, scope);
+        }
+        scope.scanIntegrations(el);
+        return;
+      }
       listIntegrations().forEach((integration) => {
         if (typeof integration.scan !== "function")
           return;
@@ -1680,6 +1623,7 @@
       });
     }
     updateIntegrations() {
+      this.integrationScopes.forEach((scope) => scope.updateIntegrations());
       listIntegrations().forEach((integration) => {
         if (typeof integration.update !== "function")
           return;
@@ -1691,6 +1635,8 @@
       });
     }
     teardownIntegrations() {
+      this.integrationScopes.forEach((scope) => scope.teardownIntegrations());
+      this.integrationScopes.clear();
       listIntegrations().forEach((integration) => {
         if (typeof integration.teardown !== "function")
           return;
@@ -1702,8 +1648,11 @@
       });
     }
     async performRequest(nb) {
-      const url = this.buildUrl(nb);
-      const { body, bodyKind } = this.buildBody(nb);
+      if (this.isDestroyed || nb.disposed)
+        return;
+      const scope = nb.scope || this;
+      const url = scope.buildUrl(nb);
+      const { body, bodyKind } = scope.buildBody(nb);
       const {
         el,
         method,
@@ -1715,14 +1664,14 @@
         loadingInto,
         errorInto
       } = nb;
-      const headers = this.buildHeaders(nb, bodyKind, body != null);
+      const headers = scope.buildHeaders(nb, bodyKind, body != null);
       const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
       this.addCsrfHeader(headers, method);
-      const endUiState = this.beginRequestUiState(nb);
-      this.assignStateValue(loadingInto, true);
-      this.assignStateValue(errorInto, null);
+      const endUiState = scope.beginRequestUiState(nb);
+      scope.assignStateValue(loadingInto, true);
+      scope.assignStateValue(errorInto, null);
       if (optimistic) {
-        execInScope(optimistic, this);
+        execInScope(optimistic, scope);
       }
       try {
         const fetchOptions = { method };
@@ -1752,7 +1701,7 @@
           }
         }
         if (jsonInto && json != null) {
-          execInScope(`${jsonInto} = __sx_value`, this, { __sx_value: json });
+          execInScope(`${jsonInto} = __sx_value`, scope, { __sx_value: json });
         } else {
           this.applySwap(target || el, text, swap);
         }
@@ -1764,9 +1713,9 @@
           return;
         }
         if (revertOnError) {
-          execInScope(revertOnError, this);
+          execInScope(revertOnError, scope);
         }
-        this.assignStateValue(errorInto, this.serializeError(error));
+        scope.assignStateValue(errorInto, this.serializeError(error));
         const detail = { error };
         el.dispatchEvent(new CustomEvent("error", { detail, bubbles: true }));
         el.dispatchEvent(new CustomEvent("sprucex:error", { detail, bubbles: true }));
@@ -1774,9 +1723,73 @@
         const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
         endUiState();
         if (!this.isDestroyed && isFinished) {
-          this.assignStateValue(loadingInto, false);
+          scope.assignStateValue(loadingInto, false);
         }
       }
+    }
+    disposeNetworkBinding(binding) {
+      if (binding.disposed)
+        return;
+      binding.disposed = true;
+      this.netRequestMeta.get(binding)?.controller?.abort();
+      (binding.disposers || []).forEach((dispose) => dispose());
+    }
+    pruneDetachedBindings(removedNodes = null, exact = false) {
+      const belongs = (el) => el && (removedNodes ? !removedNodes.some((node) => node === el || !exact && node.contains?.(el)) : this.root.contains(el));
+      for (const field of ["bindings", "memoBindings", "modelBindings"]) {
+        this[field] = this[field].filter((binding) => belongs(binding.el));
+      }
+      this.eventHandlers = this.eventHandlers.filter((record) => {
+        if (belongs(record.sourceEl || record.el))
+          return true;
+        this.removeEventHandler(record);
+        return false;
+      });
+      this.netBindings = this.netBindings.filter((binding) => {
+        if (belongs(binding.el))
+          return true;
+        this.disposeNetworkBinding(binding);
+        return false;
+      });
+    }
+    hydrateAfterSwap(container) {
+      if (!container?.isConnected)
+        return;
+      const owner = container.closest(`[${ATTR_DATA}]`);
+      const roots = new Set([owner, ...container.querySelectorAll(`[${ATTR_DATA}]`)]);
+      if (container.hasAttribute(ATTR_DATA))
+        roots.add(container);
+      roots.forEach((root) => {
+        if (!root?.isConnected)
+          return;
+        const parent = root.parentElement?.closest(`[${ATTR_DATA}]`)?.__sprucex;
+        if (!root.__sprucex) {
+          root.__sprucex = new Component(root, {
+            parentComponent: parent,
+            locals: parent?.getElementLocals(root)
+          });
+        } else {
+          const component = root.__sprucex;
+          component.pruneDetachedBindings();
+          component.teardownIntegrations();
+          component.gridBindings = [];
+          component.initIntegrationBindings();
+          walk(root, (el) => {
+            if (el !== root && el.hasAttribute(ATTR_DATA))
+              return false;
+            if (component.scannedElements.has(el) && component.directiveSignatures.get(el) !== component.directiveSignature(el)) {
+              component.pruneDetachedBindings([el], true);
+              component.scannedElements.delete(el);
+            }
+            if (component.scannedElements.has(el)) {
+              component.scanIntegrations(el, component.getElementLocals(el));
+            }
+          });
+          component.scan(root);
+          component.renderForBlocks();
+          component.applyInitialRender();
+        }
+      });
     }
     abortCancelableRequests() {
       this.netBindings.forEach((binding) => {
@@ -1893,6 +1906,9 @@
       const target = typeof targetSelectorOrEl === "string" ? document.querySelector(targetSelectorOrEl) : targetSelectorOrEl;
       if (!target)
         return;
+      const container = ["outerHTML", "before", "after"].includes(swap) ? target.parentElement : target;
+      if (swap === "outerHTML" && target.__sprucex)
+        target.__sprucex.destroy();
       switch (swap) {
         case "outerHTML":
           target.outerHTML = html;
@@ -1929,6 +1945,7 @@
         default:
           target.innerHTML = html;
       }
+      this.hydrateAfterSwap(container);
     }
     isForBlockDetached(block) {
       if (!block)
@@ -1972,7 +1989,9 @@
       });
       this.forBlocks = [];
     }
-    renderForBlocks(focusedEl = null) {
+    renderForBlocks() {
+      const focusedEl = document.activeElement;
+      const selection = focusedEl && typeof focusedEl.selectionStart === "number" ? [focusedEl.selectionStart, focusedEl.selectionEnd, focusedEl.selectionDirection] : null;
       this.teardownDetachedForBlocks();
       let blockIndex = 0;
       while (blockIndex < this.forBlocks.length) {
@@ -1986,11 +2005,6 @@
           continue;
         }
         const { def, template, parent, marker, instances, parentLocals, keyExpr } = block;
-        const skipFocusedBlock = focusedEl && block.instances.some((inst) => inst.elements && inst.elements.some((el) => el.contains(focusedEl)));
-        if (skipFocusedBlock) {
-          blockIndex += 1;
-          continue;
-        }
         const prevLocals = this.locals;
         if (parentLocals) {
           this.locals = parentLocals;
@@ -2062,6 +2076,7 @@
               memoBindings: [],
               modelBindings: [],
               eventHandlers: [],
+              netBindings: [],
               nestedForBlocks: []
             };
             elements.forEach((el) => {
@@ -2070,6 +2085,7 @@
               instanceBindings.memoBindings.push(...elBindings.memoBindings);
               instanceBindings.modelBindings.push(...elBindings.modelBindings);
               instanceBindings.eventHandlers.push(...elBindings.eventHandlers);
+              instanceBindings.netBindings.push(...elBindings.netBindings);
               if (elBindings.nestedForBlocks) {
                 instanceBindings.nestedForBlocks.push(...elBindings.nestedForBlocks);
               }
@@ -2092,11 +2108,12 @@
         let anchor = marker;
         for (let i = newInstances.length - 1;i >= 0; i--) {
           const inst = newInstances[i];
-          inst.elements.forEach((el) => {
-            parent.insertBefore(el, anchor);
-          });
-          if (inst.elements.length > 0) {
-            anchor = inst.elements[0];
+          for (let j = inst.elements.length - 1;j >= 0; j--) {
+            const el = inst.elements[j];
+            if (el.parentNode !== parent || el.nextSibling !== anchor) {
+              parent.insertBefore(el, anchor);
+            }
+            anchor = el;
           }
           if (!inst.mounted) {
             this.mountForInstance(inst);
@@ -2107,214 +2124,21 @@
         block.instances.push(...newInstances);
         blockIndex += 1;
       }
+      if (focusedEl?.isConnected && this.root.contains(focusedEl) && document.activeElement !== focusedEl) {
+        focusedEl.focus({ preventScroll: true });
+        if (selection)
+          focusedEl.setSelectionRange(...selection);
+      }
     }
     scanFragmentBindings(rootNode, locals) {
-      const self = this;
-      const instanceBindings = {
-        bindings: [],
-        memoBindings: [],
-        modelBindings: [],
-        eventHandlers: [],
-        nestedForBlocks: []
-      };
-      walk(rootNode, (el) => {
-        if (el.nodeType !== 1)
-          return;
-        if (el.hasAttribute(ATTR_DATA))
-          return false;
-        if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_FOR)) {
-          const expr = el.getAttribute(ATTR_FOR) || "";
-          const parent = el.parentElement;
-          if (!parent)
-            return;
-          const marker = document.createComment("sx-for");
-          parent.insertBefore(marker, el);
-          el.remove();
-          const forDef = parseForExpression(expr);
-          if (!forDef) {
-            console.error("SpruceX invalid nested sx-for expression:", expr);
-            return false;
-          }
-          const nestedBlock = {
-            template: el,
-            parent,
-            marker,
-            expr,
-            def: forDef,
-            instances: [],
-            parentLocals: locals,
-            keyExpr: el.getAttribute("sx-key") || null,
-            autoAnimate: parent.hasAttribute(ATTR_ANIMATE)
-          };
-          self.forBlocks.push(nestedBlock);
-          instanceBindings.nestedForBlocks.push(nestedBlock);
-          if (parent.hasAttribute(ATTR_ANIMATE)) {
-            const opts = parent.getAttribute(ATTR_ANIMATE);
-            let config = {};
-            if (opts && opts !== "true" && opts !== "") {
-              try {
-                config = JSON.parse(opts);
-              } catch (e) {
-                const duration = parseInt(opts, 10);
-                if (!isNaN(duration))
-                  config = { duration };
-              }
-            }
-            self.setupAutoAnimate(parent, config);
-          }
-          return false;
-        }
-        const hasMemo = el.hasAttribute(ATTR_MEMO);
-        const textExpr = el.getAttribute(ATTR_TEXT);
-        if (textExpr && !hasMemo) {
-          const binding = {
-            el,
-            type: "text",
-            expr: textExpr,
-            errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-            locals
-          };
-          self.bindings.push(binding);
-          instanceBindings.bindings.push(binding);
-        }
-        const htmlExpr = el.getAttribute(ATTR_HTML);
-        if (htmlExpr && !hasMemo) {
-          const binding = {
-            el,
-            type: "html",
-            expr: htmlExpr,
-            errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-            locals
-          };
-          self.bindings.push(binding);
-          instanceBindings.bindings.push(binding);
-        }
-        const showExpr = el.getAttribute(ATTR_SHOW);
-        if (showExpr) {
-          const binding = {
-            el,
-            type: "show",
-            expr: showExpr,
-            errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-            locals
-          };
-          self.bindings.push(binding);
-          instanceBindings.bindings.push(binding);
-        }
-        const classExpr = el.getAttribute(ATTR_CLASS);
-        if (classExpr) {
-          if (!self.originalClasses.has(el)) {
-            self.originalClasses.set(el, new Set(Array.from(el.classList)));
-          }
-          const binding = {
-            el,
-            type: "class",
-            expr: classExpr,
-            errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-            locals
-          };
-          self.bindings.push(binding);
-          instanceBindings.bindings.push(binding);
-        }
-        for (const attr of Array.from(el.attributes)) {
-          if (attr.name.startsWith(ATTR_BIND_PREFIX)) {
-            const name = attr.name.slice(ATTR_BIND_PREFIX.length);
-            const binding = {
-              el,
-              type: "bind",
-              attr: name,
-              expr: attr.value,
-              errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-              locals
-            };
-            self.bindings.push(binding);
-            instanceBindings.bindings.push(binding);
-          }
-        }
-        const memoExpr = el.getAttribute(ATTR_MEMO);
-        const textForMemo = el.getAttribute(ATTR_TEXT);
-        const htmlForMemo = el.getAttribute(ATTR_HTML);
-        if (memoExpr && (textForMemo || htmlForMemo)) {
-          let deps = [];
-          try {
-            const fn = new Function(`return (${memoExpr});`);
-            const val = fn();
-            if (Array.isArray(val))
-              deps = val;
-          } catch (e) {
-            console.error("SpruceX sx-memo parse error:", memoExpr, e);
-          }
-          const memoBinding = {
-            el,
-            expr: textForMemo || htmlForMemo,
-            type: textForMemo ? "text" : "html",
-            deps,
-            lastVals: null,
-            lastResult: null,
-            locals
-          };
-          self.memoBindings.push(memoBinding);
-          instanceBindings.memoBindings.push(memoBinding);
-        }
-        const modelBinding = this.setupModelBindingWithReturn(el, locals);
-        if (modelBinding) {
-          instanceBindings.modelBindings.push(modelBinding);
-        }
-        for (const attr of Array.from(el.attributes)) {
-          if (attr.name.startsWith(ATTR_ON_PREFIX)) {
-            const full = attr.name.slice(ATTR_ON_PREFIX.length);
-            const [eventName, ...mods] = full.split(".");
-            const expr = attr.value;
-            const handler = (ev) => {
-              if (mods.includes("prevent"))
-                ev.preventDefault();
-              if (mods.includes("stop"))
-                ev.stopPropagation();
-              if (mods.includes("self") && ev.target !== el)
-                return;
-              if (mods.includes("window") && ev.target !== window)
-                return;
-              if (mods.includes("document") && ev.target !== document)
-                return;
-              if (ev instanceof KeyboardEvent) {
-                const keys = mods.filter((m) => !["prevent", "stop", "self", "window", "document"].includes(m));
-                if (keys.length > 0) {
-                  const key = ev.key.toLowerCase();
-                  if (!keys.includes(key))
-                    return;
-                }
-              }
-              this.lastEvent = ev;
-              const prev = this.locals;
-              this.locals = locals;
-              execInScope(expr, this);
-              this.locals = prev;
-            };
-            if (DELEGATED_EVENTS.has(eventName)) {
-              if (!el.__sx_handlers)
-                el.__sx_handlers = {};
-              if (!el.__sx_handlers[eventName])
-                el.__sx_handlers[eventName] = [];
-              el.__sx_handlers[eventName].push({ handler, component: this });
-            } else {
-              el.addEventListener(eventName, handler);
-              self.eventHandlers.push({ el, event: eventName, handler });
-              instanceBindings.eventHandlers.push({
-                el,
-                event: eventName,
-                handler
-              });
-            }
-          }
-        }
-        if (el.hasAttribute(ATTR_ANIMATE)) {
-          const optionsStr = el.getAttribute(ATTR_ANIMATE);
-          queueMicrotask(() => this.setupAutoAnimate(el, optionsStr || {}));
-        }
-      });
-      return instanceBindings;
+      const fields = ["bindings", "memoBindings", "modelBindings", "eventHandlers", "netBindings", "forBlocks"];
+      const starts = Object.fromEntries(fields.map((key) => [key, this[key].length]));
+      this.scan(rootNode, locals, true);
+      const result = Object.fromEntries(fields.map((key) => [key, this[key].slice(starts[key])]));
+      result.nestedForBlocks = result.forBlocks;
+      return result;
     }
-    setupModelBindingWithReturn(el, locals = null) {
+    setupModelBinding(el, locals = null) {
       const direct = el.getAttribute(ATTR_MODEL);
       const modifierAttrs = Array.from(el.attributes).filter((a) => a.name.startsWith(ATTR_MODEL_PREFIX));
       if (!direct && modifierAttrs.length === 0)
@@ -2398,14 +2222,7 @@
       let eventName = "input";
       if (mods.has("lazy"))
         eventName = "change";
-      let handler = writeBack;
-      if (debounceMs != null && debounceMs > 0) {
-        let t = null;
-        handler = () => {
-          clearTimeout(t);
-          t = setTimeout(writeBack, debounceMs);
-        };
-      }
+      const handler = this.wrapDebounced(writeBack, debounceMs);
       el.addEventListener(eventName, handler);
       const modelBinding = { updateDom, locals, el, event: eventName, handler };
       this.eventHandlers.push({ el, event: eventName, handler });
@@ -2428,13 +2245,15 @@
         this.modelBindings = this.modelBindings.filter((b) => !modelsToRemove.has(b));
       }
       const handlersToRemove = new Set;
-      (instanceBindings.eventHandlers || []).forEach(({ el, event, handler }) => {
-        el.removeEventListener(event, handler);
-        handlersToRemove.add(handler);
+      (instanceBindings.eventHandlers || []).forEach((record) => {
+        this.removeEventHandler(record);
+        handlersToRemove.add(record.handler);
       });
       if (handlersToRemove.size > 0) {
         this.eventHandlers = this.eventHandlers.filter((h) => !handlersToRemove.has(h.handler));
       }
+      (instanceBindings.netBindings || []).forEach((binding) => this.disposeNetworkBinding(binding));
+      this.netBindings = this.netBindings.filter((binding) => !binding.disposed);
       instanceBindings.nestedForBlocks?.forEach((block) => {
         this.teardownForBlock(block);
       });
@@ -2476,9 +2295,16 @@
       } else if (inst.fragmentRoot) {
         inst.fragmentRoot.remove();
       }
+      const scope = this.integrationScopes.get(inst.scopeLocals);
+      if (scope) {
+        scope.teardownIntegrations();
+        this.integrationScopes.delete(inst.scopeLocals);
+      }
+      this.pruneDetachedBindings(inst.elements || [inst.fragmentRoot]);
       inst.mounted = false;
     }
     applyInitialRender() {
+      this.collectRefs();
       this.updateBindings();
       this.modelBindings.forEach((mb) => mb.updateDom());
       this.updateMemoBindings();
@@ -2596,18 +2422,20 @@
     refresh() {
       this.abortCancelableRequests();
       this.teardownIntegrations();
+      this.netBindings.forEach((binding) => this.disposeNetworkBinding(binding));
       this.clearDebounceTimers();
       this.clearEmitterHandlers();
       this.teardownAllForBlocks();
+      this.scannedElements = new WeakSet;
+      this.directiveSignatures = new WeakMap;
+      this.elementLocals = new WeakMap;
       this.bindings = [];
       this.memoBindings = [];
       this.modelBindings = [];
       this.netBindings = [];
       this.gridBindings = [];
       this.forBlocks = [];
-      this.eventHandlers.forEach(({ el, event, handler }) => {
-        el.removeEventListener(event, handler);
-      });
+      this.eventHandlers.forEach((record) => this.removeEventHandler(record));
       this.eventHandlers = [];
       walk(this.root, (el) => {
         if (el !== this.root && el.hasAttribute(ATTR_DATA))
@@ -2633,6 +2461,7 @@
       this.isDestroyed = true;
       this.callHook("destroyed");
       this.abortCancelableRequests();
+      this.netBindings.forEach((binding) => this.disposeNetworkBinding(binding));
       Object.keys(storeSubscribers).forEach((name) => {
         storeSubscribers[name].delete(this);
       });
@@ -2642,9 +2471,7 @@
       this.animatedElements.clear();
       this.teardownIntegrations();
       this.teardownAllForBlocks();
-      this.eventHandlers.forEach(({ el, event, handler }) => {
-        el.removeEventListener(event, handler);
-      });
+      this.eventHandlers.forEach((record) => this.removeEventHandler(record));
       this.clearEmitterHandlers();
       if (this._delegatedCleanups) {
         this._delegatedCleanups.forEach((fn) => fn());

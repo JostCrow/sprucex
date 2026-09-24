@@ -1,6 +1,6 @@
 {
   "name": "sprucex",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "module": "lib/sprucex.mjs",
   "main": "lib/sprucex.cjs",
   "types": "lib/sprucex.d.ts",
@@ -8,9 +8,15 @@
   "jsdelivr": "public/dist/sprucex.min.js",
   "exports": {
     ".": {
+      "import": {
+        "types": "./lib/sprucex.d.mts",
+        "default": "./lib/sprucex.mjs"
+      },
+      "require": {
+        "types": "./lib/sprucex.d.cts",
+        "default": "./lib/sprucex.cjs"
+      },
       "types": "./lib/sprucex.d.ts",
-      "import": "./lib/sprucex.mjs",
-      "require": "./lib/sprucex.cjs",
       "default": "./lib/sprucex.mjs"
     }
   },
@@ -32,17 +38,23 @@
     "build:types": "node scripts/build-types.mjs",
     "build:lib": "bun run build:browser && bun run build:module && bun run build:types",
     "dev:lib": "bun build --watch src/index.js --format=iife --outfile=./public/dist/sprucex.js",
-    "test": "bun run build:lib && bun test && bun run verify:package",
-    "verify:package": "node scripts/verify-package.mjs"
+    "test": "bun run build:lib && bun run test:unit && bun run test:types && bun run verify:package",
+    "verify:package": "node scripts/verify-package.mjs",
+    "test:unit": "bun test ./tests/*.test.js",
+    "test:types": "tsc --project tests/types/tsconfig.json",
+    "test:browser": "playwright test",
+    "check:release": "bun run test && bun run build && bun run test:browser",
+    "prepack": "bun run test",
+    "prepublishOnly": "bun run check:release"
   },
   "devDependencies": {
     "bun-types": "latest",
-    "jsdom": "^28.1.0"
-  },
-  "dependencies": {
+    "jsdom": "^28.1.0",
     "@tailwindcss/cli": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^5.16.11",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "@playwright/test": "^1.63.0",
+    "typescript": "^5.9.3"
   }
 }

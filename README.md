@@ -9,7 +9,7 @@ SpruceX is a lightweight JavaScript micro-framework that blends:
 
 If you like shipping features straight from markup, this is your playground.
 
-> SpruceX is not complete yet and remains in active development. The `1.0.2`
+> SpruceX is not complete yet and remains in active development. The `1.0.3`
 > release line is current, so APIs, docs, and examples may continue
 > to evolve.
 
@@ -134,7 +134,18 @@ bun run preview
 
 # watch only library bundle
 bun run dev:lib
+
+# runtime, TypeScript consumers, and packed-package checks
+bun run test
+
+# install browsers once, then run the complete release checks
+bunx playwright install chromium firefox webkit
+bun run check:release
 ```
+
+CI runs the release checks on pushes and pull requests. `npm pack` rebuilds and
+validates the package; `npm publish` also requires the production site build and
+browser tests to pass. Contributors need Node.js 22.12+ and Bun 1.2.13+.
 
 ## Project Structure
 
@@ -173,7 +184,7 @@ If you open a PR, please include:
 
 ## Status
 
-Current release target in `package.json`: `1.0.2`
+Current release target in `package.json`: `1.0.3`
 
 SpruceX is still in active development and is not complete yet. Use the docs
 site, `public/LLM.txt`, and `CHANGELOG.md` as the current source of truth for

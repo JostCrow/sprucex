@@ -16,7 +16,7 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.tCOxz6tA.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.DxByCB85.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
                         <img
                             src="/logo.svg"
                             alt="SpruceX logo"
@@ -67,7 +67,7 @@ SpruceX is a lightweight HTML extension library that brings
                     navigation and DOM morphing directly to your markup. It sits
                     nicely between vanilla JS and heavier frameworks.
 </p> <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6"> <p class="text-sm text-amber-900 dark:text-amber-200">
-These docs track the <code>1.0.2</code> release line.
+These docs track the <code>1.0.3</code> release line.
                         SpruceX is still in active development and is not
                         complete yet, so examples and APIs may continue to
                         evolve.
@@ -568,7 +568,7 @@ Machine-readable runtime and plugin
                                             reference exposed at
 <code>/LLM.txt</code>.
 </p> <pre class="font-mono text-xs text-slate-200 bg-slate-900 rounded-lg p-4 max-h-80 overflow-auto border border-slate-800"><code>SpruceX LLM.txt
-Version: 1.0.2
+Version: 1.0.3
 Status: Active development, not complete yet.
 
 Overview
@@ -621,6 +621,9 @@ Expressions / Helpers
 Lifecycle / State Notes
 
 - State is deeply reactive, including nested objects and common array mutators.
+- Shared object references and cycles retain their identity within reactive state.
+- Loop rows support request actions, toggles, references, and integration plugins.
+- Keyed reorders retain row state, focused inputs, and text selection.
 - Component hooks supported in `sx-data`: `init()`, `mounted()`, `destroyed()`
 - A `watch` object may be defined in component state to react to property changes.
 - Global shared state is created with `SpruceX.store(name, value, { persist })`.
@@ -652,6 +655,10 @@ Request Notes
 - Aborted cancelable requests do not emit error events, do not write `sx-error-into`,
   and do not run `sx-revert-on-error`.
 - Cancelable requests are also aborted during component refresh and destroy.
+- HTML swaps initialize inserted directives and nested components. Fragments
+  inserted within loop rows inherit that row&#39;s scope.
+- Removing rows cleans up their model/global listeners, debounce timers,
+  polling, plugin contexts, and in-flight requests.
 
 Navigation / Morphing
 

@@ -1,4 +1,4 @@
-# SpruceX v1.0.2 - LLM Documentation
+# SpruceX v1.0.3 - LLM Documentation
 
 > Status: active development, not complete yet.
 
@@ -186,6 +186,8 @@ Listen to DOM events. Expression is executed (not evaluated).
 | `.prevent` | `event.preventDefault()` |
 | `.stop` | `event.stopPropagation()` |
 | `.self` | Only trigger if `event.target === event.currentTarget` |
+| `.window` | Listen on `window`, including events bubbling from descendants |
+| `.document` | Listen on `document`, including events bubbling from descendants |
 
 ```html
 <form sx-on:submit.prevent="save()">
@@ -265,7 +267,7 @@ Binds form input value to state property bidirectionally.
 <input type="number" sx-model.number="age">
 <input sx-model.trim="name">
 <input sx-model.lazy="notes">
-<input sx-model.debounce-ms="300" sx-model.debounce-ms="300">
+<input sx-model="search" sx-model.debounce-ms="300">
 ```
 
 **Combined modifiers:**
@@ -323,6 +325,12 @@ Iterate over arrays. Must be on a `<template>` element.
 
 **Default index variable:** `$index` (when not destructured)
 
+Loop rows support the same directives as ordinary markup, including request
+actions, `sx-toggle`, and integration plugins. Use `sx-key` on the template for
+reorderable lists. Plugins receive a row-scoped component context, so their
+expression helpers can read loop variables. Removing a row tears down that
+context and its listeners, timers, and requests.
+
 ```html
 <template sx-for="item in items">
   <span sx-text="$index"></span>
@@ -363,6 +371,10 @@ Cache expensive computations. Only re-evaluates when specified dependencies chan
 ## References
 
 ### `sx-ref`
+
+References belong to their nearest component. References created in loop rows
+are refreshed after list updates; if a name repeats, `$refs[name]` refers to the
+last matching element in DOM order. Use nested `sx-data` roots for row-local refs.
 
 Create references to DOM elements accessible via `$refs`.
 
@@ -722,6 +734,10 @@ Cancellation is scoped to the binding, not the URL. Aborted requests do not emit
 
 ### Response Events
 
+HTML swaps initialize inserted directives and nested `sx-data` components.
+Existing bindings are retained without adding duplicate listeners, and removed
+bindings are disposed. Fragments inserted inside loop rows inherit the row scope.
+
 Listen for request completion:
 
 ```html
@@ -891,7 +907,7 @@ SpruceX.config();
   <!-- Search -->
   <input
     type="search"
-    sx-model.trim.debounce-ms="300"
+    sx-model.trim="search" sx-model.debounce-ms="300"
     placeholder="Search products...">
 
   <!-- Loading State -->

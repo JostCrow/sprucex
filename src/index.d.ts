@@ -1,8 +1,20 @@
+export interface SpruceXComponent<State extends Record<string, unknown> = Record<string, unknown>> {
+  readonly root: HTMLElement;
+  readonly state: State;
+  readonly locals: Record<string, unknown>;
+  readonly refs: Record<string, Element>;
+  readonly isDestroyed: boolean;
+  evaluateExpressionOrLiteral(expression: string | null): unknown;
+  assignStateValue(expression: string | null, value: unknown): void;
+  scheduleUpdate(): void;
+  emit(name: string, detail?: unknown): void;
+}
+
 export interface SpruceXIntegration {
-  setup?(component: unknown): void;
-  scan?(component: unknown, el: Element): void;
-  update?(component: unknown): void;
-  teardown?(component: unknown): void;
+  setup?(component: SpruceXComponent): void;
+  scan?(component: SpruceXComponent, el: Element): void;
+  update?(component: SpruceXComponent): void;
+  teardown?(component: SpruceXComponent): void;
 }
 
 export interface SpruceXInspectEntry {
@@ -19,7 +31,10 @@ export interface SpruceXApi {
   ): T;
   removeStore(name: string): void;
   data(name: string): unknown;
-  data(name: string, factory: (...args: unknown[]) => unknown): unknown;
+  data<Args extends unknown[], Result>(
+    name: string,
+    factory: (...args: Args) => Result,
+  ): (...args: Args) => Result;
   inspect(): SpruceXInspectEntry[];
   config(newCfg?: Record<string, unknown>): void;
   navigate(url: string): Promise<void> | void;

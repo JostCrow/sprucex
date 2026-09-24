@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-24
+
+### Fixed
+
+- HTML request swaps initialize new directives and nested components while retaining existing component state.
+- Loop rows support network actions, toggles, references, and integration plugins through the same directive scanner as ordinary markup.
+- Removed rows dispose model and global event listeners, debounced writes, polling, and pending requests.
+- `.window` and `.document` event modifiers attach to the correct event targets.
+- Deep reactivity preserves shared object identity and cycles without rewriting raw objects.
+- Unchanged keyed rows no longer move in the DOM, and reordering preserves focused inputs and text selection.
+- TypeScript supports typed factory parameters, plugin component helpers, and separate ESM/CommonJS declaration entrypoints.
+- Corrected debounce examples and added executable checks for them.
+
+### Added
+
+- Regression tests for directive combinations, repeated cleanup, all HTML swap modes, and strict TypeScript consumers.
+- Chromium, Firefox, and WebKit tests for both browser bundles.
+- CI validation, package consumer checks, and build/test gates before packing and publishing.
+
+### Changed
+
+- Astro and Tailwind are development dependencies; installing SpruceX no longer installs the documentation build tools.
+
 ## [1.0.2] - 2026-09-24
 
 ### Fixed
