@@ -23,6 +23,8 @@ export interface SpruceXInspectEntry {
 }
 
 export interface SpruceXApi {
+  createSortableIntegration: typeof createSortableIntegration;
+  createNativeSortableAdapter: typeof createNativeSortableAdapter;
   init(): void;
   store<T extends Record<string, unknown>>(
     name: string,
@@ -57,6 +59,10 @@ export function initSpruceX(): void;
 export default SpruceX;
 
 declare global {
+  interface ElementEventMap {
+    'sprucex:sortable:before': CustomEvent<SortableChange>;
+    'sprucex:sortable:change': CustomEvent<SortableChange>;
+  }
   interface Window {
     SpruceX: SpruceXApi;
     SpruceXBoot?: {
@@ -65,3 +71,33 @@ declare global {
     };
   }
 }
+
+export interface SortableConfig {
+  items: Record<string, unknown>[];
+  /** Item property containing a unique string or number. Default: id. */
+  id?: string;
+  containerId: string;
+  group?: string;
+  disabled?: boolean;
+}
+export interface SortableChange {
+  readonly itemId: string;
+  readonly oldIndex: number;
+  readonly newIndex: number;
+  readonly fromContainerId: string;
+  readonly toContainerId: string;
+  readonly input: 'api' | 'keyboard' | 'pointer';
+}
+export interface SortableAdapterContext {
+  readonly el: Element;
+  items(): Element[];
+  containerId(): string;
+  /** Index in the destination array after removal. Returns false when rejected. */
+  move(itemId: string | number, toContainerId: string, newIndex: number, input?: SortableChange['input']): boolean;
+}
+export type SortableAdapter = (context: SortableAdapterContext) => {
+  update?(): void;
+  destroy(): void;
+};
+export function createSortableIntegration(options?: { adapter?: SortableAdapter }): SpruceXIntegration;
+export function createNativeSortableAdapter(): SortableAdapter;

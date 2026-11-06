@@ -23,6 +23,8 @@
   "files": [
     "lib",
     "public/dist",
+    "public/examples/sortable.html",
+    "docs/sortable.md",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

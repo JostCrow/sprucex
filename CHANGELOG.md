@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in accessible sortable integration with source-array updates, grouped transfers, cancelable events, keyboard move controls, focus restoration, and an optional plain JavaScript desktop drag adapter.
+- Sortable API/types, a runnable example, and unit/lifecycle/browser coverage.
+
 ## [1.0.3] - 2026-09-24
 
 ### Fixed
