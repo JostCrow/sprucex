@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>SpruceX accessible sorting</title>
+<style>body{font:1rem system-ui;max-width:48rem;margin:3rem auto;padding:1rem}section{padding:1rem;border:1px solid #aaa;margin:1rem 0}button{padding:.6rem;margin:.3rem}:focus-visible{outline:3px solid #174fc7}</style>
+<script src="../dist/sprucex.js"></script>
+<script>SpruceX.integration('sortable', SpruceX.createSortableIntegration({adapter:SpruceX.createNativeSortableAdapter()}));</script>
+<main sx-data="{rows:[{id:'revenue',label:'Revenue'},{id:'cost',label:'Cost'},{id:'profit',label:'Profit'}]}">
+<h1>Reorder metrics</h1>
+<p id="help">Drag a Move handle with a mouse, use Alt+Up/Down on it, or activate Up/Down with keyboard or touch.</p>
+<div sx-sortable="{items:rows,containerId:'metrics'}">
+<template sx-for="row in rows" sx-key="row.id">
+<section sx-bind:sx-sortable-item="row.id">
+<h2 sx-text="row.label"></h2>
+<button type="button" sx-sortable-handle sx-bind:aria-label="'Move '+row.label" aria-describedby="help">Move</button>
+<button type="button" sx-sortable-move="up" sx-bind:aria-label="'Move '+row.label+' up'">Up</button>
+<button type="button" sx-sortable-move="down" sx-bind:aria-label="'Move '+row.label+' down'">Down</button>
+</section>
+</template>
+</div>
+<p>Current source order: <output sx-text="rows.map(row => row.id).join(', ')"></output></p>
+</main>
+</html>

@@ -23,3 +23,20 @@ named.integration("uppercase", {
 SpruceX.store("counter", { count: initial }).count++;
 SpruceX.removeStore("counter");
 window.SpruceX = SpruceX;
+
+import { createSortableIntegration, createNativeSortableAdapter, type SortableChange, type SortableConfig } from 'sprucex';
+const sorting: SortableConfig = { items: [{ id: 1 }], containerId: 'rows' };
+named.integration('sortable', createSortableIntegration({ adapter: createNativeSortableAdapter() }));
+SpruceX.createSortableIntegration({ adapter(context) {
+  const accepted: boolean = context.move('one', sorting.containerId, 0, 'keyboard');
+  // @ts-expect-error Invalid input capability.
+  context.move('one', 'rows', 0, 'magic');
+  return { update() { context.items(); }, destroy() { void accepted; } };
+} });
+const change: SortableChange = { itemId:'one', oldIndex:0, newIndex:1, fromContainerId:'a', toContainerId:'a', input:'api' };
+// @ts-expect-error Event positions are readonly.
+change.newIndex = 2;
+document.createElement('div').addEventListener('sprucex:sortable:change', event => {
+  const position: number = event.detail.newIndex;
+  void position;
+});

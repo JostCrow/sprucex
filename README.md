@@ -193,3 +193,7 @@ what is implemented.
 ## License
 
 MIT. See `LICENSE`.
+
+### Optional accessible sorting
+
+Register `SpruceX.createSortableIntegration()` through `SpruceX.integration('sortable', …)` for source-array reordering in keyed `sx-for` lists. Native move buttons, keyboard shortcuts, focus restoration, cancelable events, configured groups, and an optional desktop drag adapter are supported. See the [sortable API and accessibility contract](docs/sortable.md) and [plain JavaScript example](public/examples/sortable.html).

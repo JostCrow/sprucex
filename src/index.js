@@ -1,3 +1,5 @@
+import { createSortableIntegration, createNativeSortableAdapter } from './integrations/sortable.js';
+export { createSortableIntegration, createNativeSortableAdapter } from './integrations/sortable.js';
 import {
   ATTR_DATA,
   ATTR_PAGE,
@@ -114,6 +116,8 @@ function refreshAllMountedComponents() {
 }
 
 export const SpruceX = {
+  createSortableIntegration,
+  createNativeSortableAdapter,
   init: initSpruceX,
   store: initStore,
   removeStore,
