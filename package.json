@@ -1,6 +1,6 @@
 {
   "name": "sprucex",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "module": "lib/sprucex.mjs",
   "main": "lib/sprucex.cjs",
   "types": "lib/sprucex.d.ts",

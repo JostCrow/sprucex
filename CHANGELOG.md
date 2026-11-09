@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-09
+
 ### Added
 
-- Opt-in accessible sortable integration with source-array updates, grouped transfers, cancelable events, keyboard move controls, focus restoration, and an optional plain JavaScript desktop drag adapter.
-- Sortable API/types, a runnable example, and unit/lifecycle/browser coverage.
+- Opt-in sortable integration via `createSortableIntegration()`, available as a named package export and on `SpruceX`. Register it with `SpruceX.integration('sortable', …)` to enable sorting in keyed `sx-for` lists.
+- Source-array reordering and transfers between containers with matching groups, with validation for stable item IDs, destinations, disabled containers, and no-op moves.
+- Native move buttons, Alt+ArrowUp/ArrowDown shortcuts, polite status announcements, and focus restoration after moves, including transfers between containers.
+- Cancelable `sprucex:sortable:before` and post-move `sprucex:sortable:change` events for validation and persistence hooks.
+- Optional `createNativeSortableAdapter()` for desktop HTML drag and drop, plus an adapter API for custom input integrations. Native move buttons provide the supported touch path.
+- TypeScript declarations, sortable API and accessibility documentation, a runnable plain JavaScript example, and unit, lifecycle, and browser regression coverage.
+
+The sortable integration is inactive until registered and adds no runtime dependencies. See [the sortable guide](docs/sortable.md) for markup requirements, adapter lifecycle, and accessibility limitations.
 
 ## [1.0.3] - 2026-09-24
 

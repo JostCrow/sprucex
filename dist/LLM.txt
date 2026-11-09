@@ -1,5 +1,5 @@
 SpruceX LLM.txt
-Version: 1.0.3
+Version: 1.1.0
 Status: Active development, not complete yet.
 
 Overview

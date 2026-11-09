@@ -1,4 +1,4 @@
-# SpruceX v1.0.3 - LLM Documentation
+# SpruceX v1.1.0 - LLM Documentation
 
 > Status: active development, not complete yet.
 

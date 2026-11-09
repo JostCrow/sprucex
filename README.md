@@ -9,7 +9,7 @@ SpruceX is a lightweight JavaScript micro-framework that blends:
 
 If you like shipping features straight from markup, this is your playground.
 
-> SpruceX is not complete yet and remains in active development. The `1.0.3`
+> SpruceX is not complete yet and remains in active development. The `1.1.0`
 > release line is current, so APIs, docs, and examples may continue
 > to evolve.
 
@@ -184,7 +184,7 @@ If you open a PR, please include:
 
 ## Status
 
-Current release target in `package.json`: `1.0.3`
+Current release target in `package.json`: `1.1.0`
 
 SpruceX is still in active development and is not complete yet. Use the docs
 site, `public/LLM.txt`, and `CHANGELOG.md` as the current source of truth for
