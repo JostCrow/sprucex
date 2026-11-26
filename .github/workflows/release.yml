@@ -1,0 +1,56 @@
+name: Release to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.13
+
+      - name: Verify release tag matches package.json version
+        if: github.event_name == 'release'
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "Release tag ($GITHUB_REF_NAME) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            npm publish --provenance --access public
+          else
+            # Supports npm Trusted Publishing (OIDC) without a stored NPM_TOKEN
+            npm publish --provenance --access public
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: release-browser-test-results
+          path: test-results/
+          retention-days: 7
