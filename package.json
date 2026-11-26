@@ -1,6 +1,6 @@
 {
   "name": "sprucex",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "module": "lib/sprucex.mjs",
   "main": "lib/sprucex.cjs",
   "types": "lib/sprucex.d.ts",
@@ -18,6 +18,42 @@
       },
       "types": "./lib/sprucex.d.ts",
       "default": "./lib/sprucex.mjs"
+    },
+    "./core": {
+      "import": {
+        "types": "./lib/core.d.mts",
+        "default": "./lib/core.mjs"
+      },
+      "require": {
+        "types": "./lib/core.d.cts",
+        "default": "./lib/core.cjs"
+      },
+      "types": "./lib/core.d.ts",
+      "default": "./lib/core.mjs"
+    },
+    "./sortable": {
+      "import": {
+        "types": "./lib/sortable.d.mts",
+        "default": "./lib/sortable.mjs"
+      },
+      "require": {
+        "types": "./lib/sortable.d.cts",
+        "default": "./lib/sortable.cjs"
+      },
+      "types": "./lib/sortable.d.ts",
+      "default": "./lib/sortable.mjs"
+    },
+    "./gridstack": {
+      "import": {
+        "types": "./lib/gridstack.d.mts",
+        "default": "./lib/gridstack.mjs"
+      },
+      "require": {
+        "types": "./lib/gridstack.d.cts",
+        "default": "./lib/gridstack.cjs"
+      },
+      "types": "./lib/gridstack.d.ts",
+      "default": "./lib/gridstack.mjs"
     }
   },
   "files": [
@@ -36,7 +72,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "build:browser": "bun build src/index.js --format=iife --outfile=./public/dist/sprucex.js && bun build src/index.js --format=iife --minify --outfile=./public/dist/sprucex.min.js",
-    "build:module": "bun build src/index.js --format=esm --outfile=./lib/sprucex.mjs && bun build src/index.js --format=cjs --outfile=./lib/sprucex.cjs",
+    "build:module": "bun build src/index.js --format=esm --outfile=./lib/sprucex.mjs && bun build src/index.js --format=cjs --outfile=./lib/sprucex.cjs && bun build src/core-entry.js --format=esm --outfile=./lib/core.mjs && bun build src/core-entry.js --format=cjs --outfile=./lib/core.cjs && bun build src/integrations/sortable.js --format=esm --outfile=./lib/sortable.mjs && bun build src/integrations/sortable.js --format=cjs --outfile=./lib/sortable.cjs && bun build src/integrations/gridstack.js --format=esm --outfile=./lib/gridstack.mjs && bun build src/integrations/gridstack.js --format=cjs --outfile=./lib/gridstack.cjs",
     "build:types": "node scripts/build-types.mjs",
     "build:lib": "bun run build:browser && bun run build:module && bun run build:types",
     "dev:lib": "bun build --watch src/index.js --format=iife --outfile=./public/dist/sprucex.js",

@@ -6,1494 +6,718 @@ const llmTxt = readFileSync(
     new URL("../../public/LLM.txt", import.meta.url),
     "utf-8",
 );
+
+const directiveGroups = [
+    {
+        id: "core-binding",
+        title: "Core State & Binding",
+        rows: [
+            ["sx-data", "Defines a reactive component scope from an object literal, function, or named SpruceX.data() factory. Own read-only getters are automatically memoized."],
+            ["sx-text", "Evaluates an expression and sets element textContent (no-op guarded)."],
+            ["sx-html", "Evaluates an expression and sets element innerHTML (no-op guarded so unchanged subtrees keep DOM identity)."],
+            ["sx-show", "Toggles visibility via display: none while preserving existing inline display values (e.g. flex/grid)."],
+            ["sx-bind:<attr>", "Dynamically binds attributes. Preserves aria-*=\"false\" and syncs live DOM properties (value, checked, indeterminate)."],
+            ["sx-class", "Conditionally toggles CSS classes via object or string syntax while preserving static HTML classes."],
+            ["sx-style", "Dynamically binds inline styles via object (supports camelCase and --css-vars) or string."],
+            ["sx-cloak", "Removed automatically after initial render; pair with [sx-cloak] { display: none !important; } to prevent FOUC."],
+            ["sx-init", "Runs a one-time initialization statement on the element (with access to $el, $parent, $nextTick)."],
+            ["sx-effect", "Fine-grained reactive side effect on an element; re-runs only when dependencies it reads change."],
+            ["sx-model", "Two-way binding for inputs, textareas, checkboxes, radios, and single/multiple <select>. Modifiers: .trim, .number, .boolean, .lazy, .debounce.<ms>, .debounce-ms."],
+            ["sx-ref", "Registers the element in $refs under the given name."],
+            ["sx-toggle", "Toggles a boolean property in state on click."],
+            ["sx-init-data", "Embedded <script sx-init-data type=\"application/json\"> payload for identifier-style sx-data roots."],
+            ["sx-local", "Persists component state to localStorage under the given key (microtask-batched)."],
+            ["sx-error-fallback", "Fallback expression rendered when a binding expression throws."],
+        ],
+    },
+    {
+        id: "flow-control",
+        title: "Control Flow & Performance",
+        rows: [
+            ["sx-if", "Conditionally mounts and tears down a <template> subtree—including nested sx-data components and custom directives."],
+            ["sx-for", "Iterates over an array on <template> (e.g. item in items or (item, i) in items). Pair with sx-key for minimal keyed reconciliation."],
+            ["sx-key", "Stable item identity for keyed sx-for reordering and DOM morphing."],
+            ["sx-memo", "Explicitly memoizes sx-text or sx-html based on a dependency key array."],
+            ["sx-lazy", "Defers component initialization until the element intersects the viewport (also works inside swaps and loops)."],
+            ["sx-preserve", "Skips modifying this element during DOM morphing (keeps live inputs/media untouched)."],
+        ],
+    },
+    {
+        id: "events",
+        title: "Events & Magics",
+        rows: [
+            ["sx-on:<event>", "Attaches an event listener (lazily delegated). Modifiers: .prevent, .stop, .self, .once, .outside, .window, .document, .passive, .capture, .debounce.<ms>, .throttle.<ms>."],
+            ["Keyboard modifiers", "Combine system keys (.ctrl, .alt, .shift, .meta, .cmd) with key names or aliases (.enter, .esc, .space, .up, .down, .left, .right, .del). Example: sx-on:keydown.ctrl.enter."],
+            ["Expression magics", "Available in expressions: $event, $el, $refs, $store(name), $emit(name, detail), $dispatch(name, detail), $nextTick(fn?), $parent, and $index."],
+        ],
+    },
+    {
+        id: "network",
+        title: "Network & Hypermedia (HTMX-style)",
+        rows: [
+            ["sx-get / post / put / patch / delete", "Declarative HTTP request method and URL template."],
+            ["sx-trigger", "Trigger event(s) (default: click, forms use submit). Supports load, input.debounce.300, and cross-component event from:window|document|#selector."],
+            ["sx-trigger-debounce", "Fallback debounce duration (ms) applied to all triggers on the element."],
+            ["sx-target", "CSS selector for the DOM target where HTML responses swap (defaults to triggering element)."],
+            ["sx-swap", "Swap strategy: innerHTML, outerHTML, before, after, prepend, append, morph, delete, or none."],
+            ["sx-select", "CSS selector extracted from an HTML response before swapping."],
+            ["sx-push-url / sx-replace-url", "Updates browser history URL on successful requests (true uses the request URL, or pass a custom URL)."],
+            ["sx-vars", "Object of template variables interpolated safely via encodeURIComponent into ${key} tokens."],
+            ["sx-params", "Object serialized cleanly as query parameters via URLSearchParams (skips null/undefined/empty values)."],
+            ["sx-body / sx-body-type", "Request body expression and optional serializer override (json or form)."],
+            ["sx-headers / sx-include", "Dynamic per-request headers object; sx-include merges extra inputs/forms into FormData."],
+            ["sx-json-into / .shallow", "Parses JSON response into a state path. Use sx-json-into.shallow to store large datasets unproxied via markRaw."],
+            ["sx-loading-into / sx-error-into", "State paths updated during in-flight requests and on error (includes HTTP status and parsed response body)."],
+            ["sx-disable-while-request / sx-text-while-request", "Disables controls and temporarily swaps button text while a request is running."],
+            ["sx-confirm / sx-cancel-previous", "Prompts window.confirm before sending; sx-cancel-previous aborts earlier in-flight requests on the same binding."],
+            ["sx-optimistic / sx-revert-on-error", "Applies immediate optimistic state mutation and reverts if the request fails."],
+            ["sx-poll / sx-poll-while / sx-poll-background", "Visibility-aware polling interval (pauses when tab is hidden unless sx-poll-background is set)."],
+        ],
+    },
+    {
+        id: "navigation-integrations",
+        title: "Navigation, Animation & Integrations",
+        rows: [
+            ["sx-page / sx-page-ignore / sx-page-transition", "Enables SPA navigation via DOM morphing with scroll restoration, abortable fetches, per-link opt-out, and optional View Transitions."],
+            ["sx-boost / sx-boost-on", "Prefetches internal links on hover/focus (set sx-boost=\"false\" on a link to opt out)."],
+            ["sx-animate", "Auto-animates list/container children using @formkit/auto-animate."],
+            ["sx-gridstack / option:* / on-*", "Declarative GridStack dashboard initialization, options, and event-to-state binding (preserved across partial swaps)."],
+            ["sx-sortable (opt-in)", "Accessible source-array reordering for keyed sx-for lists via SpruceX.createSortableIntegration()."],
+        ],
+    },
+];
 ---
 
-<Layout title="SpruceX - Documentation">
-    <section
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
-    >
-        <!-- Sidebar -->
-        <div class="hidden lg:block space-y-8 sticky top-2 h-fit">
-            <h2
-                class="font-bold text-slate-900 dark:text-white uppercase
-            tracking-wider text-sm"
-            >
-                Contents
-            </h2>
+<Layout title="SpruceX — Reactive HTML with a Tiny Ego">
+    <!-- Hero -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10 lg:pt-16 lg:pb-14">
+        <div class="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+            <div class="lg:col-span-6 space-y-6">
+                <div class="flex flex-wrap gap-2">
+                    <span class="feature-pill">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Zero dependencies
+                    </span>
+                    <span class="feature-pill">Fine-grained reactivity</span>
+                    <span class="feature-pill">Shadow DOM &amp; CSP ready</span>
+                </div>
+
+                <h1 class="text-4xl sm:text-5xl lg:text-[3.25rem] font-bold leading-[1.08] tracking-tight">
+                    Reactive HTML with a
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-300">
+                        tiny ego.
+                    </span>
+                </h1>
+
+                <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                    SpruceX blends Alpine-style declarative reactivity with HTMX-style hypermedia
+                    requests, fine-grained computed caching, and element-scoped widget directives—built
+                    to scale from simple pages to data-heavy BI dashboards.
+                </p>
+
+                <div
+                    class="flex flex-wrap items-center gap-3 pt-1"
+                    sx-data="{ copied: false, copyInstall() { navigator.clipboard?.writeText('npm install sprucex'); this.copied = true; setTimeout(() => this.copied = false, 1600); } }"
+                >
+                    <a
+                        is:raw
+                        href="/examples"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5"
+                    >
+                        <span>Explore 15 Live Examples</span>
+                        <span aria-hidden="true">→</span>
+                    </a>
+                    <a
+                        href="#attributes"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold hover:border-emerald-500 transition-colors"
+                    >
+                        Attribute Reference
+                    </a>
+                    <button
+                        type="button"
+                        sx-on:click="copyInstall()"
+                        class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/90 font-mono text-xs text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-colors"
+                    >
+                        <span class="text-emerald-600 dark:text-emerald-400">$</span>
+                        <span>npm install sprucex</span>
+                        <span
+                            class="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"
+                            sx-text="copied ? 'Copied!' : 'Copy'"
+                        >
+                            Copy
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Hero Code + Live Preview -->
             <div
-                class="space-y-3 text-sm border-l border-slate-200
-            dark:border-slate-800"
+                class="lg:col-span-6 space-y-3"
+                sx-data="{
+                    tab: 'markup',
+                    count: 3,
+                    region: 'EU',
+                    copiedTab: false,
+                    copyActive() {
+                        const code = this.$refs['code-' + this.tab]?.textContent || '';
+                        navigator.clipboard?.writeText(code.trim());
+                        this.copiedTab = true;
+                        setTimeout(() => this.copiedTab = false, 1500);
+                    }
+                }"
             >
-                <a
-                    href="#introduction"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >1. Introduction</a
-                >
-                <a
-                    href="#attributes"
-                    class="block pl-4
-            py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >2. Attributes Reference</a
-                >
-                <a
-                    href="#spa"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >3. SPA Navigation</a
-                >
-                <a
-                    href="#animation"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >4. Auto-Animate</a
-                >
-                <a
-                    href="#holiday-theme"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >5. Holiday Themes</a
-                >
-                <a
-                    href="#plugins"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >6. Plugins</a
-                >
-                <a
-                    href="#llm-txt"
-                    class="block
-            pl-4 py-1 border-l-2 border-transparent hover:border-brand-500
-            hover:text-brand-600 dark-hover:text-brand-400 transition-colors"
-                    >7. LLM.txt</a
-                >
+                <div class="code-window">
+                    <div class="code-window-bar">
+                        <div class="flex items-center gap-1">
+                            <button
+                                type="button"
+                                sx-on:click="tab = 'markup'"
+                                class="tab-btn"
+                                sx-class="{ 'tab-btn--active': tab === 'markup' }"
+                            >
+                                HTML
+                            </button>
+                            <button
+                                type="button"
+                                sx-on:click="tab = 'directive'"
+                                class="tab-btn"
+                                sx-class="{ 'tab-btn--active': tab === 'directive' }"
+                            >
+                                Chart Directive
+                            </button>
+                            <button
+                                type="button"
+                                sx-on:click="tab = 'esm'"
+                                class="tab-btn"
+                                sx-class="{ 'tab-btn--active': tab === 'esm' }"
+                            >
+                                Tree-shakeable ESM
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            sx-on:click="copyActive()"
+                            class="copy-btn"
+                            sx-text="copiedTab ? 'Copied' : 'Copy'"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <pre sx-show="tab === 'markup'"><code sx-ref="code-markup" is:raw>&lt;script src="/dist/sprucex.min.js"&gt;&lt;/script&gt;
+
+&lt;div sx-data="{ count: 3, region: 'EU' }"&gt;
+  &lt;button sx-on:click="count++"&gt;Count: &lt;span sx-text="count"&gt;&lt;/span&gt;&lt;/button&gt;
+  &lt;button
+    sx-get="/api/metrics"
+    sx-params="{ region, limit: count }"
+    sx-json-into.shallow="rows"&gt;
+    Fetch Raw Dataset
+  &lt;/button&gt;
+&lt;/div&gt;</code></pre>
+
+                    <pre sx-show="tab === 'directive'" style="display: none"><code sx-ref="code-directive" is:raw>SpruceX.directive("chart", (el, { evaluate, effect, cleanup }) =&gt; {
+  const chart = createChart(el, SpruceX.toRaw(evaluate()));
+
+  // Re-runs ONLY when this chart's data changes
+  effect(() =&gt; chart.update(SpruceX.toRaw(evaluate())));
+
+  // Survives partial HTML swaps; runs only when el is removed
+  cleanup(() =&gt; chart.destroy());
+});</code></pre>
+
+                    <pre sx-show="tab === 'esm'" style="display: none"><code sx-ref="code-esm" is:raw>import SpruceX from "sprucex/core";
+import { createSortableIntegration } from "sprucex/sortable";
+import { createGridStackIntegration } from "sprucex/gridstack";
+
+SpruceX.config({ baseUrl: "/api", credentials: "include" });
+SpruceX.integration("sortable", createSortableIntegration());
+SpruceX.init(shadowRoot); // works in Document or ShadowRoot</code></pre>
+                </div>
+
+                <!-- Live mini demo strip right underneath -->
+                <div class="doc-card p-3.5 flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Live Preview</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            sx-on:click="count++"
+                            class="px-3 py-1 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition-colors"
+                        >
+                            Count: <span sx-text="count"></span> (+1)
+                        </button>
+                        <select
+                            sx-model="region"
+                            class="px-2.5 py-1 text-xs font-medium"
+                        >
+                            <option value="EU">EU</option>
+                            <option value="US">US</option>
+                            <option value="APAC">APAC</option>
+                        </select>
+                        <code class="text-xs" sx-text="'/api/metrics?region=' + region + '&limit=' + count"></code>
+                    </div>
+                </div>
             </div>
         </div>
+    </section>
 
-        <!-- Main Content -->
-        <div class="lg:col-span-3 space-y-16">
-            <!-- 1. Introduction -->
-            <div id="introduction" class="scroll-mt-24">
-                <h3
-                    class="text-2xl font-bold mb-4 flex items-center
-                gap-2 text-brand-600 dark:text-brand-400"
-                >
-                    <span class="text-slate-400 dark:text-slate-600 font-normal"
-                        >1.</span
+    <!-- Main Documentation Body -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <!-- Sticky TOC Sidebar -->
+        <aside class="hidden lg:block lg:col-span-3">
+            <div class="sticky space-y-6">
+                <div>
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                        On This Page
+                    </h2>
+                    <nav class="space-y-3 text-sm border-l">
+                        <a href="#getting-started" class="block border-l-2 border-transparent">1. Getting Started</a>
+                        <a href="#attributes" class="block border-l-2 border-transparent">2. Attributes Reference</a>
+                        <a href="#reactivity" class="block border-l-2 border-transparent">3. Reactivity &amp; BI Datasets</a>
+                        <a href="#plugins" class="block border-l-2 border-transparent">4. Directives &amp; Plugins</a>
+                        <a href="#config-portability" class="block border-l-2 border-transparent">5. Config, CSP &amp; Shadow DOM</a>
+                        <a href="#spa" class="block border-l-2 border-transparent">6. SPA Navigation &amp; Morph</a>
+                        <a href="#animation" class="block border-l-2 border-transparent">7. Auto-Animate &amp; Boot</a>
+                        <a href="#holiday-theme" class="block border-l-2 border-transparent">8. Holiday Themes</a>
+                        <a href="#llm-txt" class="block border-l-2 border-transparent">9. LLM.txt</a>
+                    </nav>
+                </div>
+
+                <div class="doc-card-muted p-4 space-y-2.5">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        Interactive Playground
+                    </p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Test all 15 runnable demos including a live SVG chart directive, auto-memoized getters, and Shadow DOM.
+                    </p>
+                    <a
+                        is:raw
+                        href="/examples"
+                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
                     >
-                    Introduction
-                </h3>
-                <p
-                    class="text-slate-600 dark:text-slate-400 leading-relaxed mb-6"
-                >
-                    SpruceX is a lightweight HTML extension library that brings
-                    reactivity, state management, and modern features like SPA
-                    navigation and DOM morphing directly to your markup. It sits
-                    nicely between vanilla JS and heavier frameworks.
+                        Open Examples →
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Documentation Content -->
+        <div class="lg:col-span-9 space-y-20">
+            <!-- 1. Getting Started -->
+            <section id="getting-started" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">01 · Overview</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Getting Started</h2>
+                </div>
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Drop a single script tag into server-rendered HTML or import tree-shakeable ESM
+                    modules. SpruceX auto-initializes on <code>DOMContentLoaded</code> (or explicitly
+                    via <code>SpruceX.init(root)</code> when using <code>sprucex/core</code>).
                 </p>
-                <div
-                    class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6"
-                >
-                    <p class="text-sm text-amber-900 dark:text-amber-200">
-                        These docs track the <code>1.1.0</code> release line.
-                        SpruceX is still in active development and is not
-                        complete yet, so examples and APIs may continue to
-                        evolve.
-                    </p>
-                </div>
-                <div
-                    class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800"
-                >
-                    <p class="font-mono text-sm text-slate-300 overflow-x-auto">
-                        <code is:raw
-                            >&lt;script
-                            src="/dist/sprucex.js"&gt;&lt;/script&gt;
-                            &lt;div sx-data="{ count: 0 }"&gt; &lt;button
-                            sx-on:click="count++"&gt;Increment&lt;/button&gt;
-                            &lt;span sx-text="count"&gt;&lt;/span&gt;
-                            &lt;/div&gt;</code
-                        >
-                    </p>
-                </div>
-            </div>
 
-            <!-- 2. Attributes Reference -->
-            <div class="lg:col-span-3 space-y-16">
-                <h3
-                    class="text-2xl font-bold mb-8 flex items-center gap-2
-    text-brand-600 dark:text-brand-400"
-                >
-                    <span
-                        class="text-slate-400 dark:text-slate-600
-                    font-normal"
-                        >2.</span
-                    > Attributes Reference
-                </h3>
-                <div class="prose dark:prose-invert max-w-none space-y-12">
-                    <!-- Core State & Binding -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4 text-slate-800 dark:text
-                    -slate-200"
-                        >
-                            Core State & Binding
-                        </h4>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr
-                                    class="border-b border-slate-200 dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48 font-semibold text-slate-900
-                    dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2
-                    font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-data
-                                    </td>
-                                    <td class="py-2">
-                                        Defines the component scope with an
-                                        object literal or function.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                    border-slate-100 dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2
-                    font-mono text-brand-600"
-                                    >
-                                        sx-text
-                                    </td>
-                                    <td class="py-2">
-                                        Evaluates an expression and sets the
-                                        element's <code>textContent</code>.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                    border-slate-100 dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2
-                    font-mono text-brand-600"
-                                    >
-                                        sx-html
-                                    </td>
-                                    <td class="py-2">
-                                        Evaluates an expression and sets the
-                                        element's <code>innerHTML</code>.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                    border-slate-100 dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2
-                    font-mono text-brand-600"
-                                    >
-                                        sx-show
-                                    </td>
-                                    <td class="py-2">
-                                        Toggles the element's visibility
-                                        (display: none) based on truthiness.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100
-                    dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                    text-brand-600"
-                                    >
-                                        sx-bind:&lt;attr&gt;
-                                    </td>
-                                    <td class="py-2">
-                                        Binds an attribute value to a JS
-                                        expression (e.g., <code
-                                            >sx-bind:src="url"</code
-                                        >).
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-class
-                                    </td>
-                                    <td class="py-2">
-                                        Conditionally applies CSS classes based
-                                        on an object or string.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                    border-slate-100 dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2
-                    font-mono text-brand-600"
-                                    >
-                                        sx-model
-                                    </td>
-                                    <td class="py-2">
-                                        Two-way data binding for inputs.
-                                        Modifiers: <code>.number</code>, <code
-                                            >.trim</code
-                                        >, <code>.lazy</code>, <code
-                                            >.debounce-ms</code
-                                        >.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100
-                    dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                    text-brand-600"
-                                    >
-                                        sx-ref
-                                    </td>
-                                    <td class="py-2">
-                                        Registers the element in <code
-                                            >$refs</code
-                                        > with the given name.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100
-                    dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                    text-brand-600"
-                                    >
-                                        sx-toggle
-                                    </td>
-                                    <td class="py-2">
-                                        Toggles a boolean property in the state
-                                        on click.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-init-data
-                                    </td>
-                                    <td class="py-2">
-                                        Embedded JSON script for identifier-based
-                                        <code>sx-data</code> roots.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-local
-                                    </td>
-                                    <td class="py-2">
-                                        Persists component state to localStorage
-                                        using the value as the key.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Logic & Flow Control -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4 text-slate-800
-                    dark:text-slate-200"
-                        >
-                            Logic & Flow Control
-                        </h4>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr
-                                    class="border-b border-slate-200 dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48 font-semibold text-slate-900
-                    dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2
-                    font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-for
-                                    </td>
-                                    <td class="py-2">
-                                        Iterates over an array (e.g., <code
-                                            >item in items</code
-                                        >) on a <code>&lt;template&gt;</code>.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-memo
-                                    </td>
-                                    <td class="py-2">
-                                        Memoizes <code>sx-text</code> or
-                                        <code>sx-html</code> based on a dependency
-                                        array.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Event Handling -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4
-                        text-slate-800 dark:text-slate-200"
-                        >
-                            Event Handling
-                        </h4>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr
-                                    class="border-b border-slate-200
-                        dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48
-                        font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2 font-semibold
-                        text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-on:&lt;event&gt;
-                                    </td>
-                                    <td class="py-2">
-                                        Attaches an event listener. Modifiers: <code
-                                            >.prevent</code
-                                        >, <code>.stop</code>, <code>.self</code
-                                        >, <code>.window</code>, <code
-                                            >.document</code
-                                        >, key names.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Network & Requests -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4
-                        text-slate-800 dark:text-slate-200"
-                        >
-                            Network & Requests
-                        </h4>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr
-                                    class="border-b border-slate-200
-                        dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48
-                        font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2 font-semibold
-                        text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-get/post/put/delete
-                                    </td>
-                                    <td class="py-2">
-                                        Defines the URL and method for the
-                                        request.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-trigger
-                                    </td>
-                                    <td class="py-2">
-                                        Event that triggers the request
-                                        (default: "click", forms use "submit").
-                                        Supports modifier syntax like <code
-                                            >input.debounce.300</code
-                                        >.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-trigger-debounce
-                                    </td>
-                                    <td class="py-2">
-                                        Debounces request triggers by the
-                                        provided milliseconds.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-target
-                                    </td>
-                                    <td class="py-2">
-                                        CSS selector indicating where to swap
-                                        the response.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-swap
-                                    </td>
-                                    <td class="py-2">
-                                        Swap method: <code>innerHTML</code>, <code
-                                            >outerHTML</code
-                                        >,
-                                        <code>before</code>, <code>after</code>,
-                                        <code>prepend</code>, <code>append</code
-                                        >,
-                                        <code>morph</code>.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-vars
-                                    </td>
-                                    <td class="py-2">
-                                        Object defining variables for the URL
-                                        template.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-body
-                                    </td>
-                                    <td class="py-2">
-                                        Request body from
-                                        expression/object/string.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-body-type
-                                    </td>
-                                    <td class="py-2">
-                                        Body serializer strategy:
-                                        <code>json</code> or <code>form</code>.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-headers
-                                    </td>
-                                    <td class="py-2">
-                                        Expression object that maps request
-                                        headers.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-include
-                                    </td>
-                                    <td class="py-2">
-                                        Selector for other inputs/forms to
-                                        include in the request body.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-loading-into
-                                    </td>
-                                    <td class="py-2">
-                                        State target toggled <code
-                                            >true/false</code
-                                        >
-                                        during the request lifecycle.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-error-into
-                                    </td>
-                                    <td class="py-2">
-                                        State target for serialized request
-                                        errors.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-disable-while-request
-                                    </td>
-                                    <td class="py-2">
-                                        Disables form controls while the request
-                                        is in flight.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-text-while-request
-                                    </td>
-                                    <td class="py-2">
-                                        Temporary button text while request is
-                                        pending.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-confirm
-                                    </td>
-                                    <td class="py-2">
-                                        Confirmation message before request,
-                                        including native form submit.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-cancel-previous
-                                    </td>
-                                    <td class="py-2">
-                                        Aborts the previous in-flight request for
-                                        the same binding before starting a new
-                                        one.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-json-into
-                                    </td>
-                                    <td class="py-2">
-                                        Parses JSON response into the specified
-                                        state path.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-optimistic
-                                    </td>
-                                    <td class="py-2">
-                                        Expression to update state immediately
-                                        before request.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-revert-on-error
-                                    </td>
-                                    <td class="py-2">
-                                        Expression to revert optimistic update
-                                        if request fails.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100
-                        dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                        text-brand-600"
-                                    >
-                                        sx-poll
-                                    </td>
-                                    <td class="py-2">
-                                        Polling interval in milliseconds.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-poll-while
-                                    </td>
-                                    <td class="py-2">
-                                        Expression that must be true for polling
-                                        to continue.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Navigation & Performance -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4
-                        text-slate-800 dark:text-slate-200"
-                        >
-                            Navigation & Performance
-                        </h4>
-                        <table
-                            class="w-full text-left
-                        border-collapse"
-                        >
-                            <thead>
-                                <tr
-                                    class="border-b
-                        border-slate-200 dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48 font-semibold text-slate-900
-                        dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2
-                        font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100
-                        dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                        text-brand-600"
-                                    >
-                                        sx-page
-                                    </td>
-                                    <td class="py-2">
-                                        Marks the container for SPA navigation
-                                        updates.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100
-                        dark:border-slate-800"
-                                >
-                                    <td
-                                        class="py-2 font-mono
-                        text-brand-600"
-                                    >
-                                        sx-boost
-                                    </td>
-                                    <td class="py-2">
-                                        Enables link prefetching on hover/focus.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-boost-on
-                                    </td>
-                                    <td class="py-2">
-                                        Events to trigger boost (default:
-                                        "mouseenter").
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-lazy
-                                    </td>
-                                    <td class="py-2">
-                                        Delays component init until it enters
-                                        the viewport.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b
-                        border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-animate
-                                    </td>
-                                    <td class="py-2">
-                                        Auto-animates children using <code
-                                            >@formkit/auto-animate</code
-                                        >.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-preserve
-                                    </td>
-                                    <td class="py-2">
-                                        Prevents element from being modified
-                                        during morphing.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-key
-                                    </td>
-                                    <td class="py-2">
-                                        Unique key for identifying elements
-                                        during lists/morphing.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Miscellaneous -->
-                    <div>
-                        <h4
-                            class="text-xl font-semibold mb-4
-                        text-slate-800 dark:text-slate-200"
-                        >
-                            Miscellaneous
-                        </h4>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr
-                                    class="border-b border-slate-200
-                        dark:border-slate-700"
-                                >
-                                    <th
-                                        class="py-2 w-48
-                        font-semibold text-slate-900 dark:text-slate-100"
-                                    >
-                                        Attribute
-                                    </th>
-                                    <th
-                                        class="py-2 font-semibold
-                        text-slate-900 dark:text-slate-100"
-                                    >
-                                        Description
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-sm">
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-error-fallback
-                                    </td>
-                                    <td class="py-2">
-                                        Content to display if an expression
-                                        error occurs.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-gridstack
-                                    </td>
-                                    <td class="py-2">
-                                        Initializes a GridStack instance from an
-                                        options expression.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-gridstack-options
-                                    </td>
-                                    <td class="py-2">
-                                        Additional GridStack options expression.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-gridstack-option:&lt;name&gt;
-                                    </td>
-                                    <td class="py-2">
-                                        Per-option GridStack attribute mapping.
-                                    </td>
-                                </tr>
-                                <tr
-                                    class="border-b border-slate-100 dark:border-slate-800"
-                                >
-                                    <td class="py-2 font-mono text-brand-600">
-                                        sx-gridstack-on-change / ...
-                                    </td>
-                                    <td class="py-2">
-                                        Writes GridStack event payloads into
-                                        state targets.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div
-                        class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
-                    >
-                        <h4
-                            class="font-bold text-slate-900 dark:text-white mb-2"
-                        >
-                            Early Bootstrap Hook
-                        </h4>
-                        <p
-                            class="text-sm text-slate-600 dark:text-slate-400 mb-3"
-                        >
-                            Define <code>window.SpruceXBoot.initTheme()</code>
-                            before loading SpruceX to toggle theme classes before
-                            deferred component init.
-                        </p>
-                        <p class="text-xs font-mono text-slate-500">
-                            window.SpruceXBoot = &#123; initTheme() &#123; ...
-                            &#125; &#125;
+                <div class="grid sm:grid-cols-3 gap-4">
+                    <div class="doc-card p-5 space-y-2">
+                        <p class="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">01 / DECLARATIVE</p>
+                        <h3 class="font-bold text-base">Alpine-style UI</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            <code>sx-data</code>, <code>sx-if</code>, <code>sx-for</code>,
+                            <code>sx-model</code>, <code>sx-style</code>, and memoized getters keep
+                            state right next to markup.
                         </p>
                     </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <p class="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">02 / HYPERMEDIA</p>
+                        <h3 class="font-bold text-base">HTMX-style Network</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            <code>sx-get/post/put/patch/delete</code>, <code>sx-params</code>,
+                            <code>sx-swap</code>, <code>sx-select</code>, optimistic updates, and
+                            visibility-aware polling.
+                        </p>
+                    </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <p class="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">03 / EXTENSIBLE</p>
+                        <h3 class="font-bold text-base">Built for Widgets &amp; BI</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            <code>SpruceX.directive()</code>, <code>markRaw()</code>, Shadow DOM
+                            scoping, and strict-CSP mode power complex charts and dashboards.
+                        </p>
+                    </div>
+                </div>
+            </section>
 
-                    <!-- 3. SPA Navigation -->
-                    <div id="spa" class="scroll-mt-24">
-                        <h3
-                            class="text-2xl font-bold mb-4 flex
-                        items-center gap-2 text-brand-600 dark:text-brand-400"
-                        >
-                            <span
-                                class="text-slate-400 dark:text-slate-600
-                        font-normal"
-                                >3.</span
-                            > SPA Navigation
-                        </h3>
-                        <div
-                            class="prose dark:prose-invert max-w-none
-                        space-y-6"
-                        >
-                            <div
-                                class="bg-slate-50
-                        dark:bg-slate-900/50 rounded-xl p-6 border
-                        border-slate-200 dark:border-slate-800"
-                            >
-                                <h4
-                                    class="font-bold text-slate-900
-                                dark:text-white mb-2"
-                                >
-                                    How it works
-                                </h4>
-                                <p
-                                    class="text-sm text-slate-600
-                                dark:text-slate-400"
-                                >
-                                    Add <code
-                                        class="text-brand-600 dark:text-brand-400"
-                                        >sx-page</code
-                                    > to your main content container. SpruceX will
-                                    intercept all internal links, fetch the new page,
-                                    and morph the content inside that container without
-                                    a full reload.
-                                </p>
-                                <div
-                                    class="mt-4 flex gap-4 text-xs
-                                font-mono"
-                                >
-                                    <span
-                                        class="px-2 py-1
-                                bg-green-100 text-green-700 rounded"
-                                        >History API</span
-                                    >
-                                    <span
-                                        class="px-2 py-1
-                                bg-blue-100 text-blue-700 rounded"
-                                        >DOM Morphing</span
-                                    >
-                                </div>
-                            </div>
+            <!-- 2. Attributes Reference (with live SpruceX filter!) -->
+            <section
+                id="attributes"
+                class="scroll-mt-24 space-y-8"
+                sx-data="{ query: '' }"
+            >
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <span class="section-kicker">02 · Complete API</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold">Attributes Reference</h2>
+                    </div>
+                    <div class="relative w-full sm:w-72">
+                        <input
+                            type="search"
+                            sx-model.trim="query"
+                            placeholder="Filter directives (e.g. sx-if, poll)..."
+                            class="w-full px-3.5 py-2 text-sm"
+                        />
+                    </div>
+                </div>
 
-                            <div
-                                class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
-                            >
-                                <h4
-                                    class="font-bold text-slate-900
-                                dark:text-white mb-2"
-                                >
-                                    Turbo Boosting
-                                </h4>
-                                <p
-                                    class="text-sm text-slate-600
-                                dark:text-slate-400 mb-3"
-                                >
-                                    Add <code
-                                        class="text-brand-600 dark:text-brand-400"
-                                        >sx-boost</code
-                                    > to links or their containers to prefetch pages
-                                    on hover, making navigation instant.
-                                </p>
-                                <div
-                                    class="mt-2 grid
-                                grid-cols-2 gap-2 text-xs"
-                                >
-                                    <span
-                                        class="px-2 py-1 bg-slate-200 dark:bg-slate-800
-                                rounded"
-                                        >sx-boost</span
-                                    >
-                                    <span
-                                        class="px-2 py-1 bg-slate-200 dark:bg-slate-800
-                                rounded"
-                                        >sx-boost-on="mouseenter focus"</span
-                                    >
-                                    <span
-                                        class="px-2 py-1 bg-slate-200
-                                dark:bg-slate-800 rounded"
-                                        >Pre-fetching</span
-                                    >
-                                    <span
-                                        class="px-2 py-1 bg-slate-200
-                                dark:bg-slate-800 rounded"
-                                        >Cache aware</span
-                                    >
-                                </div>
-                            </div>
-
-                            <div
-                                class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
-                            >
-                                <h4
-                                    class="font-bold text-slate-900
-                                dark:text-white mb-2"
-                                >
-                                    Events
-                                </h4>
-                                <p
-                                    class="text-sm text-slate-600
-                                dark:text-slate-400"
-                                >
-                                    Listen to <code
-                                        class="text-brand-600 dark:text-brand-400"
-                                        >sprucex:page-before</code
-                                    > and <code
-                                        class="text-brand-600 dark:text-brand-400"
-                                        >sprucex:page-after</code
-                                    > on the document to show loading bars or trigger
-                                    analytics.
-                                </p>
-                                <div class="mt-2 text-xs text-slate-500">
-                                    <span class="block"
-                                        >document.addEventListener('sprucex:page-before',
-                                        ...)</span
-                                    >
-                                </div>
+                <div class="space-y-10">
+                    {directiveGroups.map((group) => (
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">
+                                {group.title}
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead>
+                                        <tr>
+                                            <th class="w-60">Attribute</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-sm">
+                                        {group.rows.map(([attr, desc]) => (
+                                            <tr
+                                                sx-show={`!query || ${JSON.stringify((attr + " " + desc).toLowerCase())}.includes(query.toLowerCase())`}
+                                            >
+                                                <td class="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                                                    {attr}
+                                                </td>
+                                                <td class="text-slate-600 dark:text-slate-300">
+                                                    {desc}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    ))}
+                </div>
+            </section>
+
+            <!-- 3. Reactivity & BI Datasets -->
+            <section id="reactivity" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">03 · Performance</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Fine-Grained Reactivity &amp; Large Datasets</h2>
+                </div>
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    SpruceX tracks reactive dependencies per binding, loop, computed getter, and
+                    custom directive. Unrelated state updates never re-evaluate unaffected widgets
+                    or wipe <code>sx-html</code> subtrees.
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Native Built-ins &amp; Raw Datasets</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Only plain objects and arrays are deep-proxied. <code>Date</code>,
+                            <code>Map</code>, <code>Set</code>, typed arrays, DOM nodes, and class
+                            instances keep their native internal slots. Wrap huge datasets with
+                            <code>SpruceX.markRaw(rows)</code> or fetch them with
+                            <code>sx-json-into.shallow="rows"</code>.
+                        </p>
                     </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Auto-Memoized Getters &amp; Path Watchers</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Own read-only getters on <code>sx-data</code> compute once per
+                            dependency change across all consumers. Watchers support dotted paths
+                            like <code>watch: &#123; 'filters.region'(next, prev) &#123;&#125; &#125;</code>
+                            without colliding with top-level keys.
+                        </p>
+                    </div>
+                </div>
 
-                    <!-- 4. Auto-Animate -->
-                    <div id="animation" class="scroll-mt-24">
-                        <h3
-                            class="text-2xl font-bold mb-4 flex
-                                items-center gap-2 text-brand-600
-                                dark:text-brand-400"
-                        >
-                            <span
-                                class="text-slate-400 dark:text-slate-600
-                                font-normal"
-                                >4.</span
-                            > Auto-Animate
+                <div class="code-window">
+                    <div class="code-window-bar">
+                        <span class="font-mono text-xs text-slate-400">Reactivity Primitives</span>
+                        <span class="font-mono text-[11px] text-emerald-400">JS</span>
+                    </div>
+                    <pre><code is:raw>const rows = SpruceX.markRaw(largeDataset);   // skip deep proxying
+const raw  = SpruceX.toRaw(component.state);  // unwrap before passing to Workers/Charts
+const box  = SpruceX.shallow({ data: rows }); // shallow top-level reactivity
+const sum  = SpruceX.computed(() =&gt; store.items.reduce((a, b) =&gt; a + b.v, 0));
+const stop = SpruceX.effect(() =&gt; console.log(sum.value));
+stop();</code></pre>
+                </div>
+            </section>
+
+            <!-- 4. Directives & Plugins -->
+            <section id="plugins" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">04 · Extensibility</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Directives &amp; Plugins</h2>
+                </div>
+
+                <div class="doc-card p-6 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-lg font-bold">
+                            Element-Scoped Directives (<code>SpruceX.directive</code>)
                         </h3>
-                        <div
-                            class="prose dark:prose-invert max-w-none
-                                space-y-6"
-                        >
-                            <div
-                                class="bg-slate-50
-                                dark:bg-slate-900/50 rounded-xl p-6 border
-                                border-slate-200 dark:border-slate-800"
-                            >
-                                <h4
-                                    class="font-bold text-slate-900
-                                dark:text-white mb-2"
-                                >
-                                    Zero-Config Animations
-                                </h4>
-                                <p
-                                    class="text-sm text-slate-600
-                                dark:text-slate-400 mb-4"
-                                >
-                                    Just add <code
-                                        class="text-brand-600
-                                dark:text-brand-400"
-                                        >sx-animate</code
-                                    > to a parent element.
-                                </p>
-                                <ul
-                                    class="space-y-2
-                                text-sm text-slate-600 dark:text-slate-400
-                                list-disc list-inside"
-                                >
-                                    <li>Automatic layout transitions</li>
-                                    <li>Smooth enter/leave animations</li>
-                                    <li>
-                                        Works with <code
-                                            class="font-mono text-xs"
-                                            >sx-for</code
-                                        > and <code class="font-mono text-xs"
-                                            >sx-show</code
-                                        >
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div
-                                class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
-                            >
-                                <h4
-                                    class="font-bold text-slate-900
-                                dark:text-white mb-2"
-                                >
-                                    Configuration
-                                </h4>
-                                <p
-                                    class="text-sm text-slate-600
-                                dark:text-slate-400 mb-4"
-                                >
-                                    Pass a JSON object to <code
-                                        class="text-brand-600
-                                dark:text-brand-400"
-                                        >sx-animate</code
-                                    > to customize.
-                                </p>
-                                <ul
-                                    class="space-y-2
-                                text-sm text-slate-600 dark:text-slate-400
-                                font-mono text-xs"
-                                >
-                                    <li is:raw>
-                                        sx-animate="{ duration: 500 }"
-                                    </li>
-                                    <li is:raw>
-                                        sx-animate="{ easing: 'ease-out' }"
-                                    </li>
-                                    <li is:raw>
-                                        sx-animate="{ duration: 200, easing:
-                                        'linear' }"
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <!-- 5. Holiday Themes -->
-                            <div id="holiday-theme" class="scroll-mt-24">
-                                <h3
-                                    class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"
-                                >
-                                    <span
-                                        class="text-slate-400 dark:text-slate-600 font-normal"
-                                        >5.</span
-                                    >
-                                    Holiday Themes
-                                </h3>
-
-                                <div
-                                    class="prose dark:prose-invert max-w-none space-y-6"
-                                >
-                                    <p
-                                        class="text-slate-600 dark:text-slate-300"
-                                    >
-                                        Keep the SVG static, hide decorations by
-                                        default, and toggle a parent class based
-                                        on date. This keeps markup clean and the
-                                        behavior predictable.
-                                    </p>
-
-                                    <div
-                                        class="grid md:grid-cols-2 gap-4 not-prose"
-                                    >
-                                        <div
-                                            class="glass rounded-xl p-5 space-y-3"
-                                        >
-                                            <p
-                                                class="text-xs tracking-wider uppercase text-slate-500 dark:text-slate-400"
-                                            >
-                                                Base Logo
-                                            </p>
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 128 128"
-                                                width="72"
-                                                height="72"
-                                            >
-                                                <defs>
-                                                    <linearGradient
-                                                        id="spruceBaseGrad"
-                                                        x1="0%"
-                                                        y1="0%"
-                                                        x2="100%"
-                                                        y2="100%"
-                                                    >
-                                                        <stop
-                                                            offset="0%"
-                                                            stop-color="#10B981"
-                                                        ></stop>
-                                                        <stop
-                                                            offset="100%"
-                                                            stop-color="#065F46"
-                                                        ></stop>
-                                                    </linearGradient>
-                                                </defs>
-                                                <path
-                                                    d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z"
-                                                    fill="url(#spruceBaseGrad)"
-                                                ></path>
-                                                <rect
-                                                    x="58"
-                                                    y="88"
-                                                    width="12"
-                                                    height="14"
-                                                    rx="2"
-                                                    fill="#78350F"></rect>
-                                            </svg>
-                                        </div>
-
-                                        <div
-                                            class="glass rounded-xl p-5 space-y-3 holiday-theme"
-                                        >
-                                            <p
-                                                class="text-xs tracking-wider uppercase text-slate-500 dark:text-slate-400"
-                                            >
-                                                Holiday Variant (Dec-Jan)
-                                            </p>
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 128 128"
-                                                width="72"
-                                                height="72"
-                                            >
-                                                <defs>
-                                                    <linearGradient
-                                                        id="spruceHolidayGrad"
-                                                        x1="0%"
-                                                        y1="0%"
-                                                        x2="100%"
-                                                        y2="100%"
-                                                    >
-                                                        <stop
-                                                            offset="0%"
-                                                            stop-color="#10B981"
-                                                        ></stop>
-                                                        <stop
-                                                            offset="100%"
-                                                            stop-color="#065F46"
-                                                        ></stop>
-                                                    </linearGradient>
-                                                </defs>
-                                                <path
-                                                    d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z"
-                                                    fill="url(#spruceHolidayGrad)"
-                                                ></path>
-                                                <rect
-                                                    x="58"
-                                                    y="88"
-                                                    width="12"
-                                                    height="14"
-                                                    rx="2"
-                                                    fill="#78350F"></rect>
-                                                <g class="holiday-decorations">
-                                                    <polygon
-                                                        points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14"
-                                                        fill="#FBBF24"
-                                                    ></polygon>
-                                                    <circle
-                                                        cx="64"
-                                                        cy="36"
-                                                        r="3"
-                                                        fill="#EF4444"></circle>
-                                                    <circle
-                                                        cx="52"
-                                                        cy="55"
-                                                        r="3"
-                                                        fill="#3B82F6"></circle>
-                                                    <circle
-                                                        cx="76"
-                                                        cy="55"
-                                                        r="3"
-                                                        fill="#EF4444"></circle>
-                                                    <circle
-                                                        cx="64"
-                                                        cy="75"
-                                                        r="3"
-                                                        fill="#A855F7"></circle>
-                                                </g>
-                                            </svg>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800 not-prose"
-                                    >
-                                        <pre
-                                            class="font-mono text-sm text-slate-300 overflow-x-auto"><code is:raw>&lt;div id="logo-container"&gt;
-  &lt;svg viewBox="0 0 128 128" aria-label="SpruceX logo"&gt;
-    &lt;!-- base tree --&gt;
-    &lt;path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" /&gt;
-    &lt;rect x="58" y="88" width="12" height="14" rx="2" /&gt;
-
-    &lt;!-- holiday-only details --&gt;
-    &lt;g class="holiday-decorations"&gt;
-      &lt;polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" /&gt;
-      &lt;circle cx="64" cy="36" r="3" /&gt;
-      &lt;circle cx="52" cy="55" r="3" /&gt;
-      &lt;circle cx="76" cy="55" r="3" /&gt;
-      &lt;circle cx="64" cy="75" r="3" /&gt;
-    &lt;/g&gt;
-  &lt;/svg&gt;
-&lt;/div&gt;
-
-&lt;style&gt;
-  .holiday-decorations { display: none; }
-  .holiday-theme .holiday-decorations { display: block; }
-&lt;/style&gt;
-
-&lt;script type="module"&gt;
-  function applyHolidayTheme(containerId = "logo-container", date = new Date()) {
-    const month = date.getMonth();
-    const isHolidaySeason = month === 11 || month === 0; // Dec or Jan
-    document.getElementById(containerId)
-      ?.classList.toggle("holiday-theme", isHolidaySeason);
-  }
-
-  applyHolidayTheme();
-&lt;/script&gt;</code></pre>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 6. Plugin Authoring -->
-                            <div id="plugins" class="scroll-mt-24">
-                                <h3
-                                    class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"
-                                >
-                                    <span
-                                        class="text-slate-400 dark:text-slate-600 font-normal"
-                                        >6.</span
-                                    >
-                                    Plugins
-                                </h3>
-
-                                <div
-                                    class="prose dark:prose-invert max-w-none space-y-6"
-                                >
-                                    <div
-                                        class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800"
-                                    >
-                                        <h4
-                                            class="font-bold text-slate-900 dark:text-white mb-2"
-                                        >
-                                            Writing a Plugin
-                                        </h4>
-                                        <p
-                                            class="text-sm text-slate-600 dark:text-slate-400 mb-3"
-                                        >
-                                            Register plugins with <code
-                                                >SpruceX.integration(name, integration)</code
-                                            >. Each integration can provide hooks
-                                            to set up, scan elements, update UI,
-                                            and clean up.
-                                        </p>
-                                        <ul
-                                            class="space-y-1 text-sm text-slate-600 dark:text-slate-400 list-disc list-inside"
-                                        >
-                                            <li>
-                                                <code>setup(component)</code>
-                                                initializes plugin state.
-                                            </li>
-                                            <li>
-                                                <code>scan(component, el)</code>
-                                                collects directive bindings.
-                                            </li>
-                                            <li>
-                                                <code>update(component)</code>
-                                                applies changes on initial render
-                                                and reactive updates.
-                                            </li>
-                                            <li>
-                                                <code>teardown(component)</code>
-                                                removes listeners/timers and
-                                                clears plugin state.
-                                            </li>
-                                        </ul>
-                                    </div>
-
-                                    <div
-                                        class="bg-slate-900 rounded-xl p-6 shadow-xl overflow-hidden border border-slate-800 not-prose"
-                                    >
-                                        <p
-                                            class="text-xs tracking-wider uppercase text-slate-400 mb-3"
-                                        >
-                                            Minimal Integration Example
-                                        </p>
-                                        <pre
-                                            class="font-mono text-sm text-slate-300 overflow-x-auto"><code is:raw>&lt;script&gt;
-  SpruceX.integration("uppercase", {
-    setup(component) {
-      component._uppercaseBindings = [];
-    },
-    scan(component, el) {
-      const expr = el.getAttribute("sx-uppercase");
-      if (!expr) return;
-      component._uppercaseBindings.push({ el, expr });
-    },
-    update(component) {
-      (component._uppercaseBindings || []).forEach(({ el, expr }) => {
-        const value = component.evaluateExpressionOrLiteral(expr);
-        el.textContent = String(value ?? "").toUpperCase();
-      });
-    },
-    teardown(component) {
-      component._uppercaseBindings = [];
-    },
+                        <span class="version-pill">Recommended for Charts &amp; Widgets</span>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Register reusable <code>sx-*</code> directives with built-in fine-grained
+                        <code>effect()</code> and automatic per-element <code>cleanup()</code>.
+                        Untouched directive instances stay alive across partial HTML swaps and
+                        only tear down when their own element is removed.
+                    </p>
+                    <div class="code-window">
+                        <div class="code-window-bar">
+                            <span class="font-mono text-xs text-slate-400">chart-directive.js</span>
+                            <span class="font-mono text-[11px] text-emerald-400">JS</span>
+                        </div>
+                        <pre><code is:raw>SpruceX.directive("chart", (el, { evaluate, effect, cleanup, modifiers }) =&gt; {
+  const chart = createChart(el, SpruceX.toRaw(evaluate()), {
+    animate: modifiers.includes("animated"),
   });
-&lt;/script&gt;</code></pre>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <!-- 7. LLM.txt -->
-                            <div id="llm-txt" class="scroll-mt-24">
-                                <h3
-                                    class="text-2xl font-bold mb-4 flex items-center gap-2 text-brand-600 dark:text-brand-400"
-                                >
-                                    <span
-                                        class="text-slate-400 dark:text-slate-600 font-normal"
-                                        >7.</span
-                                    >
-                                    LLM.txt
-                                </h3>
+  effect(() =&gt; {
+    chart.update(SpruceX.toRaw(evaluate()));
+  });
 
-                                <div
-                                    class="prose dark:prose-invert max-w-none space-y-6"
-                                >
-                                    <div
-                                        class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-800 not-prose"
-                                    >
-                                        <div
-                                            class="flex flex-wrap items-center justify-between gap-3 mb-3"
-                                        >
-                                            <h4
-                                                class="font-bold text-slate-900 dark:text-white"
-                                            >
-                                                LLM.txt
-                                            </h4>
-                                            <a
-                                                href="/LLM.txt"
-                                                download
-                                                class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold"
-                                                >Download LLM.txt</a
-                                            >
-                                        </div>
-                                        <p
-                                            class="text-sm text-slate-600 dark:text-slate-400 mb-3"
-                                        >
-                                            Machine-readable runtime and plugin
-                                            reference exposed at
-                                            <code>/LLM.txt</code>.
-                                        </p>
-                                        <pre
-                                            class="font-mono text-xs text-slate-200 bg-slate-900 rounded-lg p-4 max-h-80 overflow-auto border border-slate-800"
-                                        ><code>{llmTxt}</code></pre>
-                                    </div>
-                                </div>
-                            </div>
+  cleanup(() =&gt; chart.destroy());
+});</code></pre>
+                    </div>
+                </div>
+
+                <div class="doc-card p-6 space-y-4">
+                    <h3 class="text-lg font-bold">
+                        Component-Level Integrations (<code>SpruceX.integration</code>)
+                    </h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        For container-wide plugins like <code>sortable</code> or
+                        <code>gridstack</code>, register lifecycle hooks (<code>setup</code>,
+                        <code>scan</code>, <code>update</code>, <code>unmount</code>,
+                        <code>teardown</code>). Set <code>preserveOnSwap: true</code> to keep
+                        untouched widgets mounted during partial swaps.
+                    </p>
+                    <div class="code-window">
+                        <div class="code-window-bar">
+                            <span class="font-mono text-xs text-slate-400">integration-plugin.js</span>
+                            <span class="font-mono text-[11px] text-emerald-400">JS</span>
+                        </div>
+                        <pre><code is:raw>SpruceX.integration("uppercase", {
+  preserveOnSwap: true,
+  setup(component) { component._upper = new Map(); },
+  scan(component, el) {
+    const expr = el.getAttribute("sx-uppercase");
+    if (expr) component._upper.set(el, expr);
+  },
+  update(component) {
+    component._upper.forEach((expr, el) =&gt; {
+      el.textContent = String(component.evaluateExpressionOrLiteral(expr) ?? "").toUpperCase();
+    });
+  },
+  unmount(component, el) { component._upper.delete(el); },
+  teardown(component) { component._upper.clear(); },
+});</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Config, CSP & Shadow DOM -->
+            <section id="config-portability" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">05 · Any Environment</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Global Config, Shadow DOM &amp; Strict CSP</h2>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Shadow DOM &amp; Embedded Islands</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Pass any <code>Element</code> or <code>ShadowRoot</code> to
+                            <code>SpruceX.init(root)</code>, or mount single widgets imperatively
+                            with <code>SpruceX.mount(el)</code> and <code>SpruceX.unmount(el)</code>.
+                            Auto-cleanup observes each root independently.
+                        </p>
+                    </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Tree-Shakeable Subpaths &amp; CSP Mode</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Import <code>sprucex/core</code> (no auto-init, no bundled integrations)
+                            alongside optional <code>sprucex/sortable</code> or
+                            <code>sprucex/gridstack</code>. Enable <code>csp: true</code> for
+                            environments disallowing <code>unsafe-eval</code>.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="code-window">
+                    <div class="code-window-bar">
+                        <span class="font-mono text-xs text-slate-400">SpruceX.config(...)</span>
+                        <span class="font-mono text-[11px] text-emerald-400">JS</span>
+                    </div>
+                    <pre><code is:raw>SpruceX.config({
+  baseUrl: "https://api.example.com",
+  credentials: "include",
+  csrfCookieName: "XSRF-TOKEN",
+  csrfHeaderName: "X-XSRF-TOKEN",
+  headers: () =&gt; ({ Authorization: `Bearer ${getToken()}` }),
+  beforeRequest(ctx) {
+    if (!ctx.url) return false; // cancel request
+  },
+  afterResponse({ response }) {
+    if (response.status === 401) redirectToLogin();
+  },
+  csp: false,             // true enables built-in CSP-safe evaluator
+  viewTransitions: true,  // wrap sx-page swaps in document.startViewTransition
+});</code></pre>
+                </div>
+            </section>
+
+            <!-- 6. SPA Navigation -->
+            <section id="spa" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">06 · Navigation</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">SPA Navigation &amp; DOM Morphing</h2>
+                </div>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Zero-Reload Morphing</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Add <code>sx-page</code> to your main container to intercept internal
+                            links, cancel superseded fetches, restore scroll on Back/Forward, and
+                            morph content in place.
+                        </p>
+                    </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Turbo Boosting</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Add <code>sx-boost</code> to prefetch links on hover/focus. Opt out
+                            individual links with <code>sx-page-ignore</code> or
+                            <code>sx-boost="false"</code>.
+                        </p>
+                    </div>
+                    <div class="doc-card p-5 space-y-2">
+                        <h3 class="font-bold text-base">Lifecycle Events</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Listen to <code>sprucex:page-before</code>,
+                            <code>sprucex:page-after</code>, and <code>sprucex:page-error</code> on
+                            <code>document</code> for progress bars and analytics.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. Auto-Animate & Boot Hook -->
+            <section id="animation" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">07 · Motion &amp; Boot</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Auto-Animate &amp; Early Boot Hook</h2>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="doc-card p-5 space-y-3">
+                        <h3 class="font-bold text-base">Zero-Config List Animations</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Add <code>sx-animate</code> to any parent container to animate inserts,
+                            removals, and keyed reorders with <code>@formkit/auto-animate</code>.
+                        </p>
+                        <div class="font-mono text-xs space-y-1 text-slate-500">
+                            <div is:raw><code>sx-animate</code> · <code>sx-animate="300"</code></div>
+                            <div is:raw><code>sx-animate='{"duration": 250, "easing": "ease-out"}'</code></div>
+                        </div>
+                    </div>
+                    <div class="doc-card p-5 space-y-3">
+                        <h3 class="font-bold text-base">Early Bootstrap Hook</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Define <code>window.SpruceXBoot</code> before loading SpruceX to run
+                            head-safe theme setup or set <code>autoInit: false</code>.
+                        </p>
+                        <div class="font-mono text-xs text-slate-500">
+                            <code>window.SpruceXBoot = &#123; initTheme() &#123; ... &#125;, autoInit: true &#125;</code>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <!-- 8. Holiday Themes -->
+            <section id="holiday-theme" class="scroll-mt-24 space-y-6">
+                <div>
+                    <span class="section-kicker">08 · Seasonal Pattern</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold">Holiday Themes</h2>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">
+                    Keep your SVG static, hide seasonal decorations in CSS by default, and toggle a
+                    single class based on date.
+                </p>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="doc-card p-5 flex items-center gap-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" class="shrink-0">
+                            <defs>
+                                <linearGradient id="spruceBaseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#10B981"></stop>
+                                    <stop offset="100%" stop-color="#065F46"></stop>
+                                </linearGradient>
+                            </defs>
+                            <path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" fill="url(#spruceBaseGrad)"></path>
+                            <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect>
+                        </svg>
+                        <div>
+                            <p class="text-xs font-mono uppercase tracking-wider text-slate-500">Default</p>
+                            <p class="font-semibold">Base Logo</p>
+                        </div>
+                    </div>
+                    <div class="doc-card p-5 flex items-center gap-5 holiday-theme">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" class="shrink-0">
+                            <defs>
+                                <linearGradient id="spruceHolidayGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#10B981"></stop>
+                                    <stop offset="100%" stop-color="#065F46"></stop>
+                                </linearGradient>
+                            </defs>
+                            <path d="M64 16 L82 42 L74 42 L90 64 L80 64 L94 88 L34 88 L48 64 L38 64 L54 42 L46 42 Z" fill="url(#spruceHolidayGrad)"></path>
+                            <rect x="58" y="88" width="12" height="14" rx="2" fill="#78350F"></rect>
+                            <g class="holiday-decorations">
+                                <polygon points="64,6 67,14 76,14 69,19 71,28 64,23 57,28 59,19 52,14 61,14" fill="#FBBF24"></polygon>
+                                <circle cx="64" cy="36" r="3" fill="#EF4444"></circle>
+                                <circle cx="52" cy="55" r="3" fill="#3B82F6"></circle>
+                                <circle cx="76" cy="55" r="3" fill="#EF4444"></circle>
+                                <circle cx="64" cy="75" r="3" fill="#A855F7"></circle>
+                            </g>
+                        </svg>
+                        <div>
+                            <p class="text-xs font-mono uppercase tracking-wider text-slate-500">Dec–Jan</p>
+                            <p class="font-semibold">Holiday Variant</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 9. LLM.txt -->
+            <section id="llm-txt" class="scroll-mt-24 space-y-5">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <span class="section-kicker">09 · Machine Reference</span>
+                        <h2 class="text-2xl sm:text-3xl font-bold">LLM.txt</h2>
+                    </div>
+                    <a
+                        href="/LLM.txt"
+                        download
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors"
+                    >
+                        Download /LLM.txt
+                    </a>
+                </div>
+                <div class="code-window">
+                    <div class="code-window-bar">
+                        <span class="font-mono text-xs text-slate-400">public/LLM.txt</span>
+                        <span class="font-mono text-[11px] text-emerald-400">PLAIN TEXT</span>
+                    </div>
+                    <pre class="max-h-96 overflow-auto"><code>{llmTxt}</code></pre>
+                </div>
+            </section>
         </div>
     </section>
 </Layout>

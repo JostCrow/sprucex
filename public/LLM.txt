@@ -1,17 +1,20 @@
 SpruceX LLM.txt
-Version: 1.1.0
-Status: Active development, not complete yet.
+Version: 1.2.0
+Status: Active development.
 
 Overview
 
-SpruceX is a lightweight reactive HTML framework that combines Alpine-style
-declarative state with HTMX-style network actions. It uses `sx-*` attributes on
-plain HTML and auto-initializes on `DOMContentLoaded`.
+SpruceX is a lightweight reactive HTML framework combining Alpine-style
+declarative reactivity with HTMX-style hypermedia requests. It uses `sx-*`
+attributes on plain HTML, supports fine-grained dependency tracking, custom
+element-scoped directives, Shadow DOM embeds, and strict-CSP evaluation.
 
 Install / Entry Points
 
 - Browser bundle: `/dist/sprucex.js` or `/dist/sprucex.min.js`
-- Package entry points: `lib/sprucex.mjs`, `lib/sprucex.cjs`, `lib/sprucex.d.ts`
+- Full package: `import SpruceX from "sprucex"` (`lib/sprucex.mjs`, `lib/sprucex.cjs`, `lib/sprucex.d.ts`)
+- Tree-shakeable core (no auto-init, no bundled integrations): `import SpruceX from "sprucex/core"`
+- Optional subpath integrations: `sprucex/sortable`, `sprucex/gridstack`
 
 Quick Start
 
@@ -24,156 +27,116 @@ Quick Start
 
 Core Directives
 
-- `sx-data`: component root state, object/function/factory-like expression
-- `sx-text`: write `textContent`
-- `sx-html`: write `innerHTML`
-- `sx-show`: toggle display based on truthiness
-- `sx-bind:<attr>`: bind arbitrary attributes
+- `sx-data`: component root state (object/function/factory expression)
+- `sx-text`: write `textContent` (no-op guarded)
+- `sx-html`: write `innerHTML` (no-op guarded; does not wipe unchanged subtrees)
+- `sx-show`: toggle visibility while preserving inline `display`
+- `sx-if`: conditional mount/unmount on `<template>` (tears down nested state & directives)
+- `sx-for`: keyed/unkeyed loop on `<template>` (`sx-key` recommended for reorders)
+- `sx-bind:<attr>`: bind attributes (preserves `aria-*="false"`, syncs live `value`/`checked`/`indeterminate`)
 - `sx-class`: conditional classes while preserving original classes
+- `sx-style`: dynamic inline styles (object with camelCase / `--css-vars`, or string)
+- `sx-cloak`: stripped automatically after initial render
+- `sx-init`: one-time initialization statement on an element
+- `sx-effect`: fine-grained reactive side effect on an element
 - `sx-toggle`: toggle a boolean state key on click
-- `sx-model`: two-way binding for inputs/selects/textareas
-- `sx-model` modifiers: `.trim`, `.number`, `.lazy`, plus `sx-model.debounce-ms="N"`
-- `sx-ref`: register elements on `$refs`
-- `sx-for`: loop on `<template>`
+- `sx-model`: two-way binding for inputs, textareas, single & `<select multiple>`
+  Modifiers: `.trim`, `.number` (preserves empty string), `.boolean`, `.lazy`, `.debounce.<ms>`, `.debounce-ms="N"`
+- `sx-ref`: register element on `$refs`
 - `sx-memo`: cache `sx-text` / `sx-html` based on dependency keys
-- `sx-local`: persist component state in `localStorage`
-- `sx-lazy`: defer component init until visible
+- `sx-local`: persist component state to `localStorage` (microtask-batched)
+- `sx-lazy`: defer component init until element enters viewport (works on swapped/loop roots too)
 - `sx-error-fallback`: fallback expression if a binding throws
-- `script[sx-init-data]`: embed JSON for identifier-style `sx-data` roots
+- `script[sx-init-data]`: embedded JSON for identifier-style `sx-data` roots
 
-Expressions / Helpers
+Expressions & Magic Helpers
 
 - `$event`: current DOM event in handlers
+- `$el`: current DOM element
 - `$refs`: object of `sx-ref` elements
 - `$store(name)`: access global stores
-- `$emit(name, detail)`: emit component-scoped custom events
+- `$emit(name, detail)`: emit component-scoped custom event (triggers local `sx-trigger`)
+- `$dispatch(name, detail)`: dispatch bubbling DOM `CustomEvent` (child-to-parent & cross-component)
+- `$nextTick(fn?)`: wait until next batched render flush
+- `$parent`: parent `sx-data` component state (if nested)
 - `$index`: default loop index inside `sx-for`
 
-Lifecycle / State Notes
+Reactivity & Large-Dataset Helpers
 
-- State is deeply reactive, including nested objects and common array mutators.
-- Shared object references and cycles retain their identity within reactive state.
-- Loop rows support request actions, toggles, references, and integration plugins.
-- Keyed reorders retain row state, focused inputs, and text selection.
-- Component hooks supported in `sx-data`: `init()`, `mounted()`, `destroyed()`
-- A `watch` object may be defined in component state to react to property changes.
-- Global shared state is created with `SpruceX.store(name, value, { persist })`.
-- Named data factories can be registered with `SpruceX.data(name, factory)`.
+- Plain objects and arrays are deeply reactive; built-ins (`Date`, `Map`, `Set`,
+  `TypedArray`, DOM nodes, and custom class instances) stay unproxied.
+- Own read-only getters on `sx-data` are automatically memoized via fine-grained tracking.
+- `SpruceX.markRaw(obj)`: exclude large datasets/instances from deep proxying
+- `SpruceX.toRaw(proxy)`: unwrap reactive proxy back to raw target
+- `SpruceX.shallow(obj)`: shallow reactivity (only top-level property replacements trigger updates)
+- `SpruceX.computed(fn)` / `SpruceX.effect(fn)` / `SpruceX.stop(runner)`: standalone reactive primitives
+- Watchers in `sx-data`: `watch: { count(next, prev) {}, 'user.name'(next, prev) {} }` (path-aware)
+- Lifecycle hooks in `sx-data`: `init()`, `mounted()`, `destroyed()`
+- Global stores: `SpruceX.store(name, value, { persist, syncTabs })`, `SpruceX.removeStore(name)`
+- Named factories: `SpruceX.data(name, factory)`
 
 Event Handling
 
-- `sx-on:<event>` attaches handlers
-- Supported modifiers: `.prevent`, `.stop`, `.self`, `.window`, `.document`
-- Keyboard modifiers use key names such as `.enter` and `.escape`
+- `sx-on:<event>` attaches handlers (lazy root delegation)
+- Modifiers: `.prevent`, `.stop`, `.self`, `.once`, `.outside`, `.window`, `.document`,
+  `.passive`, `.capture`, `.debounce.<ms>`, `.throttle.<ms>`
+- Keyboard modifiers: `.ctrl`, `.alt`, `.shift`, `.meta`, `.cmd` combinable with key names
+  and aliases (`.enter`, `.esc`, `.space`, `.up`, `.down`, `.left`, `.right`, `.del`, etc.)
 
 Network Directives
 
-- Request methods: `sx-get`, `sx-post`, `sx-put`, `sx-delete`
-- Triggering: `sx-trigger`, `sx-trigger-debounce`
-- Targeting and swaps: `sx-target`, `sx-swap`
-- URL/body/header helpers: `sx-vars`, `sx-body`, `sx-body-type`, `sx-headers`, `sx-include`
-- Request state targets: `sx-json-into`, `sx-loading-into`, `sx-error-into`
-- UX helpers: `sx-disable-while-request`, `sx-text-while-request`, `sx-confirm`
-- Request flow: `sx-optimistic`, `sx-revert-on-error`, `sx-poll`, `sx-poll-while`
-- Cancellation: `sx-cancel-previous`
+- Methods: `sx-get`, `sx-post`, `sx-put`, `sx-patch`, `sx-delete`
+- Triggers: `sx-trigger` (supports `load`, `input.debounce.300`, and cross-component
+  `event from:window|document|#selector`), `sx-trigger-debounce`
+- Targeting & swaps: `sx-target`, `sx-swap` (`innerHTML`, `outerHTML`, `before`, `after`,
+  `prepend`, `append`, `morph`, `delete`, `none`), `sx-select`, `sx-push-url`, `sx-replace-url`
+- URL/body/headers: `sx-vars` (URL-encoded `${key}`), `sx-params` (`URLSearchParams`),
+  `sx-body`, `sx-body-type` (`json`/`form`), `sx-headers`, `sx-include`
+- State targets: `sx-json-into`, `sx-json-into.shallow` (marks payload raw),
+  `sx-loading-into`, `sx-error-into` (includes HTTP `status` and parsed `body`)
+- UX & flow: `sx-disable-while-request`, `sx-text-while-request`, `sx-confirm`,
+  `sx-optimistic`, `sx-revert-on-error`, `sx-cancel-previous`,
+  `sx-poll` (visibility-aware; pauses when `document.hidden`), `sx-poll-while`, `sx-poll-background`
 
-Request Notes
+Global Configuration
 
-- Default trigger is `click`, or `submit` on forms.
-- `sx-trigger` also supports inline debounce syntax such as `input.debounce.300`.
-- Supported swap modes: `innerHTML`, `outerHTML`, `before`, `after`, `prepend`, `append`, `morph`
-- `sx-cancel-previous` aborts only the previous in-flight request for the same binding.
-- Aborted cancelable requests do not emit error events, do not write `sx-error-into`,
-  and do not run `sx-revert-on-error`.
-- Cancelable requests are also aborted during component refresh and destroy.
-- HTML swaps initialize inserted directives and nested components. Fragments
-  inserted within loop rows inherit that row's scope.
-- Removing rows cleans up their model/global listeners, debounce timers,
-  polling, plugin contexts, and in-flight requests.
+SpruceX.config({
+  baseUrl: 'https://api.example.com',
+  csrfCookieName: 'csrftoken',
+  csrfHeaderName: 'X-CSRFToken',
+  credentials: 'same-origin',
+  headers: () => ({ Authorization: 'Bearer ...' }),
+  beforeRequest(ctx) { /* mutate ctx.url/headers or return false to cancel */ },
+  afterResponse(ctx) { /* inspect ctx.response */ },
+  csp: false,
+  debug: false,
+  viewTransitions: false,
+});
 
-Navigation / Morphing
+Navigation, Shadow DOM & Portability
 
-- `sx-page`: mark the SPA navigation container
-- `sx-boost`: prefetch links on hover/focus
-- `sx-boost-on`: customize boost events
-- `sx-key`: preserve identity during list diffs and morphs
-- `sx-preserve`: skip morphing for a specific element
-- `SpruceX.navigate(url)`: navigate via SPA page swapping
-- `SpruceX.prefetch(url)`: prefetch a page into cache
-- `SpruceX.clearCache()`: clear the page cache
-- `SpruceX.morph(target, source)`: morph DOM content in place
+- `sx-page`, `sx-page-ignore`, `sx-page-transition`, `sx-boost`, `sx-boost-on`, `sx-key`, `sx-preserve`
+- `SpruceX.init(root?)`: initialize document, Element, or ShadowRoot with scoped auto-cleanup
+- `SpruceX.mount(el, options?)` / `SpruceX.unmount(el)`
+- `SpruceX.inspect(root?)`, `SpruceX.nextTick(fn?)`
+- `SpruceX.navigate(url)`, `SpruceX.prefetch(url)`, `SpruceX.clearCache()`, `SpruceX.morph(target, source)`
+- `window.SpruceXBoot = { initTheme() {}, autoInit: true }`
 
-Built-In Integrations
+Element-Scoped Directives (Recommended for Charts & Widgets)
 
-- `sx-animate`: auto-animate list/container children
-- `sx-gridstack`, `sx-gridstack-options`, `sx-gridstack-option:<name>`: GridStack integration
-- `sx-gridstack-on-change`, `sx-gridstack-on-added`, `sx-gridstack-on-removed`,
-  `sx-gridstack-on-dragstop`, `sx-gridstack-on-resizestop`: write GridStack events into state
+SpruceX.directive("chart", (el, { evaluate, effect, cleanup, modifiers }) => {
+  const chart = createChart(el, SpruceX.toRaw(evaluate()), { modifiers });
+  effect(() => chart.update(SpruceX.toRaw(evaluate())));
+  cleanup(() => chart.destroy());
+});
 
-Animation / Boot Notes
+Component Integrations
 
-- `sx-animate` requires the Auto Animate library to be loaded separately unless
-  you wire it through `SpruceX.setAutoAnimate(...)`.
-- `window.SpruceXBoot.initTheme()` runs once before component auto-init.
-- `SpruceX.animate(el, options)` manually enables auto-animate on a DOM element.
-
-JavaScript API
-
-- `SpruceX.init()`
-- `SpruceX.store(name, value, { persist })`
-- `SpruceX.data(name, factory)`
-- `SpruceX.inspect()`
-- `SpruceX.navigate(url)`
-- `SpruceX.prefetch(url)`
-- `SpruceX.clearCache()`
-- `SpruceX.morph(target, source)`
-- `SpruceX.animate(el, options)`
-- `SpruceX.setAutoAnimate(autoAnimate)`
-- `SpruceX.integration(name, integration)`
-
-Plugin Authoring
-
-SpruceX plugins are integrations registered with:
-`SpruceX.integration(name, integration)`
-
-Hooks
-
-1) `setup(component)` optional one-time setup per component instance
-2) `scan(component, el)` optional element scan hook used to collect bindings
-3) `update(component)` optional render/update hook
-4) `teardown(component)` optional cleanup hook
-
-Useful component helpers
-
-- `component.evaluateExpressionOrLiteral(raw)`
-- `component.assignStateValue(targetExpr, value)`
-- `component.state`
-- `component.root`
-
-Minimal plugin example
-
-<script>
-  SpruceX.integration("uppercase", {
-    setup(component) {
-      component._uppercaseBindings = [];
-    },
-    scan(component, el) {
-      const expr = el.getAttribute("sx-uppercase");
-      if (!expr) return;
-      component._uppercaseBindings.push({ el, expr });
-    },
-    update(component) {
-      (component._uppercaseBindings || []).forEach(({ el, expr }) => {
-        const value = component.evaluateExpressionOrLiteral(expr);
-        el.textContent = String(value ?? "").toUpperCase();
-      });
-    },
-    teardown(component) {
-      component._uppercaseBindings = [];
-    },
-  });
-</script>
-
-<div sx-data="{ name: 'sprucex' }">
-  <span sx-uppercase="name"></span>
-</div>
+SpruceX.integration(name, {
+  preserveOnSwap: true, // keep untouched elements alive across partial HTML swaps
+  setup(component) {},
+  scan(component, el) {},
+  update(component) {},
+  unmount(component, el) {},
+  teardown(component) {},
+});

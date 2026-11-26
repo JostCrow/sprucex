@@ -53,10 +53,18 @@ try {
     import assert from 'node:assert/strict';
     import { createRequire } from 'node:module';
     import SpruceX, { SpruceX as named } from 'sprucex';
+    import CoreSpruceX from 'sprucex/core';
+    import { createSortableIntegration } from 'sprucex/sortable';
+    import { createGridStackIntegration } from 'sprucex/gridstack';
     const required = createRequire(import.meta.url)('sprucex');
     assert.equal(SpruceX, named);
     assert.equal(required.default, required.SpruceX);
     assert.equal(typeof SpruceX.init, 'function');
+    assert.equal(typeof SpruceX.directive, 'function');
+    assert.equal(typeof SpruceX.markRaw, 'function');
+    assert.equal(typeof CoreSpruceX.init, 'function');
+    assert.equal(typeof createSortableIntegration, 'function');
+    assert.equal(typeof createGridStackIntegration, 'function');
     assert.equal(typeof required.SpruceX.removeStore, 'function');
   `], { cwd: consumerDir, stdio: "pipe" });
 } finally {

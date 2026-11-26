@@ -4,6 +4,7 @@ interface Props {
 }
 
 const { title } = Astro.props;
+const pathname = Astro.url.pathname;
 
 import "../index.css";
 ---
@@ -27,11 +28,12 @@ import "../index.css";
             window.SpruceXBoot.initTheme = function initTheme() {
                 try {
                     const raw = localStorage.getItem("darkMode");
-                    const parsed = raw ? JSON.parse(raw) : {};
-                    document.documentElement.classList.toggle(
-                        "dark",
-                        !!parsed.darkMode,
-                    );
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        document.documentElement.classList.toggle("dark", !!parsed.darkMode);
+                    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                        document.documentElement.classList.add("dark");
+                    }
                 } catch {
                     document.documentElement.classList.remove("dark");
                 }
@@ -44,34 +46,65 @@ import "../index.css";
             window.autoAnimate = autoAnimate;
         </script>
         <link href="/prism.css" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
             rel="stylesheet"
         />
     </head>
-    <body sx-page class="bp-body transition-colors duration-300">
-        <div class="bp-grid-overlay" aria-hidden="true"></div>
+    <body sx-page class="bp-body antialiased">
+        <div class="bp-ambient" aria-hidden="true"></div>
 
-        <nav class="site-nav fixed w-full z-50">
+        <header class="site-nav sticky top-0 z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="site-nav-shell flex justify-between items-center">
+                <div class="site-nav-shell flex justify-between items-center gap-4">
                     <a is:raw href="/" class="brand-lockup flex items-center gap-3">
                         <img
                             src="/logo.svg"
                             alt="SpruceX logo"
-                            width="44"
-                            height="44"
+                            width="34"
+                            height="34"
                             class="brand-mark"
                         />
-                        <div class="brand-copy">
+                        <div class="flex items-center gap-2.5">
                             <span class="brand-wordmark">SpruceX</span>
-                            <span class="brand-subtitle">Reactive Blueprint Framework</span>
+                            <span class="version-pill">v1.2.0</span>
                         </div>
                     </a>
 
-                    <div class="flex items-center gap-2 sm:gap-3">
+                    <nav class="flex items-center gap-1 sm:gap-2">
+                        <a
+                            is:raw
+                            href="/"
+                            class:list={["site-link", { "site-link--active": pathname === "/" }]}
+                        >
+                            Docs
+                        </a>
+                        <a
+                            is:raw
+                            href="/examples"
+                            class:list={[
+                                "site-link",
+                                { "site-link--active": pathname.startsWith("/examples") },
+                            ]}
+                        >
+                            Examples
+                        </a>
+                        <a
+                            is:raw
+                            href="/LLM.txt"
+                            target="_blank"
+                            class="site-link hidden sm:inline-flex"
+                        >
+                            LLM.txt
+                        </a>
+
+                        <div class="nav-divider hidden sm:block" aria-hidden="true"></div>
+
                         <button
                             is:raw
+                            type="button"
                             sx-on:click="darkMode = !darkMode"
                             class="theme-toggle"
                             aria-label="Toggle color theme"
@@ -81,38 +114,25 @@ import "../index.css";
                                 sx-class="{ 'theme-dot--dark': darkMode }"
                             ></span>
                             <span
-                                class="theme-label"
+                                class="theme-label hidden sm:inline"
                                 sx-text="darkMode ? 'Dark' : 'Light'"
-                                >Light</span
                             >
+                                Light
+                            </span>
                         </button>
 
-                        <div class="hidden md:flex items-center gap-2 lg:gap-3">
-                            <a
-                                is:raw
-                                href="/"
-                                class="site-link"
-                                >Documentation</a
-                            >
-                            <a
-                                is:raw
-                                href="/examples"
-                                class="site-link"
-                                >Examples</a
-                            >
-                            <a
-                                is:raw
-                                href="/dist/sprucex.js"
-                                download
-                                class="download-link"
-                            >
-                                Download
-                            </a>
-                        </div>
-                    </div>
+                        <a
+                            is:raw
+                            href="/dist/sprucex.min.js"
+                            download
+                            class="download-link hidden md:inline-flex items-center gap-1.5"
+                        >
+                            <span>Download</span>
+                        </a>
+                    </nav>
                 </div>
             </div>
-        </nav>
+        </header>
 
         <main class="site-main">
             <slot />
@@ -121,18 +141,28 @@ import "../index.css";
         <footer class="site-footer">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="site-footer-shell">
-                    <div class="footer-brand">
-                        <span class="brand-wordmark">SpruceX</span>
-                        <p class="footer-note">Blueprint-grade reactive markup tooling.</p>
+                    <div class="flex items-center gap-3">
+                        <img
+                            src="/logo.svg"
+                            alt="SpruceX"
+                            width="24"
+                            height="24"
+                            class="opacity-90"
+                        />
+                        <div>
+                            <span class="brand-wordmark text-sm">SpruceX</span>
+                            <p class="footer-note">Reactive HTML with a tiny ego.</p>
+                        </div>
                     </div>
 
                     <div class="footer-links">
-                        <a is:raw href="/" class="footer-link">Docs</a>
+                        <a is:raw href="/" class="footer-link">Documentation</a>
                         <a is:raw href="/examples" class="footer-link">Examples</a>
-                        <a is:raw href="/dist/sprucex.js" download class="footer-link">Download</a>
+                        <a is:raw href="/LLM.txt" class="footer-link">LLM.txt</a>
+                        <a is:raw href="/dist/sprucex.min.js" download class="footer-link">Bundle</a>
                     </div>
 
-                    <p class="footer-copy">© 2024 SpruceX. MIT License.</p>
+                    <p class="footer-copy">MIT License · Zero runtime dependencies</p>
                 </div>
             </div>
         </footer>

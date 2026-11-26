@@ -1,191 +1,49 @@
-import { createSortableIntegration, createNativeSortableAdapter } from './integrations/sortable.js';
-export { createSortableIntegration, createNativeSortableAdapter } from './integrations/sortable.js';
 import {
-  ATTR_DATA,
-  ATTR_PAGE,
-  ATTR_BOOST,
-  ATTR_BOOST_ON,
-  ATTR_LAZY,
-  ATTR_LOCAL,
-} from "./constants.js";
-import { globalStores, initStore, removeStore, storeSubscribers } from "./store/index.js";
-import { Component } from "./core/component.js";
-import { setAutoAnimate, getAutoAnimate } from "./utils/animations.js";
-import { morphNodes } from "./utils/morph.js";
-import { walk } from "./utils/helpers.js";
-import {
-  getIntegration,
-  registerIntegration,
-} from "./integrations/index.js";
+  createSortableIntegration,
+  createNativeSortableAdapter,
+} from "./integrations/sortable.js";
+import { createGridStackIntegration } from "./integrations/gridstack.js";
 import { ensureBuiltInIntegrationsRegistered } from "./integrations/builtins.js";
 import {
-  DATA_FACTORY_NOT_READY_ERROR,
-  getDataFactory,
-  registerDataFactory,
-} from "./utils/data-factories.js";
-
-// Page/boost cache for prefetching
-const MAX_PAGE_CACHE_SIZE = 20;
-const pageCache = new Map();
-const pendingFetches = new Map();
-const PAGE_CACHE_TTL = 30000; // 30 seconds
-const pendingRoots = new Set();
-const pendingRootMeta = new WeakMap();
-const PENDING_ROOT_MAX_WAIT = 5000;
-let pendingRootFlushQueued = false;
-let pendingRootPollTimer = null;
-let pendingRootPollCount = 0;
-const MAX_PENDING_ROOT_POLLS = 100; // 10 seconds total at 100ms
-let latestNavigationId = 0;
+  createSpruceXApi,
+  initSpruceX,
+  flushPendingRoots,
+  runBootHook,
+  markRaw,
+  toRaw,
+  shallow,
+  computed,
+  effect,
+  stop,
+  mountElement,
+  unmountElement,
+  registerDirective,
+  getDirective,
+} from "./core/runtime.js";
 
 ensureBuiltInIntegrationsRegistered();
 
-function ensurePendingRootPolling() {
-  if (pendingRootPollTimer || pendingRoots.size === 0) return;
-  pendingRootPollCount = 0;
-  pendingRootPollTimer = setInterval(() => {
-    pendingRootPollCount++;
-    if (pendingRootPollCount >= MAX_PENDING_ROOT_POLLS) {
-      clearInterval(pendingRootPollTimer);
-      pendingRootPollTimer = null;
-      console.warn(`SpruceX: Stopped polling for pending roots after ${MAX_PENDING_ROOT_POLLS} attempts. Make sure data factories are registered.`);
-      return;
-    }
-    flushPendingRoots();
-  }, 100);
-}
-
-function flushPendingRoots() {
-  pendingRoots.forEach((root) => {
-    if (!root || !root.isConnected || root.__sprucex) {
-      pendingRoots.delete(root);
-      pendingRootMeta.delete(root);
-      return;
-    }
-
-    const meta = pendingRootMeta.get(root);
-    if (meta && Date.now() - meta.queuedAt > PENDING_ROOT_MAX_WAIT) {
-      console.warn(
-        "SpruceX sx-data factory did not become available in time:",
-        root.getAttribute(ATTR_DATA),
-      );
-      pendingRoots.delete(root);
-      pendingRootMeta.delete(root);
-      return;
-    }
-
-    const comp = initSpruceXRoot(root);
-    if (comp) {
-      pendingRoots.delete(root);
-      pendingRootMeta.delete(root);
-    }
-  });
-
-  if (pendingRoots.size === 0 && pendingRootPollTimer) {
-    clearInterval(pendingRootPollTimer);
-    pendingRootPollTimer = null;
-    pendingRootPollCount = 0;
-  }
-}
-
-function queuePendingRoot(root) {
-  if (!root || root.__sprucex) return;
-  const wasPending = pendingRoots.has(root);
-  pendingRoots.add(root);
-  if (!wasPending) {
-    pendingRootMeta.set(root, { queuedAt: Date.now() });
-  }
-  ensurePendingRootPolling();
-
-  if (wasPending || pendingRootFlushQueued) return;
-  pendingRootFlushQueued = true;
-  queueMicrotask(() => {
-    pendingRootFlushQueued = false;
-    flushPendingRoots();
-  });
-}
-
-function refreshAllMountedComponents() {
-  if (typeof document === "undefined") return;
-
-  document.querySelectorAll(`[${ATTR_DATA}]`).forEach((root) => {
-    if (root.__sprucex && typeof root.__sprucex.refresh === "function") {
-      root.__sprucex.refresh();
-    }
-  });
-}
-
-export const SpruceX = {
+export const SpruceX = createSpruceXApi({
   createSortableIntegration,
   createNativeSortableAdapter,
-  init: initSpruceX,
-  store: initStore,
-  removeStore,
-  data(name, factory) {
-    if (arguments.length === 1 && typeof name === "string") {
-      return getDataFactory(name);
-    }
-    const result = registerDataFactory(name, factory);
-    flushPendingRoots();
-    return result;
-  },
-  inspect() {
-    const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
-    return Array.from(roots).map((r) => ({
-      el: r,
-      state: r.__sprucex?.state || null,
-    }));
-  },
-  config(newCfg) {
-    // Merge new config, which includes csrfCookieName and potentially others
-    Object.assign(Component, newCfg || {});
-  },
-  navigate(url) {
-    const pageRoot = document.querySelector(`[${ATTR_PAGE}]`);
-    const targetSelector = pageRoot?.getAttribute(ATTR_PAGE);
-    const container = targetSelector
-      ? document.querySelector(targetSelector)
-      : document.body;
-    return navigateTo(new URL(url, window.location.href).href, container);
-  },
-  prefetch(url) {
-    return prefetchLink(url);
-  },
-  clearCache() {
-    pageCache.clear();
-  },
-  morph(target, source) {
-    if (typeof target === "string") target = document.querySelector(target);
-    if (typeof source === "string") {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(`<div>${source}</div>`, "text/html");
-      source = doc.body.firstChild;
-    }
-    if (target && source) morphNodes(target, source);
-  },
-  animate(el, options = {}) {
-    if (typeof el === "string") el = document.querySelector(el);
-    if (!el) return null;
+  createGridStackIntegration,
+});
 
-    const aa = getAutoAnimate();
-    if (!aa) {
-      console.warn(
-        "SpruceX: auto-animate library not found. Include it via script tag or npm.",
-      );
-      return null;
-    }
-
-    return aa(el, options);
-  },
-  setAutoAnimate,
-  integration(name, integration) {
-    if (arguments.length === 1 && typeof name === "string") {
-      return getIntegration(name);
-    }
-    const registered = registerIntegration(name, integration);
-    refreshAllMountedComponents();
-    return registered;
-  },
+export {
+  createSortableIntegration,
+  createNativeSortableAdapter,
+  createGridStackIntegration,
+  initSpruceX,
+  mountElement,
+  unmountElement,
+  markRaw,
+  toRaw,
+  shallow,
+  computed,
+  effect,
+  stop,
+  registerDirective,
+  getDirective,
 };
 
 export default SpruceX;
@@ -198,455 +56,21 @@ if (typeof window !== "undefined") {
   }
 }
 
-let bootHookRan = false;
-function runBootHook() {
-  if (bootHookRan || typeof window === "undefined") return;
-  bootHookRan = true;
-
-  const boot = window.SpruceXBoot;
-  if (boot && typeof boot.initTheme === "function") {
-    try {
-      boot.initTheme();
-    } catch (e) {
-      console.error("SpruceX boot hook error:", e);
-    }
-  }
-}
-
-function initSpruceXRoot(root) {
-  if (root.__sprucex) return root.__sprucex;
-  try {
-    const comp = new Component(root);
-    root.__sprucex = comp;
-    return comp;
-  } catch (e) {
-    if (e && e.code === DATA_FACTORY_NOT_READY_ERROR) {
-      queuePendingRoot(root);
-      return null;
-    }
-    console.error("SpruceX component init error:", e);
-    return null;
-  }
-}
-
-export function initSpruceX() {
-  runBootHook();
-
-  const roots = document.querySelectorAll(`[${ATTR_DATA}]`);
-  roots.forEach((root) => {
-    const lazy = root.hasAttribute(ATTR_LAZY);
-    if (!lazy) {
-      initSpruceXRoot(root);
-    } else {
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            initSpruceXRoot(root);
-            io.disconnect();
-          }
-        });
-      });
-      io.observe(root);
-    }
-  });
-
-  // Initialize page swapping
-  const pageRoot = document.querySelector(`[${ATTR_PAGE}]`);
-  if (pageRoot && !pageRoot.__sprucex_page) {
-    pageRoot.__sprucex_page = true;
-    initPageSwapping(pageRoot);
-  }
-
-  // Initialize boosting
-  initBoostingGlobal();
-
-  // Initialize auto-cleanup
-  initAutoCleanup();
-  flushPendingRoots();
-
-  // Mark all initial scripts as executed
-  Array.from(document.scripts).forEach((script) => {
-    script.__sprucex_executed = true;
-  });
-}
-
-// ========== Feature: Auto-Cleanup (Memory Leak Fix) ==========
-let cleanupObserver = null;
-function initAutoCleanup() {
-  if (cleanupObserver) return;
-
-  cleanupObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      mutation.removedNodes.forEach((node) => {
-        // Moving a keyed row also emits a removal record. Only dispose nodes
-        // that are still detached when the observer runs.
-        if (node.nodeType !== 1 || node.isConnected) return;
-
-        // Check if the node itself is a component root
-        if (node.__sprucex) {
-          node.__sprucex.destroy();
-        }
-
-        // Check for nested component roots
-        node.querySelectorAll(`[${ATTR_DATA}]`).forEach((el) => {
-          if (!el.isConnected && el.__sprucex) {
-            el.__sprucex.destroy();
-          }
-        });
-      });
-    }
-  });
-
-  if (document.body) {
-    cleanupObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-}
-
-let isGlobalNavInitialized = false;
-
-function initPageSwapping(root) {
-  const pageAttr = root.getAttribute(ATTR_PAGE);
-  if (pageAttr === null) return;
-
-  const container = pageAttr ? document.querySelector(pageAttr) : document.body;
-  if (!container) {
-    console.error("SpruceX sx-page target not found:", pageAttr);
-    return;
-  }
-
-  if (isGlobalNavInitialized) return;
-  isGlobalNavInitialized = true;
-
-  // Intercept link clicks
-  document.addEventListener("click", async (e) => {
-    if (
-      e.defaultPrevented ||
-      e.button !== 0 ||
-      e.metaKey ||
-      e.ctrlKey ||
-      e.shiftKey ||
-      e.altKey
-    ) {
-      return;
-    }
-
-    const link = e.target?.closest?.("a[href]");
-    if (!link) return;
-
-    const href = link.getAttribute("href");
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
-    if (
-      link.hasAttribute("download") ||
-      (link.getAttribute("target") && link.getAttribute("target") !== "_self")
-    )
-      return;
-
-    try {
-      const url = new URL(href, document.baseURI);
-      if (url.origin !== window.location.origin) return;
-
-      e.preventDefault();
-      await navigateTo(url.href, container);
-    } catch {
-      return;
-    }
-  });
-
-  // Handle back/forward
-  window.addEventListener("popstate", async () => {
-    await navigateTo(window.location.href, container, false);
-  });
-}
-
-function initBoostingGlobal() {
-  // Find all boost-enabled elements
-  document.querySelectorAll(`[${ATTR_BOOST}]`).forEach((el) => {
-    if (el.__sprucex_boost) return;
-    el.__sprucex_boost = true;
-
-    const boostOn = el.getAttribute(ATTR_BOOST_ON) || "mouseenter";
-    const events = boostOn.split(/\s+/);
-
-    if (el.tagName === "A") {
-      events.forEach((evt) => {
-        el.addEventListener(evt, () => prefetchLink(el.href), {
-          passive: true,
-          once: true,
-        });
-      });
-    } else {
-      events.forEach((evt) => {
-        el.addEventListener(
-          evt,
-          (e) => {
-            const link = e.target.closest("a[href]");
-            if (link && !link.__sprucex_prefetched) {
-              link.__sprucex_prefetched = true;
-              prefetchLink(link.href);
-            }
-          },
-          { passive: true },
-        );
-      });
-
-      // Also prefetch on focus for accessibility
-      el.addEventListener(
-        "focusin",
-        (e) => {
-          const link = e.target.closest("a[href]");
-          if (link && !link.__sprucex_prefetched) {
-            link.__sprucex_prefetched = true;
-            prefetchLink(link.href);
-          }
-        },
-        { passive: true },
-      );
-    }
-  });
-}
-
-async function navigateTo(url, container, pushState = true) {
-  const targetUrl = new URL(url, window.location.href);
-  const href = targetUrl.href;
-  const navigationId = ++latestNavigationId;
-  const startTime = performance.now();
-
-  // Dispatch before event
-  const beforeEvent = new CustomEvent("sprucex:page-before", {
-    detail: { url: href },
-    bubbles: true,
-    cancelable: true,
-  });
-  if (!document.dispatchEvent(beforeEvent)) return;
-
-  try {
-    // Check cache first
-    let html = getCachedPage(href);
-
-    if (!html) {
-      // Show loading state without flickering
-      if (container) container.style.opacity = container.style.opacity || "1";
-      html = await fetchPage(href);
-    }
-    if (navigationId !== latestNavigationId) return;
-
-    if (!html) throw new Error("Empty response");
-
-    // Parse the response
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-
-    // Extract content - find matching container or use body
-    let newContent;
-    const pageRoot = document.querySelector("[sx-page]");
-    const targetSelector = pageRoot?.getAttribute(ATTR_PAGE);
-
-    if (targetSelector) {
-      newContent = doc.querySelector(targetSelector);
-    }
-    if (!newContent) {
-      newContent = doc.body;
-    }
-
-    // Update title
-    const newTitle = doc.querySelector("title");
-    if (newTitle) document.title = newTitle.textContent;
-
-    // Destroy old components BEFORE morph to prevent double lifecycle
-    reinitializeComponents(container);
-
-    // Merge or replace content
-    if (container && newContent) {
-      morphNodes(container, newContent);
-
-      // Execute new scripts
-      container.querySelectorAll("script").forEach((script) => {
-        if (!script.__sprucex_executed) {
-          runScript(script);
-        }
-      });
-    }
-
-    // Update URL
-    if (pushState) {
-      history.pushState({ url: href }, "", href);
-    }
-
-    // Reinitialize components in container after DOM is ready
-    initSpruceX();
-
-    // Refresh ancestor components to re-scan bindings in the new content
-    let ancestor = container.parentElement;
-    while (ancestor) {
-      if (ancestor.__sprucex) {
-        ancestor.__sprucex.refresh();
-      }
-      ancestor = ancestor.parentElement;
-    }
-
-    initBoostingGlobal();
-
-    // Scroll to top or to hash
-    if (navigationId !== latestNavigationId) return;
-    const hash = targetUrl.hash;
-    if (hash) {
-      const target = document.querySelector(hash);
-      if (target) target.scrollIntoView();
-    } else {
-      window.scrollTo(0, 0);
-    }
-
-    // Dispatch after event
-    document.dispatchEvent(
-      new CustomEvent("sprucex:page-after", {
-        detail: { url: href, duration: performance.now() - startTime },
-        bubbles: true,
-      }),
-    );
-  } catch (error) {
-    if (navigationId !== latestNavigationId) return;
-    console.error("SpruceX page navigation error:", error);
-    document.dispatchEvent(
-      new CustomEvent("sprucex:page-error", {
-        detail: { url: href, error },
-        bubbles: true,
-      }),
-    );
-    // Fallback to regular navigation
-    window.location.href = href;
-  }
-}
-
-function reinitializeComponents(container) {
-  if (!container) return;
-  // Destroy ALL components on the page first? Or just inside container?
-  // The original logic seemed to potentially nuke everything.
-  // Let's safe side: check elements inside container.
-  container.querySelectorAll(`[${ATTR_DATA}]`).forEach((el) => {
-    if (el.__sprucex) {
-      el.__sprucex.destroy();
-    }
-  });
-  // Also check container itself
-  if (container.hasAttribute(ATTR_DATA) && container.__sprucex) {
-    container.__sprucex.destroy();
-  }
-}
-
-async function prefetchLink(href) {
-  if (!href) return;
-
-  try {
-    const url = new URL(href, document.baseURI);
-    if (url.origin !== window.location.origin) return;
-    if (url.href === window.location.href) return;
-
-    await fetchPage(url.href);
-  } catch {
-    // Ignore prefetch errors
-  }
-}
-
-async function fetchPage(url) {
-  // Check cache
-  const cached = getCachedPage(url);
-  if (cached) return cached;
-
-  // Check pending
-  if (pendingFetches.has(url)) {
-    return pendingFetches.get(url);
-  }
-
-  const fetchPromise = (async () => {
-    try {
-      const res = await fetch(url, {
-        headers: { "X-SpruceX-Request": "true" },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-
-      // Cache it
-      if (pageCache.size >= MAX_PAGE_CACHE_SIZE) {
-        const oldestKey = pageCache.keys().next().value;
-        pageCache.delete(oldestKey);
-      }
-      pageCache.set(url, {
-        html,
-        timestamp: Date.now(),
-      });
-
-      return html;
-    } finally {
-      pendingFetches.delete(url);
-    }
-  })();
-
-  pendingFetches.set(url, fetchPromise);
-  return fetchPromise;
-}
-
-function getCachedPage(url) {
-  const entry = pageCache.get(url);
-  if (!entry) return null;
-
-  // Check TTL
-  if (Date.now() - entry.timestamp > PAGE_CACHE_TTL) {
-    pageCache.delete(url);
-    return null;
-  }
-
-  return entry.html;
-}
-
-// Auto-start
+// Auto-start unless explicitly disabled via window.SpruceXBoot.autoInit = false
 if (typeof document !== "undefined") {
   runBootHook();
-  window.addEventListener("load", () => {
-    flushPendingRoots();
-  });
+  const autoInit =
+    typeof window === "undefined" || window.SpruceXBoot?.autoInit !== false;
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initSpruceX);
-  } else {
-    initSpruceX();
-  }
-}
-
-function runScript(script) {
-  // Ignore non-executable scripts
-  if (
-    script.type &&
-    script.type !== "text/javascript" &&
-    script.type !== "application/javascript" &&
-    script.type !== "module"
-  ) {
-    return;
-  }
-
-  const newScript = document.createElement("script");
-  Array.from(script.attributes).forEach((attr) => {
-    newScript.setAttribute(attr.name, attr.value);
-  });
-  if (newScript.src) {
-    newScript.addEventListener(
-      "load",
-      () => {
-        flushPendingRoots();
-        refreshAllMountedComponents();
-      },
-      { once: true },
-    );
-    newScript.addEventListener("error", () => flushPendingRoots(), {
-      once: true,
+  if (autoInit) {
+    window.addEventListener("load", () => {
+      flushPendingRoots();
     });
-  }
-  newScript.textContent = script.textContent;
-  newScript.__sprucex_executed = true;
-  script.replaceWith(newScript);
-  if (!newScript.src) {
-    queueMicrotask(() => flushPendingRoots());
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => initSpruceX());
+    } else {
+      initSpruceX();
+    }
   }
 }

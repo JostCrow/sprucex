@@ -316,7 +316,8 @@ describe("network actions", () => {
     expect(component.state.error).toEqual({
       name: "Error",
       message: "HTTP 500: Server Error",
-      status: undefined,
+      status: 500,
+      body: "boom",
     });
   });
 

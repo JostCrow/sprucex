@@ -25,6 +25,134 @@ import examplesMarkup from "../fragments/examples-markup.html?raw";
         SpruceX.store("nested-roots-demo", {
             items: ["Shell", "Canvas"],
         });
+
+        // Live SVG bar chart directive demonstrating fine-grained effects & swap survival
+        window.__demoChartStats = { mounts: 0, updates: 0, destroys: 0 };
+        SpruceX.directive("demo-chart", (el, { evaluate, effect, cleanup, modifiers }) => {
+            window.__demoChartStats.mounts += 1;
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("viewBox", "0 0 320 120");
+            svg.setAttribute("class", "w-full h-36 rounded-lg bg-slate-950/90 p-2");
+            el.innerHTML = "";
+            el.appendChild(svg);
+
+            const accent = modifiers.includes("emerald") ? "#10b981" : "#38bdf8";
+
+            const renderBars = (rawData) => {
+                const points = SpruceX.toRaw(rawData) || [];
+                const max = Math.max(1, ...points.map((p) => Number(p.value) || 0));
+                const barW = points.length ? Math.floor(290 / points.length) - 8 : 20;
+                svg.innerHTML = points
+                    .map((p, i) => {
+                        const val = Number(p.value) || 0;
+                        const h = Math.max(6, Math.round((val / max) * 84));
+                        const x = 16 + i * (barW + 8);
+                        const y = 96 - h;
+                        return (
+                            `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" fill="${accent}"></rect>` +
+                            `<text x="${x + barW / 2}" y="112" text-anchor="middle" fill="#94a3b8" font-size="10">${p.label}</text>` +
+                            `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" fill="#e2e8f0" font-size="10">${val}</text>`
+                        );
+                    })
+                    .join("");
+            };
+
+            effect(() => {
+                window.__demoChartStats.updates += 1;
+                renderBars(evaluate());
+                const counterEl = document.getElementById("chart-stats-readout");
+                if (counterEl) {
+                    const s = window.__demoChartStats;
+                    counterEl.textContent = `mounts: ${s.mounts} | effect updates: ${s.updates} | destroys: ${s.destroys}`;
+                }
+            });
+
+            cleanup(() => {
+                window.__demoChartStats.destroys += 1;
+                el.innerHTML = "";
+                const counterEl = document.getElementById("chart-stats-readout");
+                if (counterEl) {
+                    const s = window.__demoChartStats;
+                    counterEl.textContent = `mounts: ${s.mounts} | effect updates: ${s.updates} | destroys: ${s.destroys}`;
+                }
+            });
+        });
+
+        // Data factory for Section 12 (Auto-memoized getters + markRaw + Date/Map)
+        SpruceX.data("biAnalyticsDemo", () => {
+            let filterComputeCount = 0;
+            const regionRates = new Map([
+                ["EU", 1.08],
+                ["US", 1.0],
+                ["APAC", 0.92],
+            ]);
+            const rows = [
+                { id: 1, metric: "ARR", region: "EU", value: 420 },
+                { id: 2, metric: "Net Retention", region: "US", value: 118 },
+                { id: 3, metric: "Pipeline", region: "EU", value: 640 },
+                { id: 4, metric: "Expansion", region: "APAC", value: 290 },
+                { id: 5, metric: "New Logos", region: "US", value: 185 },
+            ];
+            return {
+                search: "",
+                selectedRegion: "ALL",
+                sidebarClicks: 0,
+                lastSynced: new Date(),
+                rates: regionRates,
+                rawSeries: SpruceX.markRaw(
+                    Array.from({ length: 5000 }, (_, i) => ({ x: i, y: (i * 17) % 100 })),
+                ),
+                rawDurationMs: 0,
+                rows,
+                get filteredRows() {
+                    filterComputeCount += 1;
+                    const q = this.search.trim().toLowerCase();
+                    return this.rows.filter((r) => {
+                        const regionOk =
+                            this.selectedRegion === "ALL" || r.region === this.selectedRegion;
+                        const queryOk = !q || r.metric.toLowerCase().includes(q);
+                        return regionOk && queryOk;
+                    });
+                },
+                get totalValue() {
+                    return this.filteredRows.reduce((sum, r) => sum + r.value, 0);
+                },
+                get computeCount() {
+                    return filterComputeCount;
+                },
+                regenerateRawSeries() {
+                    const t0 = performance.now();
+                    const next = SpruceX.markRaw(
+                        Array.from({ length: 5000 }, (_, i) => ({
+                            x: i,
+                            y: Math.round(Math.random() * 1000),
+                        })),
+                    );
+                    this.rawSeries = next;
+                    this.lastSynced = new Date();
+                    this.rawDurationMs = Number((performance.now() - t0).toFixed(2));
+                },
+                get isRawUnproxied() {
+                    return SpruceX.toRaw(this.rawSeries) === this.rawSeries;
+                },
+            };
+        });
+
+        // Data factory for Section 14 (Path watchers)
+        SpruceX.data("pathWatcherDemo", () => ({
+            role: "Root Admin",
+            profile: { role: "Analyst" },
+            watcherLog: [],
+            watch: {
+                role(next, prev) {
+                    this.watcherLog.unshift(`top-level role: "${prev}" -> "${next}"`);
+                },
+                "profile.role"(next, prev) {
+                    this.watcherLog.unshift(`profile.role: "${prev}" -> "${next}"`);
+                },
+            },
+        }));
     </script>
 
     <Fragment set:html={examplesMarkup} />

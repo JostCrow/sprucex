@@ -1,14 +1,12 @@
-
-// Auto-animate support
+// Auto-animate support (SSR-safe)
 let autoAnimate = null;
 let autoAnimateLoaded = false;
 
-// Try to detect auto-animate library
 export function getAutoAnimate() {
   if (autoAnimateLoaded) return autoAnimate;
+  if (typeof window === "undefined") return null;
   autoAnimateLoaded = true;
 
-  // Check various ways the library might be available
   if (window.autoAnimate) {
     autoAnimate = window.autoAnimate;
   } else if (window.AutoAnimate?.default) {
@@ -19,7 +17,6 @@ export function getAutoAnimate() {
 }
 
 export function setAutoAnimate(lib) {
-  // Allow manually setting the auto-animate library
   autoAnimate = lib;
   autoAnimateLoaded = true;
 }

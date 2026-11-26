@@ -1,3 +1,4 @@
+const classCheckCache = new WeakMap();
 
 export const walk = (el, cb) => {
   if (cb(el) === false) return;
@@ -10,7 +11,19 @@ export const walk = (el, cb) => {
 };
 
 export function isClass(fn) {
-  return typeof fn === "function" && /^class\s/.test(fn.toString());
+  if (typeof fn !== "function") return false;
+  let cached = classCheckCache.get(fn);
+  if (cached !== undefined) return cached;
+  cached = /^class\s/.test(Function.prototype.toString.call(fn));
+  classCheckCache.set(fn, cached);
+  return cached;
+}
+
+export function isPlainObjectOrArray(value) {
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return true;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 }
 
 export function parseForExpression(expr) {
@@ -20,7 +33,7 @@ export function parseForExpression(expr) {
   const iterable = inMatch[3].trim();
   if (left.startsWith("(")) {
     const inner = left.slice(1, -1);
-    const [item, index] = inner.split(",").map(s => s.trim());
+    const [item, index] = inner.split(",").map((s) => s.trim());
     return { item, index, iterable };
   }
   return { item: left, index: null, iterable };

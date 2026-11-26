@@ -1,4 +1,4 @@
-# SpruceX v1.1.0 - LLM Documentation
+# SpruceX v1.2.0 - LLM Documentation
 
 > Status: active development, not complete yet.
 
@@ -863,8 +863,32 @@ const component = el.__sprucex;
 component.state.count++;  // Trigger reactivity
 component.destroy();       // Clean up component
 
-// Reserved configuration hook (currently a no-op)
-SpruceX.config();
+// Global configuration (network hooks, CSRF, CSP, base URL, view transitions)
+SpruceX.config({
+  baseUrl: 'https://api.example.com',
+  csrfCookieName: 'csrftoken',
+  csrfHeaderName: 'X-CSRFToken',
+  credentials: 'same-origin',
+  headers: () => ({ 'X-Requested-With': 'SpruceX' }),
+  csp: false,
+});
+
+// Scoped / Shadow DOM mounting
+SpruceX.init(shadowRoot);
+SpruceX.mount('#widget');
+SpruceX.unmount('#widget');
+
+// Element-scoped custom directive (recommended for charts/widgets)
+SpruceX.directive('chart', (el, { evaluate, effect, cleanup, modifiers }) => {
+  const instance = initChart(el, evaluate());
+  effect(() => instance.update(evaluate()));
+  cleanup(() => instance.destroy());
+});
+
+// Large dataset / raw object helpers
+const rawRows = SpruceX.markRaw(largeArray);
+const unwrapped = SpruceX.toRaw(component.state.rows);
+const total = SpruceX.computed(() => component.state.rows.length);
 ```
 
 ---

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-26
+
+### Added
+
+- Fine-grained dependency tracking (`SpruceX.effect()`, `SpruceX.stop()`, `SpruceX.computed()`) and automatic memoization of own read-only state getters.
+- Large-dataset and built-in object safety: `SpruceX.markRaw()`, `SpruceX.toRaw()`, `SpruceX.shallow()`, and `sx-json-into.shallow` keep large datasets or external instances unproxied; built-in objects (`Date`, `Map`, `Set`, `TypedArray`, DOM nodes, custom class instances) are no longer wrapped in a Proxy.
+- Element-scoped custom directives via `SpruceX.directive(name, (el, ctx) => ...)` with per-element reactive `effect()`, `cleanup()`, `evaluate()`, and `modifiers` that survive unrelated state changes and untouched partial HTML swaps.
+- New core directives: `<template sx-if="...">`, `sx-cloak`, `sx-style`, `sx-init`, and `sx-effect`.
+- New expression magics: `$el`, `$nextTick`, `$dispatch`, and `$parent` (also accessible via `this.$refs`, `this.$el`, `this.$parent`, and `this.$nextTick` inside `sx-data` methods and lifecycle hooks).
+- New event modifiers: `.once`, `.outside`, `.debounce.<ms>`, `.throttle.<ms>`, `.passive`, `.capture`, plus full keyboard combination support (`.ctrl.enter`, `.meta.k`, `.esc`, `.space`, arrow aliases).
+- `sx-model` support for `<select multiple>`, `.boolean`, and `.debounce.<ms>`.
+- Network upgrades: `sx-patch`, `sx-params`, `sx-select`, `sx-swap="none" | "delete"`, `sx-push-url`, `sx-replace-url`, cross-component `sx-trigger="event from:window|document|#selector"`, visibility-aware `sx-poll` (opt-out with `sx-poll-background`), and typed `SpruceX.config()` hooks (`baseUrl`, `headers`, `credentials`, `csrfHeaderName`, `beforeRequest`, `afterResponse`, `csp`, `viewTransitions`).
+- Scoped initialization and Shadow DOM / embed support: `SpruceX.init(root)`, `SpruceX.mount(el)`, `SpruceX.unmount(el)`, `SpruceX.inspect(root)`, `SpruceX.nextTick()`, and optional `window.SpruceXBoot.autoInit = false`.
+- Strict-CSP fallback evaluator (`SpruceX.config({ csp: true })`) and fast-path simple property evaluation.
+- Persistent store cross-tab sync option (`SpruceX.store(name, data, { persist: true, syncTabs: true })`).
+- Tree-shakeable package subpath exports: `sprucex/core`, `sprucex/sortable`, and `sprucex/gridstack`.
+- Page navigation improvements: aborting superseded fetches, scroll position restoration on `popstate`, `sx-page-ignore` / `sx-boost="false"` link opt-out, and optional View Transitions API (`sx-page-transition`).
+- Redesigned documentation site with live directive filtering, hero playground, and 5 new interactive example sections (including a live SVG chart custom directive, auto-memoized BI getters, and Shadow DOM embed demo).
+
+### Changed
+
+- Split monolithic `src/core/component.js` into modular `src/directives/*`, `src/core/network.js`, `src/core/runtime.js`, and `src/integrations/gridstack.js`.
+- Added no-op DOM write guards across bindings (`sx-text`, `sx-html`, `sx-show`, `sx-bind:*`, `sx-class`, `sx-style`, `sx-model`), batched `localStorage` persistence per microtask, lazy event delegation, single-pass scanning, and $O(n)$ `morphChildren` reconciliation.
+- Integrations supporting `preserveOnSwap` / `unmount(component, el)` (including GridStack and Sortable) now preserve untouched widget instances during partial HTML swaps.
+
+### Fixed
+
+- `sx-error-into` and `sprucex:error` now include HTTP `status` and parsed error response `body`.
+- `sx-bind:aria-*` and enumerated boolean attributes now serialize `false` as `"false"` instead of removing the attribute; `sx-bind:value` / `checked` / `indeterminate` sync live DOM properties.
+- `sx-show` preserves existing inline `display` values instead of overwriting them with an empty string.
+- `sx-model.number` preserves empty strings instead of coercing `""` to `0`.
+- `sx-vars` URL interpolation now encodes interpolated values with `encodeURIComponent`.
+- Path-aware watchers prevent identically named nested properties from falsely firing top-level watchers and support dotted paths (e.g. `'user.name'`).
+- Restored `e.stopPropagation` after delegated event dispatch and guarded browser globals for SSR import safety.
+
 ## [1.1.0] - 2026-11-09
 
 ### Added

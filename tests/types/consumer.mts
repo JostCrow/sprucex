@@ -40,3 +40,36 @@ document.createElement('div').addEventListener('sprucex:sortable:change', event 
   const position: number = event.detail.newIndex;
   void position;
 });
+
+import CoreSpruceX from "sprucex/core";
+import { createSortableIntegration as createSubpathSortable } from "sprucex/sortable";
+import { createGridStackIntegration } from "sprucex/gridstack";
+
+SpruceX.config({
+  baseUrl: "https://api.example.com",
+  csrfHeaderName: "X-XSRF-TOKEN",
+  credentials: "include",
+  csp: false,
+  beforeRequest(ctx) {
+    ctx.headers.set("X-Trace", "1");
+  },
+});
+
+const rawSeries = SpruceX.markRaw([{ x: 1, y: 2 }]);
+const unwrapped = SpruceX.toRaw(rawSeries);
+const derived = SpruceX.computed(() => unwrapped.length);
+const len: number = derived.value;
+derived.stop();
+
+SpruceX.directive("chart", (el, { evaluate, effect, cleanup, modifiers }) => {
+  void modifiers;
+  const stopEff = effect(() => {
+    el.setAttribute("data-size", String(evaluate()));
+  });
+  cleanup(() => stopEff());
+});
+
+CoreSpruceX.init(document.body);
+CoreSpruceX.integration("sortable", createSubpathSortable());
+CoreSpruceX.integration("gridstack", createGridStackIntegration());
+void len;

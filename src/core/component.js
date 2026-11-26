@@ -1,57 +1,22 @@
 import {
   ATTR_DATA,
-  ATTR_TEXT,
-  ATTR_HTML,
-  ATTR_SHOW,
-  ATTR_BIND_PREFIX,
-  ATTR_ON_PREFIX,
-  ATTR_MODEL,
-  ATTR_MODEL_PREFIX,
-  ATTR_CLASS,
-  ATTR_TOGGLE,
-  ATTR_ERROR_FALLBACK,
   ATTR_FOR,
-  ATTR_MEMO,
-  ATTR_PAGE,
-  ATTR_BOOST,
-  ATTR_BOOST_ON,
-  NET_METHODS,
-  ATTR_TRIGGER,
-  ATTR_TRIGGER_DEBOUNCE,
-  ATTR_TARGET,
-  ATTR_SWAP,
-  ATTR_VARS,
-  ATTR_JSON_INTO,
-  ATTR_OPTIMISTIC,
-  ATTR_REVERT_ON_ERROR,
-  ATTR_POLL,
-  ATTR_POLL_WHILE,
-  ATTR_INCLUDE,
-  ATTR_BODY,
-  ATTR_BODY_TYPE,
-  ATTR_HEADERS,
-  ATTR_LOADING_INTO,
-  ATTR_ERROR_INTO,
-  ATTR_DISABLE_WHILE_REQUEST,
-  ATTR_TEXT_WHILE_REQUEST,
-  ATTR_CONFIRM,
-  ATTR_CANCEL_PREVIOUS,
-  ATTR_GRIDSTACK_OPTION_PREFIX,
+  ATTR_IF,
   ATTR_LAZY,
   ATTR_LOCAL,
   ATTR_ANIMATE,
-  DELEGATED_EVENTS,
-  DEFAULT_CSRF_COOKIE_NAME,
+  ATTR_CLOAK,
 } from "../constants.js";
-import { walk, parseForExpression, cloneChildren } from "../utils/helpers.js";
+import { walk, parseForExpression } from "../utils/helpers.js";
 import {
-  createDeepReactiveProxy,
   createReactiveState,
+  effect,
+  toRaw,
 } from "../reactivity/index.js";
-import { globalStores, storeSubscribers, getStore } from "../store/index.js";
+import { storeSubscribers, getStore } from "../store/index.js";
 import { getAutoAnimate } from "../utils/animations.js";
-import { evalInScope, safeEval, execInScope } from "../utils/eval.js";
-import { morphNodes } from "../utils/morph.js";
+import { evalInScope, safeEval, execInScope, isCspMode } from "../utils/eval.js";
+import { cspEval } from "../utils/csp-eval.js";
 import {
   getDataFactory,
   getDataExpressionReference,
@@ -60,6 +25,42 @@ import {
   createDataFactoryNotReadyError,
 } from "../utils/data-factories.js";
 import { listIntegrations } from "../integrations/index.js";
+import {
+  scanBindingDirectives,
+  runBinding,
+  parseModelBindingConfig,
+  setupModelBinding,
+} from "../directives/bindings.js";
+import {
+  scanEventDirectives,
+  handleDelegatedEvent,
+} from "../directives/events.js";
+import {
+  createForBlock,
+  createIfBlock,
+  renderForBlocks,
+  renderIfBlocks,
+  teardownForBlock,
+  teardownIfBlock,
+  teardownAllForBlocks,
+  teardownAllIfBlocks,
+  disposeInstance,
+  mountNestedDataComponents,
+} from "../directives/structural.js";
+import { matchElementDirectives } from "../directives/registry.js";
+import {
+  scanNetworkDirectives,
+  setupNetworkBindings,
+  parseNetworkTriggers,
+  buildUrl,
+  buildBody,
+  buildHeaders,
+  addCsrfHeader,
+  getCsrfToken,
+  serializeError,
+  performRequest,
+  applySwap,
+} from "./network.js";
 
 export class Component {
   constructor(root, options = {}) {
@@ -69,6 +70,7 @@ export class Component {
       options.locals && typeof options.locals === "object"
         ? { ...options.locals }
         : {};
+    this.currentEl = root;
     this.bindings = [];
     this.memoBindings = [];
     this.eventHandlers = [];
@@ -77,61 +79,146 @@ export class Component {
     this.modelBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
+    this.ifBlocks = [];
+    this.elementEffects = [];
+    this.pendingInits = [];
+    this.cloakedElements = new Set();
+    this.directiveInstances = new Map(); // Map<Element, Array<record>>
     this.pollTimers = [];
     this.debounceTimers = new Set();
-    this.gridInstances = new Map();
     this.requestUiState = new WeakMap();
     this.netRequestMeta = new WeakMap();
-    this.warnedMissingGridStack = false;
     this.lastEvent = null;
-    this.debug = false;
+    this.debug = Boolean(Component.debug);
+    this.csp = Boolean(Component.csp);
     this.updatePending = false;
     this.isDestroyed = false;
-    this.originalClasses = new WeakMap(); // Track original classes for sx-class
-    this.animatedElements = new Map(); // Track auto-animated elements
+    this.coarseDirty = false;
+    this.refsDirty = true;
+    this.dirtyBindings = new Set();
+    this.dirtyModels = new Set();
+    this.dirtyEffects = new Set();
+    this.dirtyForBlocks = new Set();
+    this.dirtyIfBlocks = new Set();
+    this.nextTickQueue = [];
+    this.originalClasses = new WeakMap();
+    this.animatedElements = new Map();
 
     this.scannedElements = new WeakSet();
     this.directiveSignatures = new WeakMap();
     this.elementLocals = new WeakMap();
     this.integrationScopes = new Map();
     this.refs = {};
-    this.emitter = document.createElement("div");
+    this.emitter =
+      typeof document !== "undefined" ? document.createElement("div") : null;
 
     this.emit = (name, detail) => {
+      if (!this.emitter || typeof CustomEvent === "undefined") return;
       const evt = new CustomEvent(name, { detail, bubbles: false });
       this.emitter.dispatchEvent(evt);
+    };
+
+    this.dispatch = (name, detail) => {
+      const target = this.currentEl || this.root;
+      if (!target || typeof CustomEvent === "undefined") return false;
+      const evt = new CustomEvent(name, { detail, bubbles: true, cancelable: true });
+      return target.dispatchEvent(evt);
     };
 
     this.initState();
     this.collectRefs();
     this.initIntegrationBindings();
 
-    this.setupDelegation();
-
     this.scan(root);
-    this.renderForBlocks();
+    this.renderIfBlocks(true);
+    this.renderForBlocks(true);
     this.applyInitialRender();
     this.callHook("init");
-    queueMicrotask(() => this.callHook("mounted"));
+    queueMicrotask(() => {
+      if (!this.isDestroyed) this.callHook("mounted");
+    });
+  }
+
+  nextTick(fn) {
+    const promise = new Promise((resolve) => {
+      if (this.isDestroyed) {
+        resolve();
+        return;
+      }
+      if (this.updatePending) {
+        this.nextTickQueue.push(resolve);
+      } else {
+        queueMicrotask(resolve);
+      }
+    });
+    return typeof fn === "function" ? promise.then(() => fn.call(this.state)) : promise;
+  }
+
+  flushNextTicks() {
+    if (!this.nextTickQueue.length) return;
+    const queue = this.nextTickQueue.splice(0);
+    for (let i = 0; i < queue.length; i++) {
+      queue[i]();
+    }
+  }
+
+  markAllDirty() {
+    this.coarseDirty = true;
+    this.refsDirty = true;
+    this.bindings.forEach((b) => {
+      b.dirty = true;
+      this.dirtyBindings.add(b);
+    });
+    this.modelBindings.forEach((m) => {
+      m.dirty = true;
+      this.dirtyModels.add(m);
+    });
+    this.forBlocks.forEach((b) => {
+      b.dirty = true;
+      this.dirtyForBlocks.add(b);
+    });
+    this.ifBlocks.forEach((b) => {
+      b.dirty = true;
+      this.dirtyIfBlocks.add(b);
+    });
   }
 
   // Batched update scheduling
-  scheduleUpdate() {
-    if (this.isDestroyed || this.updatePending) return;
+  scheduleUpdate(coarse = true) {
+    if (this.isDestroyed) return;
+    if (coarse) this.coarseDirty = true;
+    if (this.updatePending) return;
     this.updatePending = true;
 
-    // Use requestAnimationFrame for better rendering performance
-    this.rafId = requestAnimationFrame(() => {
+    const scheduleFrame =
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame
+        : (cb) => setTimeout(cb, 16);
+
+    this.rafId = scheduleFrame(() => {
       this.updatePending = false;
       this.rafId = null;
+      if (this.isDestroyed) return;
 
-      this.renderForBlocks();
+      const forceAll = this.coarseDirty;
+      this.coarseDirty = false;
 
-      this.collectRefs();
-      this.updateBindings();
-      this.modelBindings.forEach((mb) => mb.updateDom());
+      const ifChanged = this.renderIfBlocks(forceAll);
+      const forChanged = this.renderForBlocks(forceAll);
+
+      if (ifChanged || forChanged || this.refsDirty) {
+        this.collectRefs();
+        this.refsDirty = false;
+      }
+
+      this.flushPendingInits();
+      this.updateBindings(forceAll);
+      this.updateModelBindings(forceAll);
       this.updateMemoBindings();
+      this.flushDirtyEffects();
       this.updateIntegrations();
+      this.revealCloakedElements();
+      this.flushNextTicks();
     });
   }
 
@@ -148,16 +235,46 @@ export class Component {
     this.storeAccessor = storeAccessor;
 
     let raw;
-    const inheritedLocals = this.locals && typeof this.locals === "object"
-      ? this.locals
-      : {};
+    const inheritedLocals =
+      this.locals && typeof this.locals === "object" ? this.locals : {};
     const jsonScript = this.root.querySelector("script[sx-init-data]");
     const looksLikeIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(rawExpr);
 
+    const evalInitExpr = (source) => {
+      if (this.csp || isCspMode()) {
+        return cspEval(source, {
+          state: {},
+          locals: inheritedLocals,
+          magics: {
+            $store: storeAccessor,
+            $data: getDataFactory,
+            $locals: inheritedLocals,
+            $parent: this.parentComponent?.state || null,
+            $el: this.root,
+          },
+          extra: {},
+        });
+      }
+      const fn = new Function(
+        "$store",
+        "$data",
+        "$locals",
+        "$parent",
+        "$el",
+        `with($locals){ return (${source}); }`,
+      );
+      return fn(
+        storeAccessor,
+        getDataFactory,
+        inheritedLocals,
+        this.parentComponent?.state || null,
+        this.root,
+      );
+    };
+
     if (jsonScript && looksLikeIdentifier) {
       try {
-        const parsed = JSON.parse(jsonScript.textContent.trim() || "{}");
-        raw = parsed;
+        raw = JSON.parse(jsonScript.textContent.trim() || "{}");
       } catch (e) {
         console.error("SpruceX sx-init-data JSON parse error:", e);
         raw = {};
@@ -180,36 +297,20 @@ export class Component {
             !!callExprMatch && callExprMatch[1] === dataRef;
           if (isDirectCallExpr && typeof resolvedFactory === "function") {
             const argsSource = callExprMatch[2].trim();
-            const args = argsSource
-              ? new Function(
-                  "$store",
-                  "$data",
-                  "$locals",
-                  `with($locals){ return [${argsSource}]; }`,
-                )(storeAccessor, getDataFactory, inheritedLocals)
-              : [];
+            const args = argsSource ? evalInitExpr(`[${argsSource}]`) : [];
             raw = resolvedFactory.apply(this.root, args);
-          } else if (rawExpr === dataRef && typeof resolvedFactory === "function") {
+          } else if (
+            rawExpr === dataRef &&
+            typeof resolvedFactory === "function"
+          ) {
             raw = resolvedFactory.call(this.root);
           } else if (rawExpr === dataRef) {
             raw = resolvedFactory;
           } else {
-            const fn = new Function(
-              "$store",
-              "$data",
-              "$locals",
-              `with($locals){ return (${rawExpr}); }`,
-            );
-            raw = fn(storeAccessor, getDataFactory, inheritedLocals);
+            raw = evalInitExpr(rawExpr);
           }
         } else {
-          const fn = new Function(
-            "$store",
-            "$data",
-            "$locals",
-            `with($locals){ return (${rawExpr}); }`,
-          );
-          raw = fn(storeAccessor, getDataFactory, inheritedLocals);
+          raw = evalInitExpr(rawExpr);
         }
       } catch (e) {
         const missingReference =
@@ -236,7 +337,7 @@ export class Component {
     }
 
     const localKey = this.root.getAttribute(ATTR_LOCAL);
-    if (localKey) {
+    if (localKey && typeof localStorage !== "undefined") {
       try {
         const stored = localStorage.getItem(localKey);
         if (stored) {
@@ -253,6 +354,31 @@ export class Component {
       enumerable: false,
       configurable: true,
     });
+    Object.defineProperty(raw, "$dispatch", {
+      value: this.dispatch,
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(raw, "$nextTick", {
+      value: (fn) => this.nextTick(fn),
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(raw, "$refs", {
+      get: () => this.refs,
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(raw, "$el", {
+      get: () => this.currentEl || this.root,
+      enumerable: false,
+      configurable: true,
+    });
+    Object.defineProperty(raw, "$parent", {
+      get: () => this.parentComponent?.state || null,
+      enumerable: false,
+      configurable: true,
+    });
     Object.defineProperty(raw, "$store", {
       value: (name) => {
         const store = getStore(name);
@@ -265,18 +391,27 @@ export class Component {
       configurable: true,
     });
 
-    const { proxy } = createReactiveState(raw, () => {
-      if (localKey) {
-        try {
-          localStorage.setItem(localKey, JSON.stringify(proxy));
-        } catch (e) {
-          console.error("SpruceX sx-local save error:", e);
-        }
+    let persistQueued = false;
+    const flushLocalPersist = () => {
+      persistQueued = false;
+      if (this.isDestroyed || !localKey || typeof localStorage === "undefined") return;
+      try {
+        localStorage.setItem(localKey, JSON.stringify(toRaw(proxy)));
+      } catch (e) {
+        console.error("SpruceX sx-local save error:", e);
       }
-      this.scheduleUpdate();
+    };
+
+    const { proxy, stopWatchers } = createReactiveState(raw, () => {
+      if (localKey && !persistQueued) {
+        persistQueued = true;
+        queueMicrotask(flushLocalPersist);
+      }
+      this.scheduleUpdate(false);
     });
 
     this.state = proxy;
+    this._stopWatchers = stopWatchers;
   }
 
   collectRefs() {
@@ -305,6 +440,19 @@ export class Component {
     }
   }
 
+  withContext(el, locals, fn) {
+    const prevEl = this.currentEl;
+    const prevLocals = this.locals;
+    if (el) this.currentEl = el;
+    if (locals) this.locals = locals;
+    try {
+      return fn();
+    } finally {
+      this.currentEl = prevEl;
+      this.locals = prevLocals;
+    }
+  }
+
   removeEventHandler(record) {
     record.handler.cancel?.();
     if (record.delegated) {
@@ -315,57 +463,16 @@ export class Component {
         );
       }
     } else {
-      record.el.removeEventListener(record.event, record.handler);
+      record.el.removeEventListener(record.event, record.handler, record.options);
     }
-  }
-
-  setupDelegation() {
-    // Attach listeners for delegated events exactly once to the root
-    DELEGATED_EVENTS.forEach((eventName) => {
-      const handler = (e) => this.handleDelegatedEvent(e);
-      this.root.addEventListener(eventName, handler);
-      if (!this._delegatedCleanups) this._delegatedCleanups = [];
-      this._delegatedCleanups.push(() =>
-        this.root.removeEventListener(eventName, handler),
-      );
-    });
   }
 
   handleDelegatedEvent(e) {
-    let cur = e.target;
-
-    // Stop loop if propagation is stopped
-    let propagationStopped = false;
-    const originalStop = e.stopPropagation;
-    e.stopPropagation = function () {
-      propagationStopped = true;
-      originalStop.apply(this, arguments);
-    };
-
-    // Traverse up to root
-    while (cur && cur.nodeType === 1) {
-      // If element has handlers for this event
-      if (cur.__sx_handlers && cur.__sx_handlers[e.type]) {
-        cur.__sx_handlers[e.type].forEach(
-          ({ handler: handlerFn, component }) => {
-            if (component !== this) return;
-
-            if (!propagationStopped) {
-              handlerFn(e);
-            }
-          },
-        );
-      }
-
-      if (propagationStopped) break;
-      if (cur === this.root) break;
-      cur = cur.parentNode;
-    }
+    return handleDelegatedEvent(this, e);
   }
 
+  // Single-pass DOM scan for structural templates and element directives
   scan(root, locals = null, fragment = false) {
-    const self = this;
-
     walk(root, (el) => {
       if (el.nodeType !== 1) return false;
       if ((fragment || el !== root) && el.hasAttribute(ATTR_DATA)) return false;
@@ -373,7 +480,7 @@ export class Component {
       if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_FOR)) {
         const expr = el.getAttribute(ATTR_FOR) || "";
         const parent = el.parentElement;
-        if (!parent) return;
+        if (!parent) return false;
 
         const parentLocals = locals || this.getElementLocals(el);
         const marker = document.createComment("sx-for");
@@ -383,42 +490,49 @@ export class Component {
         const forDef = parseForExpression(expr);
         if (!forDef) {
           console.error("SpruceX invalid sx-for expression:", expr);
-          return;
+          return false;
         }
 
-        self.forBlocks.push({
+        createForBlock(this, {
           template: el,
           parent,
           marker,
           expr,
           def: forDef,
-          instances: [],
           keyExpr: el.getAttribute("sx-key") || null,
           parentLocals,
           autoAnimate: parent.hasAttribute(ATTR_ANIMATE),
         });
 
-        // Setup auto-animate if parent has the attribute
         if (parent.hasAttribute(ATTR_ANIMATE)) {
           const opts = parent.getAttribute(ATTR_ANIMATE);
           let config = {};
           if (opts && opts !== "true" && opts !== "") {
             try {
               config = JSON.parse(opts);
-            } catch (e) {
+            } catch {
               const duration = parseInt(opts, 10);
               if (!isNaN(duration)) config = { duration };
             }
           }
-          self.setupAutoAnimate(parent, config);
+          this.setupAutoAnimate(parent, config);
         }
+        return false;
       }
-    });
 
-    walk(root, (el) => {
-      if (el.nodeType !== 1) return;
-      if ((fragment || el !== root) && el.hasAttribute(ATTR_DATA)) return false;
-      if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_FOR)) return;
+      if (el.tagName === "TEMPLATE" && el.hasAttribute(ATTR_IF)) {
+        const expr = (el.getAttribute(ATTR_IF) || "").trim();
+        const parent = el.parentElement;
+        if (!parent) return false;
+
+        const parentLocals = locals || this.getElementLocals(el);
+        const marker = document.createComment("sx-if");
+        parent.insertBefore(marker, el);
+        el.remove();
+
+        createIfBlock(this, el, expr, parent, marker, parentLocals);
+        return false;
+      }
 
       if (!this.scannedElements.has(el)) {
         this.scanElement(el, locals || this.getElementLocals(el));
@@ -429,350 +543,196 @@ export class Component {
   }
 
   directiveSignature(el) {
-    return JSON.stringify(Array.from(el.attributes)
-      .filter((attr) => attr.name.startsWith("sx-"))
-      .map((attr) => [attr.name, attr.value])
-      .sort(([a], [b]) => a.localeCompare(b)));
+    const attrs = el.attributes;
+    let sxAttrs = null;
+    for (let i = 0; i < attrs.length; i++) {
+      const attr = attrs[i];
+      if (attr.name.startsWith("sx-")) {
+        if (!sxAttrs) sxAttrs = [];
+        sxAttrs.push([attr.name, attr.value]);
+      }
+    }
+    if (!sxAttrs) return "";
+    sxAttrs.sort(([a], [b]) => a.localeCompare(b));
+    return JSON.stringify(sxAttrs);
   }
 
   scanElement(el, locals) {
     this.scannedElements.add(el);
     this.directiveSignatures.set(el, this.directiveSignature(el));
     this.elementLocals.set(el, locals);
-    const self = this;
-    const hasMemo = el.hasAttribute(ATTR_MEMO);
 
-    const textExpr = el.getAttribute(ATTR_TEXT);
-    if (textExpr && !hasMemo) {
-      self.bindings.push({
-        el,
-        type: "text",
-        expr: textExpr,
-        errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-        locals,
-      });
-    }
-
-    const htmlExpr = el.getAttribute(ATTR_HTML);
-    if (htmlExpr && !hasMemo) {
-      self.bindings.push({
-        el,
-        type: "html",
-        expr: htmlExpr,
-        errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-        locals,
-      });
-    }
-
-    const showExpr = el.getAttribute(ATTR_SHOW);
-    if (showExpr) {
-      self.bindings.push({
-        el,
-        type: "show",
-        expr: showExpr,
-        errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-        locals,
-      });
-    }
-
-    const classExpr = el.getAttribute(ATTR_CLASS);
-    if (classExpr) {
-      if (!self.originalClasses.has(el)) {
-        self.originalClasses.set(el, new Set(Array.from(el.classList)));
-      }
-      self.bindings.push({
-        el,
-        type: "class",
-        expr: classExpr,
-        errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-        locals,
-      });
-    }
-
-    const toggleKey = el.getAttribute(ATTR_TOGGLE);
-    if (toggleKey) {
-      const handler = () => {
-        this.withLocals(locals, () => execInScope(`${toggleKey} = !(${toggleKey})`, this));
-      };
-      el.addEventListener("click", handler);
-      self.eventHandlers.push({ el, event: "click", handler });
-    }
-
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith(ATTR_BIND_PREFIX)) {
-        const name = attr.name.slice(ATTR_BIND_PREFIX.length);
-        self.bindings.push({
-          el,
-          type: "bind",
-          attr: name,
-          expr: attr.value,
-          errorFallback: el.getAttribute(ATTR_ERROR_FALLBACK),
-          locals,
-        });
-      }
-    }
-
-    // sx-memo
-    const memoExpr = el.getAttribute(ATTR_MEMO);
-    const textForMemo = el.getAttribute(ATTR_TEXT);
-    const htmlForMemo = el.getAttribute(ATTR_HTML);
-    if (memoExpr && (textForMemo || htmlForMemo)) {
-      let deps = [];
-      try {
-        const fn = new Function(`return (${memoExpr});`);
-        const val = fn();
-        if (Array.isArray(val)) deps = val;
-      } catch (e) {
-        console.error("SpruceX sx-memo parse error:", memoExpr, e);
-      }
-      self.memoBindings.push({
-        el,
-        expr: textForMemo || htmlForMemo,
-        type: textForMemo ? "text" : "html",
-        deps,
-        lastVals: null,
-        lastResult: null,
-        locals,
-      });
-    }
-
-    // sx-model
-    this.setupModelBinding(el, locals);
-
-    // Event handlers
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith(ATTR_ON_PREFIX)) {
-        const full = attr.name.slice(ATTR_ON_PREFIX.length);
-        const [eventName, ...mods] = full.split(".");
-        const expr = attr.value;
-        const handler = (ev) => {
-          if (mods.includes("prevent")) ev.preventDefault();
-          if (mods.includes("stop")) ev.stopPropagation();
-          if (mods.includes("self") && ev.target !== el) return;
-
-          if (ev instanceof KeyboardEvent) {
-            const keys = mods.filter(
-              (m) =>
-                !["prevent", "stop", "self", "window", "document"].includes(m),
-            );
-            if (keys.length > 0) {
-              const key = ev.key.toLowerCase();
-              if (!keys.includes(key)) return;
-            }
-          }
-
-          this.lastEvent = ev;
-          const prev = this.locals;
-          if (locals) this.locals = locals;
-          execInScope(expr, this);
-          this.locals = prev;
-        };
-
-        const eventTarget = mods.includes("window") ? window
-          : mods.includes("document") ? document : el;
-        if (eventTarget === el && DELEGATED_EVENTS.has(eventName)) {
-          if (!el.__sx_handlers) el.__sx_handlers = {};
-          if (!el.__sx_handlers[eventName]) el.__sx_handlers[eventName] = [];
-          el.__sx_handlers[eventName].push({ handler, component: this });
-          self.eventHandlers.push({ el, event: eventName, handler, delegated: true });
-        } else {
-          eventTarget.addEventListener(eventName, handler);
-          self.eventHandlers.push({ el: eventTarget, sourceEl: el, event: eventName, handler });
-        }
-      }
-    }
-
-    // Network bindings
-    for (const m of NET_METHODS) {
-      const attrName = `sx-${m}`;
-      const urlTpl = el.getAttribute(attrName);
-      if (urlTpl) {
-        const trigger =
-          el.getAttribute(ATTR_TRIGGER) ||
-          (el.tagName === "FORM" ? "submit" : "click");
-        const triggerDebounce = el.getAttribute(ATTR_TRIGGER_DEBOUNCE);
-        const target = el.getAttribute(ATTR_TARGET) || null;
-        const swap = el.getAttribute(ATTR_SWAP) || "innerHTML";
-        const varsExpr = el.getAttribute(ATTR_VARS);
-        const jsonInto = el.getAttribute(ATTR_JSON_INTO);
-        const optimistic = el.getAttribute(ATTR_OPTIMISTIC);
-        const revertOnError = el.getAttribute(ATTR_REVERT_ON_ERROR);
-        const poll = el.getAttribute(ATTR_POLL);
-        const pollWhile = el.getAttribute(ATTR_POLL_WHILE);
-        const includeSelector = el.getAttribute(ATTR_INCLUDE);
-        const bodyExpr = el.getAttribute(ATTR_BODY);
-        const bodyType = el.getAttribute(ATTR_BODY_TYPE);
-        const headersExpr = el.getAttribute(ATTR_HEADERS);
-        const loadingInto = el.getAttribute(ATTR_LOADING_INTO);
-        const errorInto = el.getAttribute(ATTR_ERROR_INTO);
-        const disableWhileRequest = el.hasAttribute(
-          ATTR_DISABLE_WHILE_REQUEST,
-        );
-        const textWhileRequest = el.getAttribute(ATTR_TEXT_WHILE_REQUEST);
-        const confirmExpr = el.getAttribute(ATTR_CONFIRM);
-        const cancelPrevious = el.hasAttribute(ATTR_CANCEL_PREVIOUS);
-
-        const binding = {
-          el,
-          locals,
-          scope: Object.assign(Object.create(this), { locals }),
-          method: m.toUpperCase(),
-          urlTpl,
-          trigger,
-          triggerDebounce,
-          target,
-          swap,
-          varsExpr,
-          jsonInto,
-          optimistic,
-          revertOnError,
-          poll: poll ? Number(poll) : null,
-          pollWhile,
-          includeSelector,
-          bodyExpr,
-          bodyType,
-          headersExpr,
-          loadingInto,
-          errorInto,
-          disableWhileRequest,
-          textWhileRequest,
-          confirmExpr,
-          cancelPrevious,
-        };
-
-        self.netBindings.push(binding);
-      }
-    }
-
+    scanBindingDirectives(this, el, locals);
+    scanEventDirectives(this, el, locals);
+    scanNetworkDirectives(this, el, locals);
+    this.mountElementDirectives(el, locals);
     this.scanIntegrations(el, locals);
 
-    // Auto-animate
     if (el.hasAttribute(ATTR_ANIMATE)) {
       const optionsStr = el.getAttribute(ATTR_ANIMATE);
-      // Defer setup to allow DOM to be ready
       queueMicrotask(() => this.setupAutoAnimate(el, optionsStr || {}));
     }
   }
 
-  // ... remaining methods ...
-  parseModelBindingConfig(direct, modifierAttrs) {
-    const keyExpr = direct || modifierAttrs[0]?.value || null;
-    const mods = new Set();
-    let debounceMs = null;
+  mountElementDirectives(el, locals, onlyName = null) {
+    const matches = matchElementDirectives(el);
+    if (!matches.length) return [];
 
-    modifierAttrs.forEach((attr) => {
-      const parts = attr.name
-        .slice(ATTR_MODEL_PREFIX.length)
-        .split(".")
-        .filter(Boolean);
+    const created = [];
+    let existing = this.directiveInstances.get(el);
 
-      parts.forEach((part) => {
-        if (part === "debounce-ms") {
-          const parsed = Number(attr.value || "200");
-          if (Number.isFinite(parsed) && parsed > 0) {
-            debounceMs = parsed;
-          }
-          return;
+    for (const match of matches) {
+      if (onlyName && match.name !== onlyName) continue;
+      if (existing && existing.some((rec) => rec.attr === match.attr)) continue;
+
+      const record = {
+        el,
+        name: match.name,
+        attr: match.attr,
+        locals,
+        cleanups: [],
+        effects: [],
+      };
+
+      const scopeView =
+        locals && locals !== this.locals
+          ? Object.assign(Object.create(this), {
+              locals,
+              currentEl: el,
+              scheduleUpdate: this.scheduleUpdate.bind(this),
+            })
+          : this;
+
+      const evaluate = (exprOverride = match.expression) =>
+        this.withContext(el, locals, () => safeEval(exprOverride, this));
+
+      const evaluateOrLiteral = (exprOverride = match.expression) =>
+        this.withContext(el, locals, () =>
+          this.evaluateExpressionOrLiteral(exprOverride),
+        );
+
+      const cleanup = (fn) => {
+        if (typeof fn === "function") record.cleanups.push(fn);
+      };
+
+      const registerEffect = (fn) => {
+        let scheduled = false;
+        const runner = effect(
+          () => {
+            if (this.isDestroyed) return;
+            this.withContext(el, locals, () => fn());
+          },
+          {
+            lazy: true,
+            scheduler: () => {
+              if (scheduled || this.isDestroyed) return;
+              scheduled = true;
+              this.dirtyEffects.add(effEntry);
+              this.scheduleUpdate(false);
+            },
+          },
+        );
+        const effEntry = {
+          el,
+          locals,
+          run: () => {
+            scheduled = false;
+            runner();
+          },
+          dispose: () => {
+            runner.stop();
+            this.dirtyEffects.delete(effEntry);
+          },
+        };
+        record.effects.push(effEntry);
+        // Run synchronously once so initial state is applied and deps are tracked.
+        effEntry.run();
+        return effEntry.dispose;
+      };
+
+      try {
+        const ret = match.handler(el, {
+          el,
+          name: match.name,
+          attr: match.attr,
+          expression: match.expression,
+          expr: match.expression,
+          modifiers: match.modifiers,
+          component: scopeView,
+          evaluate,
+          evaluateOrLiteral,
+          effect: registerEffect,
+          cleanup,
+        });
+        if (typeof ret === "function") {
+          record.cleanups.push(ret);
         }
-        mods.add(part);
-      });
-    });
+      } catch (e) {
+        console.error(`SpruceX directive "${match.name}" error:`, e);
+      }
 
-    return { keyExpr, mods, debounceMs };
+      if (!existing) {
+        existing = [];
+        this.directiveInstances.set(el, existing);
+      }
+      existing.push(record);
+      created.push(record);
+      if (this._activeFragmentDirectives) {
+        this._activeFragmentDirectives.push(record);
+      }
+    }
+
+    return created;
+  }
+
+  disposeDirectiveRecord(record) {
+    record.effects.forEach((eff) => eff.dispose());
+    record.effects.length = 0;
+    record.cleanups.forEach((fn) => {
+      try {
+        fn();
+      } catch (e) {
+        console.error(`SpruceX directive "${record.name}" cleanup error:`, e);
+      }
+    });
+    record.cleanups.length = 0;
+  }
+
+  disposeElementDirectives(el) {
+    const records = this.directiveInstances.get(el);
+    if (!records) return;
+    records.forEach((rec) => this.disposeDirectiveRecord(rec));
+    this.directiveInstances.delete(el);
+  }
+
+  disposeAllElementDirectives() {
+    this.directiveInstances.forEach((records) => {
+      records.forEach((rec) => this.disposeDirectiveRecord(rec));
+    });
+    this.directiveInstances.clear();
+  }
+
+  mountDirectiveOnExistingElements(name) {
+    walk(this.root, (el) => {
+      if (el !== this.root && el.hasAttribute(ATTR_DATA)) return false;
+      this.mountElementDirectives(el, this.getElementLocals(el), name);
+    });
+  }
+
+  parseModelBindingConfig(direct, modifierAttrs) {
+    return parseModelBindingConfig(direct, modifierAttrs);
+  }
+
+  setupModelBinding(el, locals = null) {
+    return setupModelBinding(this, el, locals);
   }
 
   setupNetworkBindings() {
-    for (const nb of this.netBindings) {
-      if (nb.initialized) continue;
-      nb.initialized = true;
-      nb.disposers = [];
-      const { el, poll, pollWhile } = nb;
-      const triggerDefs = this.parseNetworkTriggers(nb);
-
-      const doReq = (ev = null) => {
-        if (ev) {
-          this.lastEvent = ev;
-          if (ev.type === "submit") ev.preventDefault();
-        }
-
-        nb.scope.lastEvent = ev || this.lastEvent;
-        if (nb.disposed || this.isDestroyed || !nb.scope.confirmRequest(nb)) return;
-        this.performRequest(nb);
-      };
-
-      triggerDefs.forEach(({ eventName, debounceMs }) => {
-        if (eventName === "load") {
-          queueMicrotask(() => doReq());
-          return;
-        }
-
-        const domHandler = this.wrapDebounced(doReq, debounceMs);
-        el.addEventListener(eventName, domHandler);
-        this.eventHandlers.push({ el, event: eventName, handler: domHandler });
-
-        const compHandler = this.wrapDebounced(
-          () => doReq(),
-          debounceMs,
-        );
-        this.emitter.addEventListener(eventName, compHandler);
-        const emitterRecord = { event: eventName, handler: compHandler };
-        this.emitterHandlers.push(emitterRecord);
-        nb.disposers.push(() => {
-          compHandler.cancel?.();
-          this.emitter.removeEventListener(eventName, compHandler);
-          this.emitterHandlers = this.emitterHandlers.filter((record) => record !== emitterRecord);
-        });
-      });
-
-      if (poll && !Number.isNaN(poll) && poll > 0) {
-        const timer = setInterval(() => {
-          if (pollWhile) {
-            const ok = !!safeEval(pollWhile, nb.scope);
-            if (!ok) return;
-          }
-          this.performRequest(nb);
-        }, poll);
-        this.pollTimers.push(timer);
-        nb.disposers.push(() => {
-          clearInterval(timer);
-          this.pollTimers = this.pollTimers.filter((entry) => entry !== timer);
-        });
-      }
-    }
+    return setupNetworkBindings(this);
   }
 
   parseNetworkTriggers(nb) {
-    const fallbackDebounce = Number(nb.triggerDebounce);
-    const debounceMs =
-      Number.isFinite(fallbackDebounce) && fallbackDebounce > 0
-        ? fallbackDebounce
-        : null;
-    const raw = (nb.trigger || "").trim();
-    const fallback = nb.el.tagName === "FORM" ? "submit" : "click";
-    const tokens = (raw || fallback)
-      .split(",")
-      .flatMap((part) => part.trim().split(/\s+/))
-      .filter(Boolean);
-
-    if (!tokens.length) {
-      return [{ eventName: fallback, debounceMs }];
-    }
-
-    return tokens.map((token) => {
-      const parts = token.split(".");
-      const eventName = parts[0] || fallback;
-      let triggerDebounce = debounceMs;
-      const debounceIdx = parts.indexOf("debounce");
-
-      if (debounceIdx !== -1) {
-        const parsed = Number(parts[debounceIdx + 1]);
-        if (Number.isFinite(parsed) && parsed > 0) {
-          triggerDebounce = parsed;
-        }
-      }
-
-      return { eventName, debounceMs: triggerDebounce };
-    });
+    return parseNetworkTriggers(nb);
   }
 
   wrapDebounced(fn, debounceMs) {
@@ -826,24 +786,20 @@ export class Component {
     const aa = getAutoAnimate();
     if (!aa) return null;
 
-    // Parse options from attribute if string
     if (typeof options === "string" && options.trim()) {
       try {
         options = JSON.parse(options);
-      } catch (_jsonErr) {
-        // Fallback: try evaluating as expression in component scope
+      } catch {
         const evaluated = safeEval(options, this);
         options = evaluated && typeof evaluated === "object" ? evaluated : {};
       }
     }
 
-    // Default options
-    const defaultOptions = {
+    const finalOptions = {
       duration: 250,
       easing: "ease-in-out",
+      ...options,
     };
-
-    const finalOptions = { ...defaultOptions, ...options };
 
     try {
       const controller = aa(el, finalOptions);
@@ -858,240 +814,29 @@ export class Component {
   disableAutoAnimate(el) {
     const controller = this.animatedElements.get(el);
     if (controller && typeof controller === "function") {
-      // auto-animate returns a disable function when called with false
       controller.disable?.();
     }
     this.animatedElements.delete(el);
   }
 
   buildUrl(nb) {
-    const { urlTpl, varsExpr } = nb;
-    if (!varsExpr) return urlTpl;
-    const vars = safeEval(varsExpr, this) || {};
-    // Safe interpolation: only replace ${identifier} tokens, no arbitrary code execution
-    return urlTpl.replace(/\$\{([A-Za-z_$][A-Za-z0-9_$.]*)\}/g, (_match, key) => {
-      const segments = key.split(".");
-      let value = vars;
-      for (const seg of segments) {
-        if (value == null) return "";
-        value = value[seg];
-      }
-      return value ?? "";
-    });
+    return buildUrl(this, nb);
   }
 
   buildBody(nb) {
-    const { el, method, includeSelector, bodyExpr, bodyType } = nb;
-    if (!["POST", "PUT", "DELETE"].includes(method)) {
-      return { body: null, bodyKind: null };
-    }
-
-    if (bodyExpr) {
-      const value = this.evaluateExpressionOrLiteral(bodyExpr);
-      const resolvedType = this.resolveBodyType(bodyType, value);
-
-      if (resolvedType === "json") {
-        return {
-          body:
-            typeof value === "string" ? value : JSON.stringify(value ?? {}),
-          bodyKind: "json",
-        };
-      }
-
-      if (resolvedType === "form") {
-        const fd = this.toFormData(value);
-        if (fd instanceof FormData && includeSelector) {
-          this.appendIncludeData(fd, includeSelector);
-        }
-        return { body: fd, bodyKind: "form" };
-      }
-
-      return { body: value ?? null, bodyKind: null };
-    }
-
-    if (el.tagName === "FORM") {
-      const fd = new FormData(el);
-      if (includeSelector) {
-        this.appendIncludeData(fd, includeSelector);
-      }
-
-      if ((bodyType || "").toLowerCase() === "json") {
-        return {
-          body: JSON.stringify(this.formDataToJson(fd)),
-          bodyKind: "json",
-        };
-      }
-
-      return { body: fd, bodyKind: "form" };
-    }
-
-    return { body: null, bodyKind: null };
-  }
-
-  resolveBodyType(rawType, value) {
-    const lowered = (rawType || "").toLowerCase();
-    if (lowered === "json" || lowered === "form") return lowered;
-    if (value instanceof FormData || value instanceof URLSearchParams) {
-      return "form";
-    }
-    if (
-      value &&
-      typeof value === "object" &&
-      !(value instanceof Blob) &&
-      !(value instanceof ArrayBuffer)
-    ) {
-      return "json";
-    }
-    return null;
-  }
-
-  toFormData(value) {
-    if (value instanceof FormData) return value;
-    if (value instanceof URLSearchParams) {
-      const fd = new FormData();
-      value.forEach((v, k) => fd.append(k, v));
-      return fd;
-    }
-
-    const fd = new FormData();
-    if (value == null) return fd;
-
-    if (typeof value === "string") {
-      const params = new URLSearchParams(value);
-      let appended = false;
-      params.forEach((v, k) => {
-        fd.append(k, v);
-        appended = true;
-      });
-      if (!appended) fd.append("value", value);
-      return fd;
-    }
-
-    if (typeof value !== "object") {
-      fd.append("value", String(value));
-      return fd;
-    }
-
-    Object.entries(value).forEach(([k, v]) => {
-      this.appendFormValue(fd, k, v);
-    });
-    return fd;
-  }
-
-  appendFormValue(fd, key, value) {
-    if (Array.isArray(value)) {
-      value.forEach((item) => this.appendFormValue(fd, key, item));
-      return;
-    }
-
-    if (value instanceof Blob) {
-      fd.append(key, value);
-      return;
-    }
-
-    if (value && typeof value === "object") {
-      fd.append(key, JSON.stringify(value));
-      return;
-    }
-
-    fd.append(key, value == null ? "" : String(value));
-  }
-
-  appendIncludeData(fd, includeSelector) {
-    document.querySelectorAll(includeSelector).forEach((extra) => {
-      if (extra.tagName === "FORM") {
-        new FormData(extra).forEach((v, k) => fd.append(k, v));
-        return;
-      }
-
-      this.appendElementValue(fd, extra);
-      if (extra.querySelectorAll) {
-        extra
-          .querySelectorAll("input[name], select[name], textarea[name]")
-          .forEach((input) => this.appendElementValue(fd, input));
-      }
-    });
-  }
-
-  appendElementValue(fd, el) {
-    if (!("name" in el) || !el.name) return;
-    if ("disabled" in el && el.disabled) return;
-
-    const type = (el.type || "").toLowerCase();
-    if ((type === "checkbox" || type === "radio") && !el.checked) return;
-
-    if (el.tagName === "SELECT" && el.multiple) {
-      Array.from(el.selectedOptions || []).forEach((opt) =>
-        fd.append(el.name, opt.value),
-      );
-      return;
-    }
-
-    fd.append(el.name, el.value ?? "");
-  }
-
-  formDataToJson(fd) {
-    const out = {};
-    fd.forEach((value, key) => {
-      const normalized = value instanceof File ? value.name : value;
-      if (key in out) {
-        if (Array.isArray(out[key])) out[key].push(normalized);
-        else out[key] = [out[key], normalized];
-      } else {
-        out[key] = normalized;
-      }
-    });
-    return out;
+    return buildBody(this, nb);
   }
 
   buildHeaders(nb, bodyKind, hasBody) {
-    const headers = new Headers();
-    const evaluated = nb.headersExpr
-      ? safeEval(nb.headersExpr, this)
-      : undefined;
-
-    if (evaluated instanceof Headers) {
-      evaluated.forEach((v, k) => headers.set(k, v));
-    } else if (Array.isArray(evaluated)) {
-      evaluated.forEach((entry) => {
-        if (Array.isArray(entry) && entry.length >= 2) {
-          headers.set(String(entry[0]), String(entry[1]));
-        }
-      });
-    } else if (evaluated && typeof evaluated === "object") {
-      Object.entries(evaluated).forEach(([k, v]) => {
-        if (v != null) headers.set(k, String(v));
-      });
-    }
-
-    if (bodyKind === "json" && hasBody && !headers.has("Content-Type")) {
-      headers.set("Content-Type", "application/json");
-    }
-
-    return headers;
+    return buildHeaders(this, nb, bodyKind, hasBody);
   }
 
   getCsrfToken() {
-    if (typeof document === "undefined") return null;
-    const cookieName = Component.csrfCookieName || DEFAULT_CSRF_COOKIE_NAME;
-    const prefix = cookieName + "=";
-    const cookies = document.cookie ? document.cookie.split(";") : [];
-    for (const entry of cookies) {
-      const cookie = entry.trim();
-      if (cookie.startsWith(prefix)) {
-        return decodeURIComponent(cookie.slice(prefix.length));
-      }
-    }
-    return null;
+    return getCsrfToken(this);
   }
 
   addCsrfHeader(headers, method) {
-    const upperMethod = String(method || "GET").toUpperCase();
-    if (["GET", "HEAD", "OPTIONS", "TRACE"].includes(upperMethod)) return;
-    const csrfToken = this.getCsrfToken();
-    if (csrfToken && !headers.has("X-CSRFToken")) {
-      headers.set("X-CSRFToken", csrfToken);
-    }
+    return addCsrfHeader(this, headers, method);
   }
 
   evaluateExpressionOrLiteral(raw) {
@@ -1107,13 +852,7 @@ export class Component {
   }
 
   serializeError(error) {
-    if (!error) return null;
-    if (typeof error === "string") return { message: error };
-    return {
-      name: error.name || "Error",
-      message: error.message || String(error),
-      status: error.status,
-    };
+    return serializeError(error);
   }
 
   beginRequestUiState(nb) {
@@ -1201,9 +940,11 @@ export class Component {
   }
 
   clearEmitterHandlers() {
-    this.emitterHandlers.forEach(({ event, handler }) => {
-      this.emitter.removeEventListener(event, handler);
-    });
+    if (this.emitter) {
+      this.emitterHandlers.forEach(({ event, handler }) => {
+        this.emitter.removeEventListener(event, handler);
+      });
+    }
     this.emitterHandlers = [];
   }
 
@@ -1215,7 +956,11 @@ export class Component {
     }
 
     meta.seq += 1;
-    if (nb.cancelPrevious && meta.controller && typeof meta.controller.abort === "function") {
+    if (
+      nb.cancelPrevious &&
+      meta.controller &&
+      typeof meta.controller.abort === "function"
+    ) {
       try {
         meta.controller.abort();
       } catch {
@@ -1247,8 +992,12 @@ export class Component {
     return !!error && (error.name === "AbortError" || error.code === 20);
   }
 
-  initIntegrationBindings() {
+  initIntegrationBindings(onlyLegacy = false) {
+    if (onlyLegacy) {
+      this.integrationScopes.forEach((scope) => scope.initIntegrationBindings(true));
+    }
     listIntegrations().forEach((integration) => {
+      if (onlyLegacy && integration.preserveOnSwap) return;
       if (typeof integration.setup !== "function") return;
       try {
         integration.setup(this);
@@ -1258,7 +1007,7 @@ export class Component {
     });
   }
 
-  scanIntegrations(el, locals = null) {
+  scanIntegrations(el, locals = null, onlyLegacy = false) {
     if (locals && locals !== this.locals) {
       let scope = this.integrationScopes.get(locals);
       if (!scope) {
@@ -1266,22 +1015,43 @@ export class Component {
           locals,
           integrationScopes: new Map(),
           gridBindings: [],
-          gridInstances: new Map(),
           scheduleUpdate: this.scheduleUpdate.bind(this),
         });
         scope.initIntegrationBindings();
         this.integrationScopes.set(locals, scope);
       }
-      scope.scanIntegrations(el);
+      scope.scanIntegrations(el, null, onlyLegacy);
       return;
     }
     listIntegrations().forEach((integration) => {
+      if (onlyLegacy && integration.preserveOnSwap) return;
       if (typeof integration.scan !== "function") return;
       try {
         integration.scan(this, el);
       } catch (e) {
         console.error("SpruceX integration scan error:", e);
       }
+    });
+  }
+
+  unmountIntegrationElement(el) {
+    listIntegrations().forEach((integration) => {
+      if (typeof integration.unmount !== "function") return;
+      try {
+        integration.unmount(this, el);
+      } catch (e) {
+        console.error("SpruceX integration unmount error:", e);
+      }
+    });
+    this.integrationScopes.forEach((scope) => {
+      listIntegrations().forEach((integration) => {
+        if (typeof integration.unmount !== "function") return;
+        try {
+          integration.unmount(scope, el);
+        } catch (e) {
+          console.error("SpruceX integration unmount error:", e);
+        }
+      });
     });
   }
 
@@ -1297,10 +1067,11 @@ export class Component {
     });
   }
 
-  teardownIntegrations() {
-    this.integrationScopes.forEach((scope) => scope.teardownIntegrations());
-    this.integrationScopes.clear();
+  teardownIntegrations(onlyLegacy = false) {
+    this.integrationScopes.forEach((scope) => scope.teardownIntegrations(onlyLegacy));
+    if (!onlyLegacy) this.integrationScopes.clear();
     listIntegrations().forEach((integration) => {
+      if (onlyLegacy && integration.preserveOnSwap) return;
       if (typeof integration.teardown !== "function") return;
       try {
         integration.teardown(this);
@@ -1310,95 +1081,8 @@ export class Component {
     });
   }
 
-  async performRequest(nb) {
-    if (this.isDestroyed || nb.disposed) return;
-    const scope = nb.scope || this;
-    const url = scope.buildUrl(nb);
-    const { body, bodyKind } = scope.buildBody(nb);
-    const {
-      el,
-      method,
-      target,
-      swap,
-      jsonInto,
-      optimistic,
-      revertOnError,
-      loadingInto,
-      errorInto,
-    } = nb;
-    const headers = scope.buildHeaders(nb, bodyKind, body != null);
-    const { seq: requestSeq, controller } = this.beginNetworkRequest(nb);
-    this.addCsrfHeader(headers, method);
-    const endUiState = scope.beginRequestUiState(nb);
-
-    scope.assignStateValue(loadingInto, true);
-    scope.assignStateValue(errorInto, null);
-
-    if (optimistic) {
-      execInScope(optimistic, scope);
-    }
-
-    try {
-      const fetchOptions = { method };
-      if (body != null) fetchOptions.body = body;
-      if (Array.from(headers.keys()).length > 0) {
-        fetchOptions.headers = headers;
-      }
-      if (controller) {
-        fetchOptions.signal = controller.signal;
-      }
-
-      const res = await fetch(url, fetchOptions);
-      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
-
-      // Check for HTTP errors
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-
-      const text = await res.text();
-      if (!this.isCurrentNetworkRequest(nb, requestSeq)) return;
-      let json = null;
-
-      if (jsonInto && text.trim().length) {
-        try {
-          json = JSON.parse(text);
-        } catch (e) {
-          console.error("SpruceX JSON parse error:", e);
-        }
-      }
-
-      if (jsonInto && json != null) {
-        execInScope(`${jsonInto} = __sx_value`, scope, { __sx_value: json });
-      } else {
-        this.applySwap(target || el, text, swap);
-      }
-
-      const detail = { response: res, text, json };
-      el.dispatchEvent(new CustomEvent("success", { detail, bubbles: true }));
-      el.dispatchEvent(
-        new CustomEvent("sprucex:success", { detail, bubbles: true }),
-      );
-    } catch (error) {
-      if (this.isAbortError(error) || !this.isCurrentNetworkRequest(nb, requestSeq)) {
-        return;
-      }
-      if (revertOnError) {
-        execInScope(revertOnError, scope);
-      }
-      scope.assignStateValue(errorInto, this.serializeError(error));
-      const detail = { error };
-      el.dispatchEvent(new CustomEvent("error", { detail, bubbles: true }));
-      el.dispatchEvent(
-        new CustomEvent("sprucex:error", { detail, bubbles: true }),
-      );
-    } finally {
-      const isFinished = this.finishNetworkRequest(nb, requestSeq, controller);
-      endUiState();
-      if (!this.isDestroyed && isFinished) {
-        scope.assignStateValue(loadingInto, false);
-      }
-    }
+  performRequest(nb) {
+    return performRequest(this, nb);
   }
 
   disposeNetworkBinding(binding) {
@@ -1409,22 +1093,61 @@ export class Component {
   }
 
   pruneDetachedBindings(removedNodes = null, exact = false) {
-    const belongs = (el) => el && (removedNodes
-      ? !removedNodes.some((node) => node === el || (!exact && node.contains?.(el)))
-      : this.root.contains(el));
-    for (const field of ["bindings", "memoBindings", "modelBindings"]) {
-      this[field] = this[field].filter((binding) => belongs(binding.el));
+    const belongs = (el) =>
+      el &&
+      (removedNodes
+        ? !removedNodes.some((node) => node === el || (!exact && node.contains?.(el)))
+        : this.root.contains(el));
+
+    this.bindings = this.bindings.filter((binding) => {
+      if (belongs(binding.el)) return true;
+      binding.dispose?.();
+      return false;
+    });
+
+    this.memoBindings = this.memoBindings.filter((binding) => belongs(binding.el));
+
+    this.modelBindings = this.modelBindings.filter((binding) => {
+      if (belongs(binding.el)) return true;
+      binding.dispose?.();
+      return false;
+    });
+
+    this.elementEffects = this.elementEffects.filter((entry) => {
+      if (belongs(entry.el)) return true;
+      entry.dispose?.();
+      return false;
+    });
+
+    for (const [el] of Array.from(this.directiveInstances.entries())) {
+      if (!belongs(el)) {
+        this.disposeElementDirectives(el);
+      }
     }
+
     this.eventHandlers = this.eventHandlers.filter((record) => {
       if (belongs(record.sourceEl || record.el)) return true;
       this.removeEventHandler(record);
       return false;
     });
+
     this.netBindings = this.netBindings.filter((binding) => {
       if (belongs(binding.el)) return true;
       this.disposeNetworkBinding(binding);
       return false;
     });
+
+    if (removedNodes) {
+      removedNodes.forEach((node) => {
+        if (!node || node.nodeType !== 1) return;
+        this.unmountIntegrationElement(node);
+        if (!exact && node.querySelectorAll) {
+          node.querySelectorAll("*").forEach((child) => {
+            this.unmountIntegrationElement(child);
+          });
+        }
+      });
+    }
   }
 
   hydrateAfterSwap(container) {
@@ -1432,34 +1155,60 @@ export class Component {
     const owner = container.closest(`[${ATTR_DATA}]`);
     const roots = new Set([owner, ...container.querySelectorAll(`[${ATTR_DATA}]`)]);
     if (container.hasAttribute(ATTR_DATA)) roots.add(container);
+
     roots.forEach((root) => {
       if (!root?.isConnected) return;
       const parent = root.parentElement?.closest(`[${ATTR_DATA}]`)?.__sprucex;
       if (!root.__sprucex) {
-        root.__sprucex = new Component(root, {
-          parentComponent: parent,
-          locals: parent?.getElementLocals(root),
-        });
+        const mountRoot = () => {
+          if (!root.isConnected || root.__sprucex) return;
+          root.__sprucex = new Component(root, {
+            parentComponent: parent,
+            locals: parent?.getElementLocals(root),
+          });
+        };
+        if (root.hasAttribute(ATTR_LAZY) && typeof IntersectionObserver !== "undefined") {
+          const io = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                io.disconnect();
+                mountRoot();
+                break;
+              }
+            }
+          });
+          io.observe(root);
+        } else {
+          mountRoot();
+        }
       } else {
         const component = root.__sprucex;
         component.pruneDetachedBindings();
-        // Rebuild plugin collections without recreating existing loop rows.
-        component.teardownIntegrations();
-        component.gridBindings = [];
-        component.initIntegrationBindings();
+
+        // Only teardown/rescan legacy integrations that do not support per-element
+        // preservation; preserveOnSwap integrations (e.g. GridStack, Sortable) and
+        // element-scoped directives keep untouched elements mounted!
+        component.teardownIntegrations(true);
+        component.initIntegrationBindings(true);
+
         walk(root, (el) => {
           if (el !== root && el.hasAttribute(ATTR_DATA)) return false;
-          if (component.scannedElements.has(el) &&
-              component.directiveSignatures.get(el) !== component.directiveSignature(el)) {
+          if (
+            component.scannedElements.has(el) &&
+            component.directiveSignatures.get(el) !== component.directiveSignature(el)
+          ) {
             component.pruneDetachedBindings([el], true);
             component.scannedElements.delete(el);
           }
           if (component.scannedElements.has(el)) {
-            component.scanIntegrations(el, component.getElementLocals(el));
+            component.scanIntegrations(el, component.getElementLocals(el), true);
           }
         });
+
         component.scan(root);
-        component.renderForBlocks();
+        component.renderIfBlocks(false);
+        component.renderForBlocks(false);
+        component.refsDirty = true;
         component.applyInitialRender();
       }
     });
@@ -1474,538 +1223,105 @@ export class Component {
     });
   }
 
-  initGridBindings() {
-    this.gridBindings.forEach((binding) => {
-      const { el } = binding;
-      if (!el.isConnected || this.gridInstances.has(el)) return;
-
-      if (
-        typeof window === "undefined" ||
-        !window.GridStack ||
-        typeof window.GridStack.init !== "function"
-      ) {
-        if (!this.warnedMissingGridStack) {
-          this.warnedMissingGridStack = true;
-          console.warn(
-            "SpruceX: sx-gridstack requires GridStack on window.GridStack.",
-          );
-        }
-        return;
-      }
-
-      const options = this.buildGridOptions(binding);
-      const grid = window.GridStack.init(options, el);
-      const cleanups = [];
-
-      const bindInto = (eventName, targetExpr) => {
-        if (!targetExpr) return;
-        const handler = (_event, nodes = []) => {
-          const value = this.serializeGridNodes(nodes);
-          this.assignStateValue(targetExpr, value);
-          el.dispatchEvent(
-            new CustomEvent(`sprucex:gridstack:${eventName}`, {
-              detail: value,
-              bubbles: true,
-            }),
-          );
-        };
-
-        grid.on(eventName, handler);
-        cleanups.push(() => {
-          if (typeof grid.off === "function") {
-            grid.off(eventName, handler);
-          }
-        });
-      };
-
-      bindInto("change", binding.onChangeInto);
-      bindInto("added", binding.onAddedInto);
-      bindInto("removed", binding.onRemovedInto);
-      bindInto("dragstop", binding.onDragstopInto);
-      bindInto("resizestop", binding.onResizestopInto);
-
-      this.gridInstances.set(el, { grid, cleanups });
-    });
+  applySwap(targetSelectorOrEl, html, swap, select = null) {
+    return applySwap(this, targetSelectorOrEl, html, swap, select);
   }
 
-  buildGridOptions(binding) {
-    const options = {};
-    const { el, gridExpr, gridOptionsExpr } = binding;
-
-    if (gridExpr && gridExpr.trim() && gridExpr.trim() !== "true") {
-      const evaluated = safeEval(gridExpr, this);
-      if (evaluated && typeof evaluated === "object" && !Array.isArray(evaluated)) {
-        Object.assign(options, evaluated);
-      }
-    }
-
-    if (gridOptionsExpr) {
-      const evaluated = safeEval(gridOptionsExpr, this);
-      if (evaluated && typeof evaluated === "object" && !Array.isArray(evaluated)) {
-        Object.assign(options, evaluated);
-      }
-    }
-
-    Array.from(el.attributes)
-      .filter((attr) => attr.name.startsWith(ATTR_GRIDSTACK_OPTION_PREFIX))
-      .forEach((attr) => {
-        const rawName = attr.name.slice(ATTR_GRIDSTACK_OPTION_PREFIX.length);
-        if (!rawName) return;
-
-        const optionName = rawName.replace(/-([a-z])/g, (_, c) =>
-          c.toUpperCase(),
-        );
-        options[optionName] = this.parseGridOptionValue(attr.value);
-      });
-
-    return options;
+  renderIfBlocks(forceAll = true) {
+    return renderIfBlocks(this, forceAll);
   }
 
-  parseGridOptionValue(raw) {
-    const trimmed = String(raw || "").trim();
-    if (!trimmed) return true;
-    if (trimmed === "true") return true;
-    if (trimmed === "false") return false;
-
-    const asNum = Number(trimmed);
-    if (Number.isFinite(asNum)) return asNum;
-
-    const evaluated = safeEval(trimmed, this);
-    return evaluated === undefined ? trimmed : evaluated;
-  }
-
-  serializeGridNodes(nodes) {
-    if (!Array.isArray(nodes)) return [];
-
-    return nodes.map((node) => ({
-      id: node?.id ?? node?.el?.id ?? null,
-      x: node?.x,
-      y: node?.y,
-      w: node?.w,
-      h: node?.h,
-      minW: node?.minW,
-      minH: node?.minH,
-      maxW: node?.maxW,
-      maxH: node?.maxH,
-    }));
-  }
-
-  teardownGridBindings() {
-    this.gridInstances.forEach(({ grid, cleanups }) => {
-      cleanups.forEach((fn) => fn());
-      if (grid && typeof grid.destroy === "function") {
-        grid.destroy(false);
-      }
-    });
-    this.gridInstances.clear();
-  }
-
-  applySwap(targetSelectorOrEl, html, swap) {
-    const target =
-      typeof targetSelectorOrEl === "string"
-        ? document.querySelector(targetSelectorOrEl)
-        : targetSelectorOrEl;
-
-    if (!target) return;
-    const container = ["outerHTML", "before", "after"].includes(swap)
-      ? target.parentElement : target;
-    if (swap === "outerHTML" && target.__sprucex) target.__sprucex.destroy();
-
-    switch (swap) {
-      case "outerHTML":
-        target.outerHTML = html;
-        break;
-      case "before":
-        target.insertAdjacentHTML("beforebegin", html);
-        break;
-      case "after":
-        target.insertAdjacentHTML("afterend", html);
-        break;
-      case "prepend":
-        target.insertAdjacentHTML("afterbegin", html);
-        break;
-      case "append":
-        target.insertAdjacentHTML("beforeend", html);
-        break;
-      case "morph": {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
-        const source = doc.body.firstChild;
-        if (source) morphNodes(target, source); // Use morphNodes for smart morphing
-        break;
-      }
-      case "id-map": {
-        // Re-use morphNodes which handles ID mapping now
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
-        const source = doc.body.firstChild;
-        if (source) morphNodes(target, source);
-        break;
-      }
-      case "innerHTML":
-      default:
-        target.innerHTML = html;
-    }
-    this.hydrateAfterSwap(container);
-  }
-
-  isForBlockDetached(block) {
-    if (!block) return true;
-    const { parent, marker } = block;
-    if (!parent || !marker) return true;
-    if (!parent.isConnected || !marker.isConnected) return true;
-    if (marker.parentNode !== parent) return true;
-    return false;
+  renderForBlocks(forceAll = true) {
+    return renderForBlocks(this, forceAll);
   }
 
   teardownForBlock(block) {
-    if (!block) return;
-
-    const instances = Array.isArray(block.instances) ? [...block.instances] : [];
-    instances.forEach((inst) => {
-      this.disposeForInstance(inst);
-    });
-
-    if (block.instances) block.instances.length = 0;
-
-    const idx = this.forBlocks.indexOf(block);
-    if (idx !== -1) this.forBlocks.splice(idx, 1);
+    return teardownForBlock(this, block);
   }
 
-  teardownDetachedForBlocks() {
-    this.forBlocks.slice().forEach((block) => {
-      if (this.isForBlockDetached(block)) {
-        this.teardownForBlock(block);
-      }
-    });
+  teardownIfBlock(block) {
+    return teardownIfBlock(this, block);
   }
 
   teardownAllForBlocks() {
-    this.forBlocks.slice().forEach((block) => {
-      this.teardownForBlock(block);
-      if (block.template && block.marker && block.marker.parentNode) {
-        block.marker.parentNode.insertBefore(block.template, block.marker);
-        block.marker.remove();
-      }
-    });
-    this.forBlocks = [];
+    return teardownAllForBlocks(this);
   }
 
-  renderForBlocks() {
-    const focusedEl = document.activeElement;
-    const selection = focusedEl && typeof focusedEl.selectionStart === "number"
-      ? [focusedEl.selectionStart, focusedEl.selectionEnd, focusedEl.selectionDirection]
-      : null;
-    this.teardownDetachedForBlocks();
+  teardownAllIfBlocks() {
+    return teardownAllIfBlocks(this);
+  }
 
-    // Queue-style traversal: nested blocks created while scanning are processed
-    // in this same render cycle instead of waiting for another update.
-    let blockIndex = 0;
-    while (blockIndex < this.forBlocks.length) {
-      const block = this.forBlocks[blockIndex];
-      if (!block) {
-        blockIndex += 1;
-        continue;
-      }
-      if (this.isForBlockDetached(block)) {
-        this.teardownForBlock(block);
-        continue;
-      }
+  disposeForInstance(inst) {
+    return disposeInstance(this, inst);
+  }
 
-      const { def, template, parent, marker, instances, parentLocals, keyExpr } =
-        block;
-
-      // For nested loops, set the parent locals before evaluating
-      const prevLocals = this.locals;
-      if (parentLocals) {
-        this.locals = parentLocals;
-      }
-
-      const collection = safeEval(def.iterable, this) || [];
-      const arr = Array.from(collection);
-
-      // Restore locals
-      this.locals = prevLocals;
-
-      // Build buckets of existing instances by key so duplicate primitive
-      // values can re-use one instance per occurrence instead of leaking.
-      const instanceBuckets = new Map();
-      instances.forEach((inst) => {
-        const key = inst.itemKey;
-        if (!instanceBuckets.has(key)) instanceBuckets.set(key, []);
-        instanceBuckets.get(key).push(inst);
-      });
-
-      const newInstances = [];
-      const reusedInstances = new Set();
-      const seenKeys = new Set();
-
-      // Pass 1: Prepare instances (match existing or create new)
-      for (let i = 0; i < arr.length; i++) {
-        const item = arr[i];
-        const idxName = def.index || "$index";
-
-        const localsForKey = parentLocals ? { ...parentLocals } : {};
-        localsForKey[def.item] = item;
-        localsForKey[idxName] = i;
-
-        // Default to index-based keys for deterministic behavior when no key is
-        // provided (this matches positional patching semantics).
-        let key = i;
-        if (keyExpr) {
-          const prevLocalsForKey = this.locals;
-          this.locals = localsForKey;
-          try {
-            key = safeEval(keyExpr, this);
-          } finally {
-            this.locals = prevLocalsForKey;
-          }
-          if (key === undefined || key === null) key = i;
-        }
-        if (seenKeys.has(key)) {
-          console.warn(
-            "SpruceX sx-for detected a duplicate key. This can cause unstable row reuse.",
-            key,
-          );
-        }
-        seenKeys.add(key);
-
-        const bucket = instanceBuckets.get(key);
-        const inst = bucket && bucket.length > 0 ? bucket.shift() : null;
-
-        // Reuse an existing instance for this occurrence (if available)
-        if (inst) {
-          if (parentLocals) {
-            Object.keys(parentLocals).forEach((parentKey) => {
-              inst.scopeLocals[parentKey] = parentLocals[parentKey];
-            });
-          }
-          inst.scopeLocals[def.item] = item;
-          inst.scopeLocals[idxName] = i;
-          (inst.bindings.nestedDataComponents || []).forEach((component) => {
-            Object.assign(component.locals, inst.scopeLocals);
-            component.scheduleUpdate();
-          });
-          newInstances.push(inst);
-          reusedInstances.add(inst);
-        } else {
-          // Create new instance - merge parentLocals into locals
-          const locals = parentLocals ? { ...parentLocals } : {};
-          locals[def.item] = item;
-          locals[idxName] = i;
-
-          const frag = template.content
-            ? template.content.cloneNode(true)
-            : cloneChildren(template);
-
-          // Elements are created but not inserted yet
-          const elements = [];
-          while (frag.firstChild) {
-            const child = frag.firstChild;
-            elements.push(child);
-            frag.removeChild(child);
-          }
-
-          // Scan for bindings (on detached nodes)
-          const instanceBindings = {
-            bindings: [],
-            memoBindings: [],
-            modelBindings: [],
-            eventHandlers: [],
-            netBindings: [],
-            nestedForBlocks: [],
-          };
-
-          elements.forEach((el) => {
-            const elBindings = this.scanFragmentBindings(el, locals);
-            instanceBindings.bindings.push(...elBindings.bindings);
-            instanceBindings.memoBindings.push(...elBindings.memoBindings);
-            instanceBindings.modelBindings.push(...elBindings.modelBindings);
-            instanceBindings.eventHandlers.push(...elBindings.eventHandlers);
-            instanceBindings.netBindings.push(...elBindings.netBindings);
-            if (elBindings.nestedForBlocks) {
-              instanceBindings.nestedForBlocks.push(
-                ...elBindings.nestedForBlocks,
-              );
-            }
-          });
-
-          const newInst = {
-            scopeLocals: locals,
-            elements,
-            bindings: instanceBindings,
-            itemKey: key,
-            mounted: false,
-          };
-
-          newInstances.push(newInst);
-        }
-      }
-
-      // Pass 2: Remove unused instances from DOM immediately
-      instances.forEach((inst) => {
-        if (!reusedInstances.has(inst)) {
-          this.disposeForInstance(inst);
-        }
-      });
-
-      // Pass 3: Reorder/Insert instances backwards
-      let anchor = marker;
-      for (let i = newInstances.length - 1; i >= 0; i--) {
-        const inst = newInstances[i];
-
-        for (let j = inst.elements.length - 1; j >= 0; j--) {
-          const el = inst.elements[j];
-          if (el.parentNode !== parent || el.nextSibling !== anchor) {
-            parent.insertBefore(el, anchor);
-          }
-          anchor = el;
-        }
-
-        if (!inst.mounted) {
-          this.mountForInstance(inst);
-          inst.mounted = true;
-        }
-      }
-
-      // Replace instances array with new order
-      block.instances.length = 0;
-      block.instances.push(...newInstances);
-      blockIndex += 1;
-    }
-    if (focusedEl?.isConnected && this.root.contains(focusedEl) && document.activeElement !== focusedEl) {
-      focusedEl.focus({ preventScroll: true });
-      if (selection) focusedEl.setSelectionRange(...selection);
-    }
+  mountForInstance(inst) {
+    return mountNestedDataComponents(this, inst);
   }
 
   scanFragmentBindings(rootNode, locals) {
-    const fields = ["bindings", "memoBindings", "modelBindings", "eventHandlers", "netBindings", "forBlocks"];
+    const fields = [
+      "bindings",
+      "memoBindings",
+      "modelBindings",
+      "eventHandlers",
+      "netBindings",
+      "elementEffects",
+      "forBlocks",
+      "ifBlocks",
+    ];
     const starts = Object.fromEntries(fields.map((key) => [key, this[key].length]));
-    this.scan(rootNode, locals, true);
-    const result = Object.fromEntries(fields.map((key) => [key, this[key].slice(starts[key])]));
+    const prevFragDirectives = this._activeFragmentDirectives;
+    const capturedDirectives = [];
+    this._activeFragmentDirectives = capturedDirectives;
+    try {
+      this.scan(rootNode, locals, true);
+    } finally {
+      this._activeFragmentDirectives = prevFragDirectives;
+    }
+    const result = Object.fromEntries(
+      fields.map((key) => [key, this[key].slice(starts[key])]),
+    );
     result.nestedForBlocks = result.forBlocks;
+    result.nestedIfBlocks = result.ifBlocks;
+    result.directiveInstances = capturedDirectives;
     return result;
-  }
-
-  setupModelBinding(el, locals = null) {
-    const direct = el.getAttribute(ATTR_MODEL);
-    const modifierAttrs = Array.from(el.attributes).filter((a) =>
-      a.name.startsWith(ATTR_MODEL_PREFIX),
-    );
-    if (!direct && modifierAttrs.length === 0) return null;
-
-    const { keyExpr, mods, debounceMs } = this.parseModelBindingConfig(
-      direct,
-      modifierAttrs,
-    );
-
-    const type = (el.type || "").toLowerCase();
-    const isCheckbox = type === "checkbox";
-    const isRadio = type === "radio";
-    const isSelect = el.tagName === "SELECT";
-
-    const updateDom = () => {
-      const prev = this.locals;
-      if (locals) this.locals = locals;
-      try {
-        // Add try/finally to restore locals even on error
-        const v = safeEval(keyExpr, this);
-        if (isCheckbox) {
-          if (Array.isArray(v)) {
-            el.checked = v.includes(el.value);
-          } else {
-            el.checked = !!v;
-          }
-        } else if (isRadio) {
-          el.checked = String(v) === String(el.value);
-        } else if (isSelect) {
-          el.value = v ?? "";
-        } else {
-          if (v !== null && v !== undefined && typeof v === "object") {
-            el.value = JSON.stringify(v);
-          } else {
-            el.value = v ?? "";
-          }
-        }
-      } finally {
-        this.locals = prev;
-      }
-    };
-
-    const applyModifiers = (val) => {
-      if (mods.has("trim") && typeof val === "string") val = val.trim();
-      if (mods.has("number")) {
-        const n = Number(val);
-        if (!Number.isNaN(n)) val = n;
-      }
-      return val;
-    };
-
-    const writeBack = () => {
-      const prev = this.locals;
-      if (locals) this.locals = locals;
-      try {
-        let v;
-        if (isCheckbox) {
-          const current = safeEval(keyExpr, this);
-          if (Array.isArray(current)) {
-            const arr = [...current];
-            const idx = arr.indexOf(el.value);
-            if (el.checked && idx === -1) arr.push(el.value);
-            if (!el.checked && idx !== -1) arr.splice(idx, 1);
-            v = arr;
-          } else {
-            v = el.checked;
-          }
-        } else if (isRadio) {
-          if (!el.checked) return;
-          v = el.value;
-        } else if (isSelect) {
-          v = el.value;
-        } else {
-          v = el.value;
-        }
-        v = applyModifiers(v);
-        execInScope(`${keyExpr} = __sx_value`, this, { __sx_value: v });
-      } finally {
-        this.locals = prev;
-      }
-    };
-
-    let eventName = "input";
-    if (mods.has("lazy")) eventName = "change";
-
-    const handler = this.wrapDebounced(writeBack, debounceMs);
-
-    el.addEventListener(eventName, handler);
-
-    const modelBinding = { updateDom, locals, el, event: eventName, handler };
-    this.eventHandlers.push({ el, event: eventName, handler });
-    this.modelBindings.push(modelBinding);
-
-    return modelBinding;
   }
 
   cleanupInstanceBindings(instanceBindings) {
     if (!instanceBindings) return;
 
-    // Use Sets for O(1) lookup instead of O(n) indexOf per item
     const bindingsToRemove = new Set(instanceBindings.bindings || []);
     const memosToRemove = new Set(instanceBindings.memoBindings || []);
     const modelsToRemove = new Set(instanceBindings.modelBindings || []);
+    const effectsToRemove = new Set(instanceBindings.elementEffects || []);
 
     if (bindingsToRemove.size > 0) {
+      bindingsToRemove.forEach((b) => b.dispose?.());
       this.bindings = this.bindings.filter((b) => !bindingsToRemove.has(b));
     }
     if (memosToRemove.size > 0) {
       this.memoBindings = this.memoBindings.filter((b) => !memosToRemove.has(b));
     }
     if (modelsToRemove.size > 0) {
+      modelsToRemove.forEach((m) => m.dispose?.());
       this.modelBindings = this.modelBindings.filter((b) => !modelsToRemove.has(b));
     }
+    if (effectsToRemove.size > 0) {
+      effectsToRemove.forEach((e) => e.dispose?.());
+      this.elementEffects = this.elementEffects.filter((e) => !effectsToRemove.has(e));
+    }
 
-    // Remove event handlers
+    (instanceBindings.directiveInstances || []).forEach((rec) => {
+      this.disposeDirectiveRecord(rec);
+      const list = this.directiveInstances.get(rec.el);
+      if (list) {
+        const remaining = list.filter((entry) => entry !== rec);
+        if (remaining.length) this.directiveInstances.set(rec.el, remaining);
+        else this.directiveInstances.delete(rec.el);
+      }
+    });
+
     const handlersToRemove = new Set();
     (instanceBindings.eventHandlers || []).forEach((record) => {
       this.removeEventHandler(record);
@@ -2017,14 +1333,20 @@ export class Component {
       );
     }
 
-    (instanceBindings.netBindings || []).forEach((binding) => this.disposeNetworkBinding(binding));
+    (instanceBindings.netBindings || []).forEach((binding) =>
+      this.disposeNetworkBinding(binding),
+    );
     this.netBindings = this.netBindings.filter((binding) => !binding.disposed);
 
-    // Recursively remove nested sx-for blocks created for this instance.
-    // If these remain in forBlocks, they keep stale locals and continue rendering.
     instanceBindings.nestedForBlocks?.forEach((block) => {
       this.teardownForBlock(block);
     });
+
+    instanceBindings.nestedIfBlocks?.forEach((block) => {
+      this.teardownIfBlock(block);
+    });
+
+    (instanceBindings.lazyObservers || []).forEach((io) => io.disconnect?.());
 
     (instanceBindings.nestedDataComponents || []).forEach((component) => {
       if (component && typeof component.destroy === "function") {
@@ -2033,147 +1355,101 @@ export class Component {
     });
   }
 
-  mountForInstance(inst) {
-    if (!inst?.elements || !inst.bindings) return;
-    inst.bindings.nestedDataComponents = inst.bindings.nestedDataComponents || [];
-
-    const nestedRoots = [];
-    inst.elements.forEach((node) => {
-      if (!node || node.nodeType !== 1) return;
-      if (node.hasAttribute(ATTR_DATA)) nestedRoots.push(node);
-      node.querySelectorAll?.(`[${ATTR_DATA}]`).forEach((el) => nestedRoots.push(el));
-    });
-
-    nestedRoots.forEach((root) => {
-      if (root.__sprucex) return;
-      const nested = new Component(root, {
-        parentComponent: this,
-        locals: inst.scopeLocals,
+  flushPendingInits() {
+    if (!this.pendingInits.length) return;
+    const queue = this.pendingInits.splice(0);
+    for (let i = 0; i < queue.length; i++) {
+      const { el, expr, locals } = queue[i];
+      if (!el.isConnected) continue;
+      this.withContext(el, locals, () => {
+        execInScope(expr, this);
       });
-      root.__sprucex = nested;
-      inst.bindings.nestedDataComponents.push(nested);
-    });
+    }
   }
 
-  disposeForInstance(inst) {
-    if (!inst) return;
-    this.cleanupInstanceBindings(inst.bindings);
-    if (inst.elements) {
-      inst.elements.forEach((el) => el.remove());
-    } else if (inst.fragmentRoot) {
-      inst.fragmentRoot.remove();
+  revealCloakedElements() {
+    if (this.cloakedElements.size === 0) return;
+    this.cloakedElements.forEach((el) => {
+      el.removeAttribute(ATTR_CLOAK);
+    });
+    this.cloakedElements.clear();
+  }
+
+  flushDirtyEffects() {
+    if (this.dirtyEffects.size === 0) return;
+    const pending = Array.from(this.dirtyEffects);
+    this.dirtyEffects.clear();
+    for (let i = 0; i < pending.length; i++) {
+      if (this.isDestroyed) break;
+      pending[i].run();
     }
-    const scope = this.integrationScopes.get(inst.scopeLocals);
-    if (scope) {
-      scope.teardownIntegrations();
-      this.integrationScopes.delete(inst.scopeLocals);
-    }
-    this.pruneDetachedBindings(inst.elements || [inst.fragmentRoot]);
-    inst.mounted = false;
   }
 
   applyInitialRender() {
     this.collectRefs();
-    this.updateBindings();
-    this.modelBindings.forEach((mb) => mb.updateDom());
+    this.refsDirty = false;
+    this.flushPendingInits();
+    this.updateBindings(true);
+    this.updateModelBindings(true);
     this.updateMemoBindings();
+    this.flushDirtyEffects();
     this.updateIntegrations();
+    this.revealCloakedElements();
   }
 
-  updateBindings() {
-    for (const b of this.bindings) {
-      const { el, type, expr, attr, errorFallback, locals } = b;
-      const prevLocals = this.locals;
-      if (locals) this.locals = locals;
-      try {
-        switch (type) {
-          case "text": {
-            const v = safeEval(expr, this, errorFallback);
-            if (v !== null && v !== undefined && typeof v === "object") {
-              el.textContent = JSON.stringify(v);
-            } else {
-              el.textContent = v ?? "";
-            }
-            break;
-          }
-          case "html": {
-            const v = safeEval(expr, this, errorFallback);
-            if (v !== null && v !== undefined && typeof v === "object") {
-              el.innerHTML = JSON.stringify(v);
-            } else {
-              el.innerHTML = v ?? "";
-            }
-            break;
-          }
-          case "show": {
-            const v = !!safeEval(expr, this, errorFallback);
-            el.style.display = v ? "" : "none";
-            break;
-          }
-          case "bind": {
-            const v = safeEval(expr, this, errorFallback);
-            if (v === false || v === null || v === undefined) {
-              el.removeAttribute(attr);
-            } else {
-              el.setAttribute(attr, v);
-            }
-            break;
-          }
-          case "class": {
-            const v = safeEval(expr, this, errorFallback);
-            const original = this.originalClasses.get(el) || new Set();
-            // Get current classes
-            const current = new Set(Array.from(el.classList));
+  updateBindings(forceAll = true) {
+    if (forceAll) {
+      this.dirtyBindings.clear();
+      for (let i = 0; i < this.bindings.length; i++) {
+        runBinding(this, this.bindings[i]);
+      }
+      return;
+    }
 
-            if (typeof v === "string") {
-              // String mode: replace all sx-managed classes
-              const newClasses = new Set(v.split(/\s+/).filter(Boolean));
-              // Remove non-original classes, then add new ones
-              current.forEach((c) => {
-                if (!original.has(c)) el.classList.remove(c);
-              });
-              newClasses.forEach((c) => el.classList.add(c));
-            } else if (v && typeof v === "object") {
-              // Object mode: toggle classes
-              // Keys may contain multiple space-separated classes
-              Object.keys(v).forEach((k) => {
-                k.split(/\s+/)
-                  .filter(Boolean)
-                  .forEach((cls) => {
-                    if (v[k]) el.classList.add(cls);
-                    else el.classList.remove(cls);
-                  });
-              });
-            }
-            break;
-          }
-        }
-      } finally {
-        this.locals = prevLocals;
+    const toRun = new Set(this.dirtyBindings);
+    this.dirtyBindings.clear();
+    for (let i = 0; i < this.bindings.length; i++) {
+      const b = this.bindings[i];
+      if (b.dirty || !b.tracked) {
+        toRun.add(b);
       }
     }
+    toRun.forEach((b) => runBinding(this, b));
+  }
+
+  updateModelBindings(forceAll = true) {
+    if (forceAll) {
+      this.dirtyModels.clear();
+      for (let i = 0; i < this.modelBindings.length; i++) {
+        this.modelBindings[i].run();
+      }
+      return;
+    }
+
+    const toRun = new Set(this.dirtyModels);
+    this.dirtyModels.clear();
+    for (let i = 0; i < this.modelBindings.length; i++) {
+      const mb = this.modelBindings[i];
+      if (mb.dirty || !mb.tracked) {
+        toRun.add(mb);
+      }
+    }
+    toRun.forEach((mb) => mb.run());
   }
 
   updateMemoBindings() {
     this.memoBindings.forEach((mb) => {
       const { el, expr, type, deps, locals } = mb;
-      const prevLocals = this.locals;
-      if (locals) this.locals = locals;
-      try {
-        // Get dep values from both state and locals
+      this.withContext(el, locals, () => {
         const currVals = deps.map((k) => {
-          if (locals && k in locals) return locals[k]; // Check locals first? Or state? SpruceX preference? Locals usually shadow.
-          if (k in this.state) return this.state[k];
-          // Fallback for expression usage?
-          // Actually, deps are keys.
-          // If key is not in locals, check state.
+          if (locals && k in locals) return locals[k];
           return this.state[k];
         });
 
         if (
           mb.lastVals &&
           mb.lastVals.length === currVals.length &&
-          mb.lastVals.every((v, i) => v === currVals[i])
+          mb.lastVals.every((v, i) => Object.is(v, currVals[i]))
         ) {
           return;
         }
@@ -2181,14 +1457,13 @@ export class Component {
         mb.lastVals = currVals;
         const v = safeEval(expr, this);
         mb.lastResult = v;
+        const nextStr = String(v ?? "");
         if (type === "text") {
-          el.textContent = v ?? "";
+          el.textContent = nextStr;
         } else {
-          el.innerHTML = v ?? "";
+          el.innerHTML = nextStr;
         }
-      } finally {
-        this.locals = prevLocals;
-      }
+      });
     });
   }
 
@@ -2206,10 +1481,15 @@ export class Component {
   refresh() {
     this.abortCancelableRequests();
     this.teardownIntegrations();
+    this.disposeAllElementDirectives();
+    this.bindings.forEach((b) => b.dispose?.());
+    this.modelBindings.forEach((m) => m.dispose?.());
+    this.elementEffects.forEach((e) => e.dispose?.());
     this.netBindings.forEach((binding) => this.disposeNetworkBinding(binding));
     this.clearDebounceTimers();
     this.clearEmitterHandlers();
     this.teardownAllForBlocks();
+    this.teardownAllIfBlocks();
 
     this.scannedElements = new WeakSet();
     this.directiveSignatures = new WeakMap();
@@ -2220,17 +1500,24 @@ export class Component {
     this.netBindings = [];
     this.gridBindings = [];
     this.forBlocks = [];
+    this.ifBlocks = [];
+    this.elementEffects = [];
+    this.pendingInits = [];
+    this.dirtyBindings.clear();
+    this.dirtyModels.clear();
+    this.dirtyEffects.clear();
+    this.dirtyForBlocks.clear();
+    this.dirtyIfBlocks.clear();
 
     this.eventHandlers.forEach((record) => this.removeEventHandler(record));
     this.eventHandlers = [];
 
-    // Clear delegated handlers
     walk(this.root, (el) => {
       if (el !== this.root && el.hasAttribute(ATTR_DATA)) return false;
       if (el.__sx_handlers) delete el.__sx_handlers;
     });
 
-    this.animatedElements.forEach((controller, el) => {
+    this.animatedElements.forEach((_controller, el) => {
       this.disableAutoAnimate(el);
     });
     this.animatedElements.clear();
@@ -2241,7 +1528,8 @@ export class Component {
     this.collectRefs();
     this.initIntegrationBindings();
     this.scan(this.root);
-    this.renderForBlocks();
+    this.renderIfBlocks(true);
+    this.renderForBlocks(true);
     this.applyInitialRender();
   }
 
@@ -2249,37 +1537,44 @@ export class Component {
     if (this.isDestroyed) return;
     this.isDestroyed = true;
     this.callHook("destroyed");
+    this._stopWatchers?.();
     this.abortCancelableRequests();
     this.netBindings.forEach((binding) => this.disposeNetworkBinding(binding));
 
-    // Clean up store subscriptions
     Object.keys(storeSubscribers).forEach((name) => {
       storeSubscribers[name].delete(this);
     });
 
-    // Clean up auto-animate
-    this.animatedElements.forEach((controller, el) => {
+    this.animatedElements.forEach((_controller, el) => {
       this.disableAutoAnimate(el);
     });
     this.animatedElements.clear();
+    this.disposeAllElementDirectives();
     this.teardownIntegrations();
     this.teardownAllForBlocks();
+    this.teardownAllIfBlocks();
 
-    // Clean up event handlers
+    this.bindings.forEach((b) => b.dispose?.());
+    this.modelBindings.forEach((m) => m.dispose?.());
+    this.elementEffects.forEach((e) => e.dispose?.());
+
     this.eventHandlers.forEach((record) => this.removeEventHandler(record));
     this.clearEmitterHandlers();
     if (this._delegatedCleanups) {
       this._delegatedCleanups.forEach((fn) => fn());
+      this._delegatedCleanups = [];
+      this._delegatedEventTypes?.clear();
     }
 
-    // Clean up poll timers
     this.pollTimers.forEach((t) => clearInterval(t));
     this.clearDebounceTimers();
 
-    // Cancel pending updates
-    if (this.rafId) cancelAnimationFrame(this.rafId);
+    if (this.rafId && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(this.rafId);
+    }
 
-    // Clear arrays
+    this.flushNextTicks();
+
     this.bindings = [];
     this.memoBindings = [];
     this.modelBindings = [];
@@ -2287,9 +1582,15 @@ export class Component {
     this.gridBindings = [];
     this.netBindings = [];
     this.forBlocks = [];
+    this.ifBlocks = [];
+    this.elementEffects = [];
     this.pollTimers = [];
+    this.dirtyBindings.clear();
+    this.dirtyModels.clear();
+    this.dirtyEffects.clear();
+    this.dirtyForBlocks.clear();
+    this.dirtyIfBlocks.clear();
 
-    // Remove reference
     delete this.root.__sprucex;
   }
 }

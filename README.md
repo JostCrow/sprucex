@@ -9,7 +9,7 @@ SpruceX is a lightweight JavaScript micro-framework that blends:
 
 If you like shipping features straight from markup, this is your playground.
 
-> SpruceX is not complete yet and remains in active development. The `1.1.0`
+> SpruceX is not complete yet and remains in active development. The `1.2.0`
 > release line is current, so APIs, docs, and examples may continue
 > to evolve.
 
@@ -37,9 +37,10 @@ SpruceX auto-initializes on `DOMContentLoaded`.
 
 ## Get SpruceX
 
-SpruceX ships in two formats:
+SpruceX ships in multiple formats:
 - browser bundle: `public/dist/sprucex.js` or `public/dist/sprucex.min.js`
-- package entrypoints: `lib/sprucex.mjs`, `lib/sprucex.cjs`, and `lib/sprucex.d.ts`
+- full package entrypoint: `sprucex` (`lib/sprucex.mjs`, `lib/sprucex.cjs`, and `lib/sprucex.d.ts`)
+- tree-shakeable subpath entrypoints: `sprucex/core` (no auto-init, no bundled integrations), `sprucex/sortable`, and `sprucex/gridstack`
 
 For script-tag usage, include the browser bundle and use the global `SpruceX` object.
 For package usage, import the built library entrypoint exposed by `package.json`.
@@ -64,10 +65,10 @@ import SpruceX from "sprucex";
 ```
 
 Handy expression globals:
-- `$event`
-- `$refs`
+- `$event`, `$el`, `$refs`, `$parent`
 - `$store(name)`
-- `$emit(name, detail)`
+- `$emit(name, detail)`, `$dispatch(name, detail)`
+- `$nextTick(fn?)`
 - `$index` (inside `sx-for`)
 
 ## `sx-for` recommendations
@@ -77,9 +78,19 @@ Handy expression globals:
 - Nested `sx-data` roots inside `sx-for` rows are supported for row-local UI state.
 - Duplicate keys in a loop are invalid and can cause unstable row reuse.
 
-## Integration Plugins
+## Element-Scoped Directives & Plugins
 
-SpruceX supports integration plugins through `SpruceX.integration(...)`.
+For custom widgets (charts, maps, editors), use `SpruceX.directive(name, handler)`. Each element gets its own fine-grained `effect()` and `cleanup()` and survives untouched partial HTML swaps:
+
+```js
+SpruceX.directive("chart", (el, { evaluate, effect, cleanup, modifiers }) => {
+  const chart = createChart(el, SpruceX.toRaw(evaluate()), { modifiers });
+  effect(() => chart.update(SpruceX.toRaw(evaluate())));
+  cleanup(() => chart.destroy());
+});
+```
+
+SpruceX also supports component-level integration plugins through `SpruceX.integration(...)`.
 
 ```html
 <script>
@@ -184,7 +195,7 @@ If you open a PR, please include:
 
 ## Status
 
-Current release target in `package.json`: `1.1.0`
+Current release target in `package.json`: `1.2.0`
 
 SpruceX is still in active development and is not complete yet. Use the docs
 site, `public/LLM.txt`, and `CHANGELOG.md` as the current source of truth for

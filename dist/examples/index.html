@@ -3,11 +3,12 @@
             window.SpruceXBoot.initTheme = function initTheme() {
                 try {
                     const raw = localStorage.getItem("darkMode");
-                    const parsed = raw ? JSON.parse(raw) : {};
-                    document.documentElement.classList.toggle(
-                        "dark",
-                        !!parsed.darkMode,
-                    );
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        document.documentElement.classList.toggle("dark", !!parsed.darkMode);
+                    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                        document.documentElement.classList.add("dark");
+                    }
                 } catch {
                     document.documentElement.classList.remove("dark");
                 }
@@ -16,31 +17,38 @@
         </script><script src="/dist/sprucex.js"></script><script type="module">
             import autoAnimate from "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.2/+esm";
             window.autoAnimate = autoAnimate;
-        </script><link href="/prism.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.BTGfuUcZ.css"></head> <body sx-page class="bp-body transition-colors duration-300"> <div class="bp-grid-overlay" aria-hidden="true"></div> <nav class="site-nav fixed w-full z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center"> <a href="/" class="brand-lockup flex items-center gap-3">
+        </script><link href="/prism.css" rel="stylesheet"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/_astro/examples.BZD-9xPz.css"></head> <body sx-page class="bp-body antialiased"> <div class="bp-ambient" aria-hidden="true"></div> <header class="site-nav sticky top-0 z-50"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-nav-shell flex justify-between items-center gap-4"> <a href="/" class="brand-lockup flex items-center gap-3">
                         <img
                             src="/logo.svg"
                             alt="SpruceX logo"
-                            width="44"
-                            height="44"
+                            width="34"
+                            height="34"
                             class="brand-mark"
                         />
-                        <div class="brand-copy">
+                        <div class="flex items-center gap-2.5">
                             <span class="brand-wordmark">SpruceX</span>
-                            <span class="brand-subtitle">Reactive Blueprint Framework</span>
+                            <span class="version-pill">v1.2.0</span>
                         </div>
-                    </a> <div class="flex items-center gap-2 sm:gap-3"> <button sx-on:click="darkMode = !darkMode" class="theme-toggle" aria-label="Toggle color theme">
+                    </a> <nav class="flex items-center gap-1 sm:gap-2"> <a href="/" class="site-link">
+                            Docs
+                        </a> <a href="/examples" class="site-link site-link--active">
+                            Examples
+                        </a> <a href="/LLM.txt" target="_blank" class="site-link hidden sm:inline-flex">
+                            LLM.txt
+                        </a> <div class="nav-divider hidden sm:block" aria-hidden="true"></div> <button type="button" sx-on:click="darkMode = !darkMode" class="theme-toggle" aria-label="Toggle color theme">
                             <span
                                 class="theme-dot"
                                 sx-class="{ 'theme-dot--dark': darkMode }"
                             ></span>
                             <span
-                                class="theme-label"
+                                class="theme-label hidden sm:inline"
                                 sx-text="darkMode ? 'Dark' : 'Light'"
-                                >Light</span
                             >
-                        </button> <div class="hidden md:flex items-center gap-2 lg:gap-3"> <a href="/" class="site-link">Documentation</a> <a href="/examples" class="site-link">Examples</a> <a href="/dist/sprucex.js" download class="download-link">
-                                Download
-                            </a> </div> </div> </div> </div> </nav> <main class="site-main">  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css"> <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script> <script>
+                                Light
+                            </span>
+                        </button> <a href="/dist/sprucex.min.js" download class="download-link hidden md:inline-flex items-center gap-1.5">
+                            <span>Download</span>
+                        </a> </nav> </div> </div> </header> <main class="site-main">  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css"> <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script> <script>
         SpruceX.store(
             "global",
             {
@@ -52,12 +60,140 @@
         SpruceX.store("nested-roots-demo", {
             items: ["Shell", "Canvas"],
         });
+
+        // Live SVG bar chart directive demonstrating fine-grained effects & swap survival
+        window.__demoChartStats = { mounts: 0, updates: 0, destroys: 0 };
+        SpruceX.directive("demo-chart", (el, { evaluate, effect, cleanup, modifiers }) => {
+            window.__demoChartStats.mounts += 1;
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("viewBox", "0 0 320 120");
+            svg.setAttribute("class", "w-full h-36 rounded-lg bg-slate-950/90 p-2");
+            el.innerHTML = "";
+            el.appendChild(svg);
+
+            const accent = modifiers.includes("emerald") ? "#10b981" : "#38bdf8";
+
+            const renderBars = (rawData) => {
+                const points = SpruceX.toRaw(rawData) || [];
+                const max = Math.max(1, ...points.map((p) => Number(p.value) || 0));
+                const barW = points.length ? Math.floor(290 / points.length) - 8 : 20;
+                svg.innerHTML = points
+                    .map((p, i) => {
+                        const val = Number(p.value) || 0;
+                        const h = Math.max(6, Math.round((val / max) * 84));
+                        const x = 16 + i * (barW + 8);
+                        const y = 96 - h;
+                        return (
+                            `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" fill="${accent}"></rect>` +
+                            `<text x="${x + barW / 2}" y="112" text-anchor="middle" fill="#94a3b8" font-size="10">${p.label}</text>` +
+                            `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" fill="#e2e8f0" font-size="10">${val}</text>`
+                        );
+                    })
+                    .join("");
+            };
+
+            effect(() => {
+                window.__demoChartStats.updates += 1;
+                renderBars(evaluate());
+                const counterEl = document.getElementById("chart-stats-readout");
+                if (counterEl) {
+                    const s = window.__demoChartStats;
+                    counterEl.textContent = `mounts: ${s.mounts} | effect updates: ${s.updates} | destroys: ${s.destroys}`;
+                }
+            });
+
+            cleanup(() => {
+                window.__demoChartStats.destroys += 1;
+                el.innerHTML = "";
+                const counterEl = document.getElementById("chart-stats-readout");
+                if (counterEl) {
+                    const s = window.__demoChartStats;
+                    counterEl.textContent = `mounts: ${s.mounts} | effect updates: ${s.updates} | destroys: ${s.destroys}`;
+                }
+            });
+        });
+
+        // Data factory for Section 12 (Auto-memoized getters + markRaw + Date/Map)
+        SpruceX.data("biAnalyticsDemo", () => {
+            let filterComputeCount = 0;
+            const regionRates = new Map([
+                ["EU", 1.08],
+                ["US", 1.0],
+                ["APAC", 0.92],
+            ]);
+            const rows = [
+                { id: 1, metric: "ARR", region: "EU", value: 420 },
+                { id: 2, metric: "Net Retention", region: "US", value: 118 },
+                { id: 3, metric: "Pipeline", region: "EU", value: 640 },
+                { id: 4, metric: "Expansion", region: "APAC", value: 290 },
+                { id: 5, metric: "New Logos", region: "US", value: 185 },
+            ];
+            return {
+                search: "",
+                selectedRegion: "ALL",
+                sidebarClicks: 0,
+                lastSynced: new Date(),
+                rates: regionRates,
+                rawSeries: SpruceX.markRaw(
+                    Array.from({ length: 5000 }, (_, i) => ({ x: i, y: (i * 17) % 100 })),
+                ),
+                rawDurationMs: 0,
+                rows,
+                get filteredRows() {
+                    filterComputeCount += 1;
+                    const q = this.search.trim().toLowerCase();
+                    return this.rows.filter((r) => {
+                        const regionOk =
+                            this.selectedRegion === "ALL" || r.region === this.selectedRegion;
+                        const queryOk = !q || r.metric.toLowerCase().includes(q);
+                        return regionOk && queryOk;
+                    });
+                },
+                get totalValue() {
+                    return this.filteredRows.reduce((sum, r) => sum + r.value, 0);
+                },
+                get computeCount() {
+                    return filterComputeCount;
+                },
+                regenerateRawSeries() {
+                    const t0 = performance.now();
+                    const next = SpruceX.markRaw(
+                        Array.from({ length: 5000 }, (_, i) => ({
+                            x: i,
+                            y: Math.round(Math.random() * 1000),
+                        })),
+                    );
+                    this.rawSeries = next;
+                    this.lastSynced = new Date();
+                    this.rawDurationMs = Number((performance.now() - t0).toFixed(2));
+                },
+                get isRawUnproxied() {
+                    return SpruceX.toRaw(this.rawSeries) === this.rawSeries;
+                },
+            };
+        });
+
+        // Data factory for Section 14 (Path watchers)
+        SpruceX.data("pathWatcherDemo", () => ({
+            role: "Root Admin",
+            profile: { role: "Analyst" },
+            watcherLog: [],
+            watch: {
+                role(next, prev) {
+                    this.watcherLog.unshift(`top-level role: "${prev}" -> "${next}"`);
+                },
+                "profile.role"(next, prev) {
+                    this.watcherLog.unshift(`profile.role: "${prev}" -> "${next}"`);
+                },
+            },
+        }));
     </script> <section
-    class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8 pt-32"
+    class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10"
 >
-    <aside class="hidden lg:block space-y-8 sticky top-2 h-fit">
+    <aside class="hidden lg:block lg:col-span-3 sticky h-fit space-y-6">
         <h2
-            class="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm"
+            class="text-xs font-semibold text-slate-500 uppercase tracking-wider"
         >
             Examples
         </h2>
@@ -114,18 +250,45 @@
                 class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                 >10. Boot Hook</a
             >
+            <a
+                href="#conditional-style"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >11. sx-if, sx-style &amp; $nextTick</a
+            >
+            <a
+                href="#bi-reactivity"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >12. Computed &amp; markRaw</a
+            >
+            <a
+                href="#custom-directive"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >13. Custom Chart Directive</a
+            >
+            <a
+                href="#advanced-events"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >14. Modifiers, $dispatch &amp; Watchers</a
+            >
+            <a
+                href="#shadow-dom"
+                class="block pl-4 py-1 border-l-2 border-transparent hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >15. Shadow DOM &amp; Embeds</a
+            >
         </nav>
     </aside>
 
-    <div class="lg:col-span-3 space-y-16">
-        <header class="text-center max-w-3xl mx-auto">
+    <div class="lg:col-span-9 space-y-16">
+        <header class="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+            <span class="section-kicker">Interactive Playground</span>
             <h1
-                class="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-emerald-600"
+                class="text-3xl sm:text-4xl font-bold tracking-tight"
             >
                 Feature Coverage Examples
             </h1>
-            <p class="text-xl text-slate-600 dark:text-slate-400">
-                Runnable examples for every SpruceX feature and directive.
+            <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl">
+                15 runnable live examples covering core bindings, fine-grained computed getters,
+                custom chart directives, events, network swaps, GridStack, and Shadow DOM embeds.
             </p>
         </header>
 
@@ -1218,6 +1381,497 @@
 };</code></pre>
             </div>
         </section>
+
+        <section id="conditional-style" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">11. <code>sx-if</code>, <code>sx-style</code>, <code>sx-effect</code> &amp; <code>$nextTick</code></h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                True conditional mount/teardown with <code>&lt;template sx-if&gt;</code>,
+                inline display preservation on <code>sx-show</code>, object styles with
+                CSS variables via <code>sx-style</code>, element-level <code>sx-init</code> /
+                <code>sx-effect</code>, and post-render DOM reads with <code>$nextTick</code>.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-5"
+                sx-data="{
+                    tab: 'panel',
+                    showFlex: true,
+                    progress: 65,
+                    accent: '#10b981',
+                    mounts: 0,
+                    destroys: 0,
+                    measuredWidth: 'not measured yet',
+                    effectLog: [],
+                    measureBar() {
+                        this.progress = this.progress >= 95 ? 25 : this.progress + 15;
+                        this.$nextTick(() => {
+                            if (this.$refs.progressBar) {
+                                this.measuredWidth = this.$refs.progressBar.style.width + ' (after $nextTick)';
+                            }
+                        });
+                    }
+                }"
+            >
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button
+                        type="button"
+                        sx-on:click="tab = tab === 'panel' ? 'empty' : 'panel'"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white"
+                    >
+                        Toggle <code>sx-if</code> Panel
+                    </button>
+                    <button
+                        type="button"
+                        sx-toggle="showFlex"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700"
+                    >
+                        Toggle Flex <code>sx-show</code>
+                    </button>
+                    <span class="text-xs font-mono text-slate-500">
+                        nested mounts: <strong sx-text="mounts"></strong> | destroys: <strong sx-text="destroys"></strong>
+                    </span>
+                </div>
+
+                <template sx-if="tab === 'panel'">
+                    <div
+                        class="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30 p-4 space-y-2"
+                        sx-data="{ localClicks: 0, init() { $parent.mounts++; }, destroyed() { $parent.destroys++; } }"
+                    >
+                        <p class="text-sm font-semibold">
+                            Mounted via <code>&lt;template sx-if="tab === 'panel'"&gt;</code>
+                        </p>
+                        <p class="text-xs text-slate-600 dark:text-slate-300">
+                            Toggle off and back on: this nested component destroys cleanly and resets its local state.
+                        </p>
+                        <button
+                            type="button"
+                            sx-on:click="localClicks++"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm"
+                        >
+                            Local clicks: <span sx-text="localClicks"></span>
+                        </button>
+                    </div>
+                </template>
+
+                <div
+                    sx-show="showFlex"
+                    style="display: flex"
+                    class="items-center justify-between rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-sm"
+                >
+                    <span>Inline <code>style="display: flex"</code> stays flex after hide/show</span>
+                    <span class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-xs">display: flex</span>
+                </div>
+
+                <div class="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="text-sm flex items-center gap-2">
+                            Progress:
+                            <input type="range" min="10" max="100" sx-model.number="progress" />
+                            <strong sx-text="progress + '%'"></strong>
+                        </label>
+                        <label class="text-sm flex items-center gap-2">
+                            Accent:
+                            <input type="color" sx-model="accent" class="h-8 w-10 rounded" />
+                        </label>
+                        <button
+                            type="button"
+                            sx-on:click="measureBar()"
+                            class="px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-sm"
+                        >
+                            Step +15% &amp; Measure via $nextTick
+                        </button>
+                    </div>
+
+                    <div class="w-full h-4 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div
+                            sx-ref="progressBar"
+                            sx-style="{ width: progress + '%', backgroundColor: accent, '--bar-accent': accent }"
+                            sx-init="effectLog.unshift('sx-init ran on ' + $el.tagName)"
+                            sx-effect="effectLog.unshift('sx-effect: width=' + progress + '% color=' + accent)"
+                            class="h-full transition-all duration-150"
+                        ></div>
+                    </div>
+                    <p class="text-xs font-mono text-slate-500">
+                        Measured: <strong sx-text="measuredWidth"></strong>
+                    </p>
+                    <div class="text-xs font-mono bg-slate-900 text-emerald-300 p-3 rounded-lg max-h-28 overflow-auto">
+                        <template sx-for="entry in effectLog.slice(0, 6)">
+                            <div sx-text="entry"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="bi-reactivity" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">12. Auto-Memoized Getters, Built-ins &amp; <code>markRaw</code></h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                Read-only getters on <code>sx-data</code> are automatically memoized via fine-grained
+                dependency tracking. <code>Date</code>, <code>Map</code>, and 5,000-point
+                <code>SpruceX.markRaw()</code> datasets stay native and fast inside reactive state.
+            </p>
+            <div class="glass rounded-2xl p-6 shadow-xl space-y-4" sx-data="biAnalyticsDemo()">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <input
+                        sx-model.trim="search"
+                        placeholder="Filter metrics (e.g. ARR)"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <select
+                        sx-model="selectedRegion"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    >
+                        <option value="ALL">All Regions</option>
+                        <option value="EU">EU (rate: 1.08)</option>
+                        <option value="US">US (rate: 1.00)</option>
+                        <option value="APAC">APAC (rate: 0.92)</option>
+                    </select>
+                    <button
+                        type="button"
+                        sx-on:click="sidebarClicks++"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm"
+                    >
+                        Unrelated UI click (<span sx-text="sidebarClicks"></span>)
+                    </button>
+                    <button
+                        type="button"
+                        sx-on:click="regenerateRawSeries()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm"
+                    >
+                        Regenerate 5k Raw Points
+                    </button>
+                </div>
+
+                <div class="grid sm:grid-cols-4 gap-3 text-sm">
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+                        <p class="text-xs text-slate-500">Filtered Rows</p>
+                        <p class="text-xl font-bold" sx-text="filteredRows.length"></p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+                        <p class="text-xs text-slate-500">Total Value</p>
+                        <p class="text-xl font-bold" sx-text="totalValue"></p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+                        <p class="text-xs text-slate-500">Getter Recomputes</p>
+                        <p class="text-xl font-bold text-emerald-600" sx-text="computeCount"></p>
+                        <p class="text-[11px] text-slate-500">Stays flat on unrelated clicks!</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+                        <p class="text-xs text-slate-500">FX Rate (from Map)</p>
+                        <p class="text-xl font-bold" sx-text="selectedRegion === 'ALL' ? '1.00' : rates.get(selectedRegion)"></p>
+                    </div>
+                </div>
+
+                <ul class="grid sm:grid-cols-2 gap-2 text-sm">
+                    <template sx-for="row in filteredRows" sx-key="row.id">
+                        <li class="flex justify-between rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2">
+                            <span><strong sx-text="row.metric"></strong> (<span sx-text="row.region"></span>)</span>
+                            <span class="font-mono" sx-text="row.value"></span>
+                        </li>
+                    </template>
+                </ul>
+
+                <p class="text-xs font-mono text-slate-500">
+                    Raw dataset: <strong sx-text="rawSeries.length"></strong> pts |
+                    unproxied: <strong sx-text="isRawUnproxied"></strong> |
+                    last sync (Date): <strong sx-text="lastSynced.toLocaleTimeString()"></strong>
+                    (<span sx-text="rawDurationMs"></span> ms)
+                </p>
+            </div>
+        </section>
+
+        <section id="custom-directive" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">13. Custom Chart Directive (<code>SpruceX.directive</code>)</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                Built for BI chart extensions: <code>sx-demo-chart.emerald</code> renders an SVG chart
+                with its own reactive <code>effect()</code> and <code>cleanup()</code>. Watch the counters
+                stay untouched during unrelated state changes and partial HTML swaps.
+            </p>
+            <div
+                id="chart-demo-root"
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
+                    showChart: true,
+                    unrelatedCount: 0,
+                    swapCount: 0,
+                    series: [
+                        { label: 'Q1', value: 42 },
+                        { label: 'Q2', value: 68 },
+                        { label: 'Q3', value: 54 },
+                        { label: 'Q4', value: 89 }
+                    ],
+                    randomizeData() {
+                        this.series = this.series.map(p => ({
+                            label: p.label,
+                            value: 20 + Math.floor(Math.random() * 80)
+                        }));
+                    },
+                    swapKpiCard() {
+                        this.swapCount += 1;
+                        const root = document.getElementById('chart-demo-root');
+                        root.__sprucex.applySwap(
+                            '#adjacent-kpi-slot',
+                            `<div class='rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 px-3 py-2 text-sm'>Swapped KPI fragment #${this.swapCount} (chart stayed mounted!)</div>`,
+                            'innerHTML'
+                        );
+                    }
+                }"
+            >
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        sx-on:click="randomizeData()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm"
+                    >
+                        Update Chart Data (re-runs effect)
+                    </button>
+                    <button
+                        type="button"
+                        sx-on:click="unrelatedCount++"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm"
+                    >
+                        Unrelated State (<span sx-text="unrelatedCount"></span>) — 0 chart updates
+                    </button>
+                    <button
+                        type="button"
+                        sx-on:click="swapKpiCard()"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm"
+                    >
+                        Partial HTML Swap — 0 chart destroys
+                    </button>
+                    <button
+                        type="button"
+                        sx-toggle="showChart"
+                        class="px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 text-sm"
+                    >
+                        Toggle <code>sx-if</code> Mount
+                    </button>
+                </div>
+
+                <div
+                    id="chart-stats-readout"
+                    class="text-xs font-mono px-3 py-2 rounded-lg bg-slate-900 text-emerald-300"
+                >
+                    waiting for chart mount...
+                </div>
+
+                <div id="adjacent-kpi-slot" class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-sm text-slate-500">
+                    Adjacent KPI slot (click "Partial HTML Swap" to replace only this fragment)
+                </div>
+
+                <template sx-if="showChart">
+                    <div sx-demo-chart.emerald="series"></div>
+                </template>
+            </div>
+        </section>
+
+        <section id="advanced-events" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">14. Event Modifiers, <code>$dispatch</code>, <code>$parent</code> &amp; Path Watchers</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                Key combos (<code>.ctrl.enter</code>, <code>.esc</code>), <code>.once</code>,
+                <code>.outside</code>, <code>&lt;select multiple sx-model&gt;</code>,
+                child-to-parent <code>$dispatch</code> / <code>$parent</code>, and dotted
+                <code>watch</code> paths.
+            </p>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div
+                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                    sx-data="{
+                        dashboardTitle: 'Executive Overview',
+                        menuOpen: false,
+                        onceFired: false,
+                        regions: ['EU', 'US'],
+                        limit: 25,
+                        lastSignal: 'none',
+                        events: []
+                    }"
+                    sx-on:filter-applied="lastSignal = JSON.stringify($event.detail)"
+                >
+                    <div class="relative inline-block" sx-on:click.outside="menuOpen = false">
+                        <button
+                            type="button"
+                            sx-toggle="menuOpen"
+                            sx-bind:aria-expanded="menuOpen"
+                            class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm"
+                        >
+                            Dropdown (.outside closes) — aria-expanded="<span sx-text="menuOpen"></span>"
+                        </button>
+                        <div
+                            sx-show="menuOpen"
+                            class="mt-2 p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg text-sm"
+                        >
+                            Click anywhere outside this box to close me.
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            sx-on:click.once="onceFired = true; events.unshift('.once fired (will not fire again)')"
+                            class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm"
+                        >
+                            Click <code>.once</code> (<span sx-text="onceFired ? 'done' : 'ready'"></span>)
+                        </button>
+                        <input
+                            class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            placeholder="Try Ctrl+Enter or Esc"
+                            sx-on:keydown.ctrl.enter="events.unshift('Ctrl+Enter pressed')"
+                            sx-on:keydown.esc="events.unshift('Esc pressed')"
+                        />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1"><code>&lt;select multiple&gt;</code></label>
+                            <select
+                                multiple
+                                sx-model="regions"
+                                class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 text-sm"
+                            >
+                                <option value="EU">EU</option>
+                                <option value="US">US</option>
+                                <option value="APAC">APAC</option>
+                            </select>
+                            <p class="text-xs font-mono mt-1" sx-text="JSON.stringify(regions)"></p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Empty-safe <code>.number</code></label>
+                            <input
+                                type="number"
+                                sx-model.number="limit"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            />
+                            <p class="text-xs font-mono mt-1">
+                                value: <span sx-text="JSON.stringify(limit)"></span> (<span sx-text="typeof limit"></span>)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-3 space-y-2 text-sm"
+                        sx-data="{ preset: 'Top 10' }"
+                    >
+                        <p class="text-xs text-slate-500">
+                            Child component reading <code>$parent.dashboardTitle</code>:
+                            <strong sx-text="$parent.dashboardTitle"></strong>
+                        </p>
+                        <button
+                            type="button"
+                            sx-on:click="$dispatch('filter-applied', { preset, ts: Date.now() })"
+                            class="px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs"
+                        >
+                            <code>$dispatch('filter-applied')</code> to Parent
+                        </button>
+                    </div>
+                    <p class="text-xs font-mono text-slate-500">
+                        Parent received: <span sx-text="lastSignal"></span>
+                    </p>
+                    <div class="text-xs font-mono bg-slate-900 text-emerald-300 p-2 rounded-lg max-h-24 overflow-auto">
+                        <template sx-for="ev in events.slice(0, 5)">
+                            <div sx-text="ev"></div>
+                        </template>
+                        <div sx-show="events.length === 0">(Press Ctrl+Enter, Esc, or click .once)</div>
+                    </div>
+                </div>
+
+                <div
+                    class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                    sx-data="pathWatcherDemo()"
+                >
+                    <h3 class="font-semibold">Path-Aware Watchers</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">
+                        Editing <code>profile.role</code> only fires the dotted
+                        <code>'profile.role'</code> watcher—never the top-level
+                        <code>role</code> watcher.
+                    </p>
+                    <div class="space-y-2 text-sm">
+                        <label class="block">
+                            Top-level <code>role</code>:
+                            <input
+                                sx-model="role"
+                                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            />
+                        </label>
+                        <label class="block">
+                            Nested <code>profile.role</code>:
+                            <input
+                                sx-model="profile.role"
+                                class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            />
+                        </label>
+                    </div>
+                    <div class="text-xs font-mono bg-slate-900 text-cyan-300 p-3 rounded-lg max-h-40 overflow-auto">
+                        <template sx-for="item in watcherLog.slice(0, 8)">
+                            <div sx-text="item"></div>
+                        </template>
+                        <div sx-show="watcherLog.length === 0">(Edit either input to see exact watcher path)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="shadow-dom" class="scroll-mt-24 space-y-4">
+            <h2 class="text-2xl font-bold">15. Shadow DOM Isolation (<code>SpruceX.init(shadowRoot)</code>)</h2>
+            <p class="text-slate-600 dark:text-slate-400">
+                Mount SpruceX inside an encapsulated <code>ShadowRoot</code> (ideal for
+                embedded BI widgets and micro-frontends) with scoped auto-cleanup and
+                inspection.
+            </p>
+            <div
+                class="glass rounded-2xl p-6 shadow-xl space-y-4"
+                sx-data="{
+                    mounted: false,
+                    inspectedCount: 0,
+                    mountShadow() {
+                        const host = this.$refs.shadowHost;
+                        const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
+                        shadow.innerHTML = `
+                            <style>
+                                .card { font-family: system-ui, sans-serif; padding: 14px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+                                button { background: #10b981; color: #052e16; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+                            </style>
+                            <div class='card' sx-data='{ count: 1 }'>
+                                <span>Shadow DOM component count: <strong sx-text='count'></strong></span>
+                                <button type='button' sx-on:click='count++'>+1 inside ShadowRoot</button>
+                            </div>
+                        `;
+                        SpruceX.init(shadow);
+                        this.mounted = true;
+                        this.inspectedCount = SpruceX.inspect(shadow).length;
+                    },
+                    unmountShadow() {
+                        const host = this.$refs.shadowHost;
+                        if (!host.shadowRoot) return;
+                        const el = host.shadowRoot.querySelector('[sx-data]');
+                        if (el) SpruceX.unmount(el);
+                        host.shadowRoot.innerHTML = '';
+                        this.mounted = false;
+                        this.inspectedCount = SpruceX.inspect(host.shadowRoot).length;
+                    }
+                }"
+            >
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button
+                        type="button"
+                        sx-on:click="mountShadow()"
+                        class="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm"
+                    >
+                        Mount Shadow DOM Widget
+                    </button>
+                    <button
+                        type="button"
+                        sx-on:click="unmountShadow()"
+                        sx-bind:disabled="!mounted"
+                        class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm disabled:opacity-50"
+                    >
+                        Unmount Shadow Widget
+                    </button>
+                    <span class="text-xs font-mono text-slate-500">
+                        SpruceX.inspect(shadowRoot).length = <strong sx-text="inspectedCount"></strong>
+                    </span>
+                </div>
+                <div sx-ref="shadowHost"></div>
+            </div>
+        </section>
     </div>
 </section>
-  </main> <footer class="site-footer"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-footer-shell"> <div class="footer-brand"> <span class="brand-wordmark">SpruceX</span> <p class="footer-note">Blueprint-grade reactive markup tooling.</p> </div> <div class="footer-links"> <a href="/" class="footer-link">Docs</a> <a href="/examples" class="footer-link">Examples</a> <a href="/dist/sprucex.js" download class="footer-link">Download</a> </div> <p class="footer-copy">© 2024 SpruceX. MIT License.</p> </div> </div> </footer> <script src="/prism.js"></script> </body> </html>
+  </main> <footer class="site-footer"> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"> <div class="site-footer-shell"> <div class="flex items-center gap-3"> <img src="/logo.svg" alt="SpruceX" width="24" height="24" class="opacity-90"> <div> <span class="brand-wordmark text-sm">SpruceX</span> <p class="footer-note">Reactive HTML with a tiny ego.</p> </div> </div> <div class="footer-links"> <a href="/" class="footer-link">Documentation</a> <a href="/examples" class="footer-link">Examples</a> <a href="/LLM.txt" class="footer-link">LLM.txt</a> <a href="/dist/sprucex.min.js" download class="footer-link">Bundle</a> </div> <p class="footer-copy">MIT License · Zero runtime dependencies</p> </div> </div> </footer> <script src="/prism.js"></script> </body> </html>

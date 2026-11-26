@@ -74,6 +74,16 @@ export function createSortableIntegration({ adapter } = {}) {
     if (pendingFocus?.target === binding) pendingFocus = null;
   }
   return {
+    preserveOnSwap: true,
+    unmount(component, el) {
+      const bindings = scopes.get(component);
+      const binding = bindings?.get(el);
+      if (binding) {
+        dispose(binding);
+        bindings.delete(el);
+        if (!bindings.size) scopes.delete(component);
+      }
+    },
     scan(component, el) {
       if (!el.hasAttribute('sx-sortable')) return;
       const previous = sortableOwners.get(el);
@@ -132,6 +142,9 @@ export function createSortableIntegration({ adapter } = {}) {
       bindings?.forEach((binding, el) => {
         if (!el.isConnected || !el.hasAttribute('sx-sortable') || el.closest('[sx-data]') !== component.root) {
           dispose(binding); bindings.delete(el); return;
+        }
+        if (!binding.status.isConnected || binding.status.parentElement !== el) {
+          el.append(binding.status);
         }
         binding.adapter?.update?.();
         if (pendingFocus?.target === binding) {
